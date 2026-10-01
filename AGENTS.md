@@ -37,6 +37,8 @@ D:\CodeX\Projects\MoBoxBot
 .\build-all.ps1 -Bot "D:\CodeX\Projects\MoBoxBot\out\MoBoxBot.jar"
 ```
 
+全部构建成功后，插件 JAR 会汇总到仓库根目录 `out/`。
+
 ## 自检
 
 1. 插件 JAR 根目录有 `plugin.json`。

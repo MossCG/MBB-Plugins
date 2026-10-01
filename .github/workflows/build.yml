@@ -43,7 +43,7 @@ jobs:
           if (Test-Path -LiteralPath "MBB-Plugins.zip") {
             Remove-Item -LiteralPath "MBB-Plugins.zip" -Force
           }
-          $pluginJars = Get-ChildItem -Path "MBB-*\out\MBB-*.jar" -File
+          $pluginJars = Get-ChildItem -Path "out\MBB-*.jar" -File
           if (-not $pluginJars) {
             throw "没有找到插件 JAR。"
           }
@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MBB-Plugins
-          path: MBB-*/out/MBB-*.jar
+          path: out/MBB-*.jar
 
       - name: Publish release
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'

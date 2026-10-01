@@ -57,6 +57,19 @@ MBB-Ping\out\MBB-Ping.jar
 .\build-all.ps1 -Bot "D:\CodeX\Projects\MoBoxBot\out\MoBoxBot.jar"
 ```
 
+全部构建成功后，脚本会把所有插件 JAR 汇总复制到：
+
+```text
+out\
+```
+
+例如：
+
+```text
+out\MBB-Ping.jar
+out\MBB-Status.jar
+```
+
 ## 安装插件
 
 复制到主程序运行目录：
@@ -79,7 +92,7 @@ plugin reload MBB-Ping
 
 1. 检出并构建 MoBoxBot。
 2. 批量构建全部插件。
-3. 将全部插件 JAR 打包为 `MBB-Plugins.zip`。
+3. 从根目录 `out/` 读取全部插件 JAR，并打包为 `MBB-Plugins.zip`。
 4. 自动创建或更新 Release，并上传压缩包。
 
 Release 中只保留一个下载项 `MBB-Plugins.zip`，解压后可以得到全部 `MBB-*.jar`。
