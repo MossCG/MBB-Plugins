@@ -36,6 +36,8 @@ MBB-Xxx/
 3. 正式插件版本遵循 `V大版本.小版本.小更新.小修正.四位时间戳`。
 4. 纯文档调整使用 `docs: 中文摘要`。
 5. 每轮功能更新维护 `update.md`。
+6. 插件仓库发布版本写在根目录 `version.txt`。
+7. 推送 `master` 后 GitHub Actions 自动构建并发布 Release。
 
 ## 代码规范
 

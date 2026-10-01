@@ -71,6 +71,16 @@ D:\CodeX\Projects\MoBoxBot\out\MoBoxBot\plugins\
 plugin reload MBB-Ping
 ```
 
+## 发布
+
+插件仓库使用根目录 `version.txt` 作为 Release 版本。
+
+推送 `master` 后，GitHub Actions 会：
+
+1. 检出并构建 MoBoxBot。
+2. 批量构建全部插件。
+3. 自动创建或更新 Release，并上传所有 `MBB-*.jar`。
+
 ## 文档
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)：开发与提交规范
