@@ -36,6 +36,19 @@ jobs:
         shell: powershell
         run: .\build-all.ps1 -Bot .\MoBoxBot\out\MoBoxBot.jar
 
+      - name: Package release archive
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        shell: powershell
+        run: |
+          if (Test-Path -LiteralPath "MBB-Plugins.zip") {
+            Remove-Item -LiteralPath "MBB-Plugins.zip" -Force
+          }
+          $pluginJars = Get-ChildItem -Path "MBB-*\out\MBB-*.jar" -File
+          if (-not $pluginJars) {
+            throw "没有找到插件 JAR。"
+          }
+          Compress-Archive -Path $pluginJars.FullName -DestinationPath "MBB-Plugins.zip" -Force
+
       - name: Read version
         id: version
         shell: powershell
@@ -56,4 +69,4 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: MBB-*/out/MBB-*.jar
+          files: MBB-Plugins.zip

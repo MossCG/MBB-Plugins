@@ -79,7 +79,10 @@ plugin reload MBB-Ping
 
 1. 检出并构建 MoBoxBot。
 2. 批量构建全部插件。
-3. 自动创建或更新 Release，并上传所有 `MBB-*.jar`。
+3. 将全部插件 JAR 打包为 `MBB-Plugins.zip`。
+4. 自动创建或更新 Release，并上传压缩包。
+
+Release 中只保留一个下载项 `MBB-Plugins.zip`，解压后可以得到全部 `MBB-*.jar`。
 
 ## 文档
 

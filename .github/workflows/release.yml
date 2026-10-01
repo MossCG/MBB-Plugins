@@ -41,9 +41,21 @@ jobs:
         shell: powershell
         run: .\build-all.ps1 -Bot .\MoBoxBot\out\MoBoxBot.jar
 
+      - name: Package release archive
+        shell: powershell
+        run: |
+          if (Test-Path -LiteralPath "MBB-Plugins.zip") {
+            Remove-Item -LiteralPath "MBB-Plugins.zip" -Force
+          }
+          $pluginJars = Get-ChildItem -Path "MBB-*\out\MBB-*.jar" -File
+          if (-not $pluginJars) {
+            throw "没有找到插件 JAR。"
+          }
+          Compress-Archive -Path $pluginJars.FullName -DestinationPath "MBB-Plugins.zip" -Force
+
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           generate_release_notes: true
-          files: MBB-*/out/MBB-*.jar
+          files: MBB-Plugins.zip
