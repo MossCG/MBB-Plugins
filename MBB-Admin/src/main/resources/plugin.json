@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Admin",
+  "version": "V0.0.1.0.2256",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.admin.AdminPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 管理员管理命令：admin",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["admin"]
+}

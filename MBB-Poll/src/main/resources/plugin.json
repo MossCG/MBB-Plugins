@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Poll",
+  "version": "V0.0.1.0.2345",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.poll.PollPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 群投票插件",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["poll"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Remind",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.remind.RemindPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 定时提醒命令：remind",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["remind"]
+}

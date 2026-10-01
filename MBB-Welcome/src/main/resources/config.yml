@@ -1,0 +1,3 @@
+#MBB-Welcome 插件配置
+welcomeText: "欢迎新猫猫进群，贴贴喵~"   #进群欢迎文本
+leaveText: "有猫猫离开了，喵呜~"         #退群提示文本

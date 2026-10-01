@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Poke",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.poke.PokePlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 戳一戳插件",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["poke"]
+}

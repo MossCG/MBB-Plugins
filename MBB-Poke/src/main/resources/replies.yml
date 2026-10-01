@@ -1,0 +1,59 @@
+#MBB-Poke 回复序列
+#每次被戳随机选择一组，按顺序执行
+#message: 发送文本
+#image: 发送图片；文件名从插件数据目录读取，例如 haqi.jpg；也支持 base64://、http://、https://、file://
+#sleep: 等待秒数
+#poke_back: true 或留空表示戳回去；也可以写文本，表示戳回去并发送该文本
+#poke_back_message: 戳回去并发送指定文本
+
+replys:
+# 纯文本组
+  reply1-1:
+    - message: "喵？"
+  reply1-2:
+    - message: "哈！"
+  reply1-3:
+    - message: "哈你喵！"
+  reply1-4:
+    - message: "不许戳喵！"
+  reply1-5:
+    - message: "杂鱼喵！"
+  reply1-6:
+    - message: "呜喵！"
+  reply1-7:
+    - message: "哼！"
+  reply1-8:
+    - message: "有坏蛋！"
+
+# 多文本组
+  reply2-1:
+    - message: "杂鱼喵！"
+    - sleep: 0.5
+    - message: "哼！"
+  reply2-2:
+    - message: "正在加入黑名单......"
+    - sleep: 0.5
+    - message: "加入成功，是坏蛋！"
+
+
+# 回戳组
+  reply3-1:
+    - message: "有坏人！"
+    - sleep: 0.5
+    - poke_back: true
+    - message: "戳回去！"
+  reply3-2:
+    - message: "连环喵喵拳！"
+    - sleep: 0.5
+    - poke_back: true
+    - poke_back: true
+    - poke_back: true
+    - poke_back: true
+    - poke_back: true
+    - sleep: 0.5
+    - message: "哼！"
+
+# 图片组示例：填入自己的图片地址或 base64 后再取消注释
+#  reply4-1:
+#    - message: "看这个！"
+#    - image: "haqi.jpg"

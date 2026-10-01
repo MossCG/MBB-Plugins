@@ -1,0 +1,2 @@
+#MBB-Poke 插件配置
+maxSleepSecond: 5   #单个 sleep 动作最大等待秒数

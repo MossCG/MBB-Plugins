@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Welcome",
+  "version": "V0.0.1.0.2345",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.welcome.WelcomePlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 进群退群消息插件",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["welcome"]
+}

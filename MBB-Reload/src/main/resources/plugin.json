@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Reload",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.reload.ReloadPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 重载命令：reload",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["reload"]
+}

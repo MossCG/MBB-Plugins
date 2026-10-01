@@ -1,0 +1,2 @@
+#MBB-Remind 插件配置
+maxRemindSecond: 604800   #最长提醒秒数，默认 7 天

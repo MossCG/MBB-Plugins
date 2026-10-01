@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Ping",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.ping.PingPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 测试命令插件：ping",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["ping"]
+}

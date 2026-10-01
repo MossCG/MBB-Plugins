@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Version",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.version.VersionPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 版本命令：version",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["version"]
+}

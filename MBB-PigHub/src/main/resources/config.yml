@@ -1,0 +1,5 @@
+#MBB-PigHub 插件配置
+keyword: "来只猪猪"                              #触发关键词
+apiUrl: "https://pighub.top/api/images?sort=2"   #PigHub 图片接口
+cacheMinutes: 10                                 #图片列表缓存分钟数
+replyText: "猪猪来啦！"                           #发送图片前的文本

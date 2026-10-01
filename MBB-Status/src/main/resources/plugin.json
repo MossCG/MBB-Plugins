@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Status",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.status.StatusPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 运行状态命令：status",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["status"]
+}

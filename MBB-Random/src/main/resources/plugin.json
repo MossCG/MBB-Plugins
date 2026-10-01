@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Random",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.random.RandomPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 随机数命令：random",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["random"]
+}

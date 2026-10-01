@@ -1,0 +1,2 @@
+#MBB-Status 插件配置
+refreshSecond: 10   #网络采样间隔秒数，建议 5 到 30

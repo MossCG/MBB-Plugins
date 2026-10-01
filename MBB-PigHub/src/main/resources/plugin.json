@@ -1,0 +1,13 @@
+{
+  "name": "MBB-PigHub",
+  "version": "V0.0.1.0.2345",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.pighub.PigHubPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 猪猪图片插件",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["pighub"]
+}

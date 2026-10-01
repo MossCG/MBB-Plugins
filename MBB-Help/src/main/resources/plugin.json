@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Help",
+  "version": "V0.0.1.0.2228",
+  "apiVersion": "0.1",
+  "main": "org.moboxlab.mbb.help.HelpPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 帮助命令：help",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["help"]
+}
