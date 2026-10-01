@@ -1,0 +1,11 @@
+MBB-Plugins
+Copyright 2026 MoBoxLab
+
+This product is licensed under the Apache License, Version 2.0.
+
+MBB-Plugins are add-ons for MoBoxBot. The plugin JARs do not bundle
+MoBoxLib, fastjson, sqlite-jdbc, Java-WebSocket, or other third-party
+libraries; those are provided by the MoBoxBot runtime.
+
+MoBoxBot is an independent OneBot 11 client. It is not affiliated with,
+endorsed by, or sponsored by Tencent or NapCat.
