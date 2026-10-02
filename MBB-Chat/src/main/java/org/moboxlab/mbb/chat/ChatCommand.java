@@ -8,6 +8,7 @@ import org.moboxlab.moboxbot.API.Command.CommandSender;
 import org.moboxlab.moboxbot.API.PluginService;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -44,6 +45,16 @@ public class ChatCommand extends BotCommand {
     @Override
     public String description() {
         return "与 AI 对话，每人独立上下文";
+    }
+
+    @Override
+    public List<String> usage() {
+        return Arrays.asList(
+                "/chat <内容>",
+                "/chat new",
+                "/chat status",
+                "/chat persona [set <内容>|reset]",
+                "/chat whitelist [list|add <QQ>|remove <QQ>]");
     }
 
     @Override

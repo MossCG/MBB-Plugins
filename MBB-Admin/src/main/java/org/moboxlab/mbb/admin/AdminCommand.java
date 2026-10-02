@@ -6,6 +6,7 @@ import org.moboxlab.moboxbot.API.Command.CommandSender;
 import org.moboxlab.moboxbot.API.MoBoxBotAPI;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -32,6 +33,14 @@ public class AdminCommand extends BotCommand {
     @Override
     public String description() {
         return "增删查机器人管理员";
+    }
+
+    @Override
+    public List<String> usage() {
+        return Arrays.asList(
+                "/admin list",
+                "/admin add <QQ>",
+                "/admin remove <QQ>");
     }
 
     @Override

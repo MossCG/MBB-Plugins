@@ -1,7 +1,7 @@
 {
   "name": "MBB-Chat",
-  "version": "V0.2.0.0.2325",
-  "apiVersion": "0.2",
+  "version": "V0.2.0.1.0013",
+  "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.chat.ChatPlugin",
   "author": "MoBoxLab",
   "description": "MoBoxBot AI 对话插件：独立用户上下文与白名单",

@@ -83,6 +83,12 @@ public class HelpCommand extends BotCommand {
                     line.append("  [").append(command.source).append("]");
                 }
                 lines.add(line.toString());
+                if (command.usages != null) {
+                    for (String usage : command.usages) {
+                        if (usage == null || usage.trim().isEmpty()) continue;
+                        lines.add("    "+usage);
+                    }
+                }
             }
         }
         if (lines.isEmpty()) lines.add("当前没有可用命令");

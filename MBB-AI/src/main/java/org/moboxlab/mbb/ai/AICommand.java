@@ -7,6 +7,7 @@ import org.moboxlab.moboxbot.API.Command.CommandSender;
 import org.moboxlab.moboxbot.API.Util.ImageUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -39,6 +40,14 @@ public class AICommand extends BotCommand {
     @Override
     public String description() {
         return "管理公用 AI 服务";
+    }
+
+    @Override
+    public List<String> usage() {
+        return Arrays.asList(
+                "/ai status",
+                "/ai usage [天数]",
+                "/ai reload");
     }
 
     @Override

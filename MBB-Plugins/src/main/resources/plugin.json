@@ -1,7 +1,7 @@
 {
   "name": "MBB-Plugins",
-  "version": "V0.0.1.0.2228",
-  "apiVersion": "0.1",
+  "version": "V0.1.0.0.0013",
+  "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.plugins.PluginsPlugin",
   "author": "MoBoxLab",
   "description": "MoBoxBot 插件列表命令：plugins",

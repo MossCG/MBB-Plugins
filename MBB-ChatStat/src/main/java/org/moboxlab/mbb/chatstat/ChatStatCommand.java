@@ -9,6 +9,7 @@ import org.moboxlab.moboxbot.API.PluginService;
 import org.moboxlab.moboxbot.API.Util.ImageUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -44,6 +45,13 @@ public class ChatStatCommand extends BotCommand {
     @Override
     public String description() {
         return "统计群聊内容与用户发言";
+    }
+
+    @Override
+    public List<String> usage() {
+        return Arrays.asList(
+                "/chatstat group [群号] [天数] [ai]",
+                "/chatstat user <QQ> [天数] [ai]");
     }
 
     @Override

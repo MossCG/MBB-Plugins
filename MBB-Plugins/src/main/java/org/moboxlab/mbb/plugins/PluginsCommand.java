@@ -9,6 +9,7 @@ import org.moboxlab.moboxbot.API.PluginManager;
 import org.moboxlab.moboxbot.API.Util.ImageUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -43,6 +44,16 @@ public class PluginsCommand extends BotCommand {
     @Override
     public String description() {
         return "查看和管理插件";
+    }
+
+    @Override
+    public List<String> usage() {
+        return Arrays.asList(
+                "/plugins [list]",
+                "/plugins info <插件名>",
+                "/plugins enable <插件名>",
+                "/plugins disable <插件名>",
+                "/plugins reload <插件名>");
     }
 
     @Override
