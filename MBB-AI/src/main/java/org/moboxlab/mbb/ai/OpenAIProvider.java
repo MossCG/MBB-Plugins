@@ -59,6 +59,11 @@ public class OpenAIProvider {
             connection.setRequestProperty("Accept","application/json");
             connection.setRequestProperty("Authorization","Bearer "+apiKey);
             connection.setRequestProperty("User-Agent","MoBoxBot/0.1 (+https://github.com/MossCG/MoBoxBot)");
+            for (String header : profile.headers.keySet()) {
+                String value = profile.headers.get(header);
+                if (header == null || header.trim().isEmpty() || value == null) continue;
+                connection.setRequestProperty(header.trim(),value);
+            }
             String sessionId = params == null ? null : params.getString("sessionId");
             if (sessionId != null && !sessionId.trim().isEmpty()) {
                 connection.setRequestProperty("x-opencode-session",sessionId.trim());

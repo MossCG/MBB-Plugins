@@ -58,7 +58,11 @@ logRequestContent: false
       "model": "deepseek-v4.1-flash",
       "temperature": 0.7,
       "maxTokens": 1024,
-      "timeoutSeconds": 60
+      "timeoutSeconds": 60,
+      "headers": {
+        "User-Agent": "MoBoxBot/0.1 (+https://github.com/MossCG/MoBoxBot)",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
+      }
     }
   }
 }
@@ -69,6 +73,8 @@ logRequestContent: false
 ```json
 "apiKey": "env:OPENCODEGO_API_KEY"
 ```
+
+`headers` 可以覆盖或追加请求头，适合不同服务端网关、代理或反向代理环境。`x-opencode-session` 由调用方传入 `sessionId` 后动态设置，优先级高于静态请求头。
 
 不要把真实密钥提交到仓库。
 

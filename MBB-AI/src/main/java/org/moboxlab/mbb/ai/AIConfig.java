@@ -80,6 +80,14 @@ public class AIConfig {
                 if (profile.maxTokens <= 0) profile.maxTokens = 1024;
                 profile.timeoutSeconds = json.getIntValue("timeoutSeconds");
                 if (profile.timeoutSeconds <= 0) profile.timeoutSeconds = 60;
+                JSONObject headers = json.getJSONObject("headers");
+                if (headers != null) {
+                    for (String header : headers.keySet()) {
+                        String value = headers.getString(header);
+                        if (header == null || header.trim().isEmpty() || value == null) continue;
+                        profile.headers.put(header.trim(),value);
+                    }
+                }
                 profileMap.put(key,profile);
             }
         } catch (Exception e) {

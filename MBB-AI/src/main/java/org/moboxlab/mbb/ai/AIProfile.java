@@ -1,5 +1,8 @@
 package org.moboxlab.mbb.ai;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * 单个 AI 模型配置
  */
@@ -12,6 +15,7 @@ public class AIProfile {
     public double temperature = 0.7;
     public int maxTokens = 1024;
     public int timeoutSeconds = 60;
+    public Map<String,String> headers = new LinkedHashMap<>();
 
     public String resolveApiKey() {
         if (apiKey == null) return "";
