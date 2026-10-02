@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.1.4.0.2325 | 2026-10-02 | `MBB-Chat` 默认人设改为 DeepSeek 鲸鱼女仆娘，新增 `/chat persona set/reset` 按用户自定义人设，并自动迁移旧默认提示词 |
 | V0.1.3.0.2321 | 2026-10-02 | `MBB-AI` 增加持久化统计：按日期、配置、模型和动作记录请求、Token、耗时、缓存命中，`/ai status` 与 `/ai usage [天数]` 输出图片和趋势图 |
 | V0.1.2.0.2308 | 2026-10-02 | `MBB-AI` 支持 profile 自定义请求头，默认补充 MoBoxBot User-Agent 与 Accept-Language，适配服务器和反向代理环境 |
 | V0.1.1.0.2304 | 2026-10-02 | 适配 opencodego：`MBB-AI` 增加 `x-opencode-session` 与 MoBoxBot User-Agent，`MBB-Chat` 按用户 QQ 传入稳定会话 ID，并补充 Cloudflare 1010 错误提示 |
