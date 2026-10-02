@@ -1,0 +1,30 @@
+#MBB-AIGuard 插件配置
+
+#是否启用全局审查
+enable: true
+#是否只记录和告警，不执行任何处罚
+observeOnly: true
+#AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
+aiProfile: "default"
+#即时上下文消息条数
+contextMessages: 15
+#长期行为画像天数
+historyDays: 7
+#连续多少天出现同类风险才升级
+consecutiveRiskDays: 3
+#命中规则后调用 AI 的最低基础分
+candidateRiskScore: 35
+#触发管理员告警的风险分
+riskThreshold: 70
+#同一用户调用 AI 的最小间隔秒数
+checkCooldownSecond: 60
+#每分钟最多调用 AI 次数
+maxAiChecksPerMinute: 10
+#是否在当前群发送告警
+alertCurrentGroup: false
+#是否私聊机器人管理员发送告警
+alertAdminPrivate: true
+#白名单是否跳过安全危机分支
+whitelistBypassSafety: false
+#事件和摘要保留天数
+retentionDays: 30

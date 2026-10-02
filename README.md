@@ -10,6 +10,7 @@ MoBoxBot 独立插件仓库。
 |---|---|---|---|
 | `MBB-Admin` | `/admin` | `OWNER` | 增删查管理员 |
 | `MBB-AI` | `/ai status/usage/reload` | `OWNER` | 公用 AI 服务，OpenAI 兼容协议 |
+| `MBB-AIGuard` | `/guard ...` | `BOT_ADMIN` | AI 群聊风险审查，支持规则、行为画像和白名单 |
 | `MBB-Chat` | `/chat <内容>`、`/chat new`、`/chat persona` | 管理员或白名单 | AI 对话，每人独立上下文与人设 |
 | `MBB-ChatStat` | `/chatstat group/user` | `BOT_ADMIN` | 统计群聊内容或某人在所有可见群的发言，可接 AI 总结 |
 | `MBB-Help` | `/help` | `EVERYONE` | 按权限分区的命令帮助图片 |

@@ -1,0 +1,13 @@
+{
+  "name": "MBB-AIGuard",
+  "version": "V0.1.0.0.0053",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.aiguard.GuardPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot AI 群聊内容风险审查插件",
+  "website": "",
+  "depend": [],
+  "softDepend": ["MBB-AI"],
+  "loadBefore": [],
+  "provides": ["aiguard"]
+}
