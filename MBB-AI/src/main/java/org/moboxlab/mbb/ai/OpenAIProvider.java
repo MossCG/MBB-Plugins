@@ -58,6 +58,11 @@ public class OpenAIProvider {
             connection.setRequestProperty("Content-Type","application/json; charset=UTF-8");
             connection.setRequestProperty("Accept","application/json");
             connection.setRequestProperty("Authorization","Bearer "+apiKey);
+            connection.setRequestProperty("User-Agent","MoBoxBot/0.1 (+https://github.com/MossCG/MoBoxBot)");
+            String sessionId = params == null ? null : params.getString("sessionId");
+            if (sessionId != null && !sessionId.trim().isEmpty()) {
+                connection.setRequestProperty("x-opencode-session",sessionId.trim());
+            }
 
             byte[] body = request.toJSONString().getBytes(StandardCharsets.UTF_8);
             connection.setFixedLengthStreamingMode(body.length);
@@ -103,6 +108,9 @@ public class OpenAIProvider {
 
     private static JSONObject httpError(int code,JSONObject json,String response) {
         String message = "AI 服务返回 HTTP "+code;
+        if (response != null && response.contains("error code: 1010")) {
+            return error("请求被 Cloudflare 拦截，请检查 API 地址和请求头！","cloudflare_1010",false);
+        }
         if (json != null) {
             JSONObject error = json.getJSONObject("error");
             if (error != null && error.getString("message") != null) message = error.getString("message");

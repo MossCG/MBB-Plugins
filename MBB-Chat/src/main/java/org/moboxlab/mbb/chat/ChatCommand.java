@@ -150,6 +150,7 @@ public class ChatCommand extends BotCommand {
         JSONObject params = new JSONObject(true);
         params.put("profile",plugin.getConfig().getString("profile","default"));
         params.put("messages",messages);
+        params.put("sessionId","moboxbot-user-"+sender.getUserID());
         JSONObject result = ai.call("chat",params);
         if (!result.getBooleanValue("status")) {
             sender.sendMessage("AI 对话失败："+safe(result.getString("message")));

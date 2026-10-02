@@ -1,6 +1,6 @@
 {
   "name": "MBB-Chat",
-  "version": "V0.1.0.0.2249",
+  "version": "V0.1.1.0.2304",
   "apiVersion": "0.2",
   "main": "org.moboxlab.mbb.chat.ChatPlugin",
   "author": "MoBoxLab",

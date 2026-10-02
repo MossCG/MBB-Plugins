@@ -242,7 +242,9 @@ public class AIService implements PluginService {
                 ? params.getDoubleValue("temperature") : profile.temperature;
         int maxTokens = params != null && params.getIntValue("maxTokens") > 0
                 ? params.getIntValue("maxTokens") : profile.maxTokens;
-        return profile.name+"|"+temperature+"|"+maxTokens+"|"+messages.toJSONString();
+        String sessionId = params == null ? "" : params.getString("sessionId");
+        return profile.name+"|"+(sessionId == null ? "" : sessionId)+"|"
+                +temperature+"|"+maxTokens+"|"+messages.toJSONString();
     }
 
     private JSONObject message(String role,String content) {

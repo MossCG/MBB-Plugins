@@ -2,7 +2,7 @@
   "profiles": {
     "default": {
       "provider": "openai",
-      "baseUrl": "",
+      "baseUrl": "https://opencode.ai/zen/go/v1",
       "apiKey": "env:OPENCODEGO_API_KEY",
       "model": "deepseek-v4.1-flash",
       "temperature": 0.7,

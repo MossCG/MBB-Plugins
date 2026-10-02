@@ -4,7 +4,9 @@ MoBoxBot 公用 AI 服务插件，通过插件服务注册表向其他插件提�
 
 当前只实现 OpenAI 兼容协议，可接入 OpenAI、DeepSeek、通义兼容模式、Ollama `/v1` 等兼容接口。
 
-默认模型配置为 `deepseek-v4.1-flash`，默认从环境变量 `OPENCODEGO_API_KEY` 读取密钥。请把 `baseUrl` 修改为 opencodego 提供的 OpenAI 兼容地址。
+默认模型配置为 `deepseek-v4.1-flash`，默认从环境变量 `OPENCODEGO_API_KEY` 读取密钥，默认地址为 opencodego 的 OpenAI 兼容端点。
+
+opencodego 要求每个对话请求携带稳定的 `x-opencode-session` 请求头。`MBB-Chat` 会按用户 QQ 自动传入；其他插件调用 `chat` 时也应传入 `sessionId`。
 
 ## 服务
 
@@ -51,7 +53,7 @@ logRequestContent: false
   "profiles": {
     "default": {
       "provider": "openai",
-      "baseUrl": "",
+      "baseUrl": "https://opencode.ai/zen/go/v1",
       "apiKey": "env:OPENCODEGO_API_KEY",
       "model": "deepseek-v4.1-flash",
       "temperature": 0.7,
@@ -83,6 +85,7 @@ logRequestContent: false
 ```json
 {
   "profile": "default",
+  "sessionId": "moboxbot-user-123456",
   "messages": [
     {"role": "system", "content": "你是一个 QQ 聊天助手。"},
     {"role": "user", "content": "你好"}
