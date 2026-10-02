@@ -96,6 +96,7 @@ public class AIService implements PluginService {
                 result.put("action",action);
                 result.put("profile",profile.name);
                 result.put("cached",false);
+                result.put("content",MarkdownUtil.toPlainText(result.getString("content")));
                 stats.record(profile,action,true,false,System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
                 putCache(cacheKey,result);
             } else {

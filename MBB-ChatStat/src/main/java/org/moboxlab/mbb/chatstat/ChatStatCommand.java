@@ -144,7 +144,8 @@ public class ChatStatCommand extends BotCommand {
             }
         }
         JSONArray requestMessages = new JSONArray();
-        requestMessages.add(message("system","你是群聊内容总结助手。请根据给定的统计和消息，用中文总结主要话题、活跃用户和整体氛围。不要编造未出现的内容，总结要简洁清晰。"));
+        requestMessages.add(message("system","你是群聊内容总结助手。请根据给定的统计和消息，用中文总结主要话题、活跃用户和整体氛围。"
+                +"不要编造未出现的内容，总结要简洁清晰。只输出纯文本，禁止使用 Markdown、代码块、表格、标题、粗体或多余星号。"));
         requestMessages.add(message("user",source.toString()));
         JSONObject params = new JSONObject(true);
         params.put("profile",plugin.getConfig().getString("aiProfile","default"));

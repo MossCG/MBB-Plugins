@@ -184,7 +184,7 @@ public class ChatCommand extends BotCommand {
         }
         JSONArray context = loadContext(sender.getUserID());
         JSONArray messages = new JSONArray();
-        messages.add(message("system",loadPersona(sender.getUserID())));
+        messages.add(message("system",systemMessage(sender.getUserID())));
         for (int i = 0; i < context.size(); i++) {
             JSONObject item = context.getJSONObject(i);
             if (item != null) messages.add(item);
@@ -264,6 +264,12 @@ public class ChatCommand extends BotCommand {
         String value = plugin.getServer().getStorage().get(plugin,personaKey(userID));
         if (value == null || value.trim().isEmpty()) return plugin.getDefaultPersona();
         return value;
+    }
+
+    private String systemMessage(long userID) {
+        return loadPersona(userID)
+                +"\n【输出格式】只输出纯文本，禁止使用 Markdown 语法。"
+                +"不要使用 **、__、#、>、代码块、表格、链接或多余星号。";
     }
 
     private Set<Long> loadWhitelist() {

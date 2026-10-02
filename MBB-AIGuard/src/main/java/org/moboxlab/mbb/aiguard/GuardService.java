@@ -388,7 +388,7 @@ public class GuardService {
                 +"区分真实困难、玩梗、卖惨式求助和诈骗。不要编造证据。必须只返回 JSON："
                 +"{\"risk\":true/false,\"score\":0-100,\"categories\":[\"分类\"],\"confidence\":0-1,"
                 +"\"reason\":\"原因\",\"evidence\":[\"证据\"],\"action\":\"ignore|log|alert|warn\",\"safety\":false}。"
-                +"自残、自杀等内容 safety=true，不得当作普通诈骗。"));
+                +"不要使用 Markdown 代码块包裹 JSON。自残、自杀等内容 safety=true，不得当作普通诈骗。"));
         StringBuilder source = new StringBuilder();
         source.append("群：").append(groupName == null ? "" : groupName).append("(").append(groupID).append(")\n");
         source.append("用户：").append(userID).append("\n");

@@ -29,6 +29,8 @@ MoBoxBot 群聊内容统计插件。
 
 统计图片会正常发送，随后异步调用 `MBB-AI`，再发送一张包含统计指标和总结正文的 AI 总结图片。AI 总结会读取最近消息，条数由 `aiSummaryMessageCount` 控制。
 
+AI 总结要求纯文本输出，`MBB-AI` 也会在底层清洗 Markdown 语法。
+
 ## 配置
 
 ```yaml
