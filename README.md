@@ -9,6 +9,8 @@ MoBoxBot 独立插件仓库。
 | 插件 | 指令/触发 | 权限 | 说明 |
 |---|---|---|---|
 | `MBB-Admin` | `/admin` | `OWNER` | 增删查管理员 |
+| `MBB-AI` | `/ai status/usage/reload` | `OWNER` | 公用 AI 服务，OpenAI 兼容协议 |
+| `MBB-Chat` | `/chat <内容>`、`/chat new` | 管理员或白名单 | AI 对话，每人独立上下文 |
 | `MBB-Help` | `/help` | `EVERYONE` | 按权限分区的命令帮助图片 |
 | `MBB-PigHub` | `来只猪猪` | `EVERYONE` | 随机 PigHub 猪猪图片 |
 | `MBB-Ping` | `/ping` | `BOT_ADMIN` | 测试机器人是否运行中 |

@@ -1,0 +1,13 @@
+{
+  "name": "MBB-AI",
+  "version": "V0.1.0.0.2249",
+  "apiVersion": "0.2",
+  "main": "org.moboxlab.mbb.ai.AIPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 公用 AI 服务插件：OpenAI 兼容协议",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["ai"]
+}

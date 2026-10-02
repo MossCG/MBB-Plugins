@@ -1,0 +1,14 @@
+#MBB-AI 插件配置
+
+#是否启用 AI 服务
+enable: true
+#默认模型配置名，对应 profiles.json 中的 profiles 键
+defaultProfile: "default"
+#最大并发请求数
+maxConcurrent: 2
+#相同请求缓存秒数，0 表示关闭
+cacheSecond: 300
+#失败重试次数，只对超时、网络错误和 5xx 重试
+retryCount: 1
+#是否在日志中输出请求内容，默认关闭，避免聊天内容进入日志
+logRequestContent: false
