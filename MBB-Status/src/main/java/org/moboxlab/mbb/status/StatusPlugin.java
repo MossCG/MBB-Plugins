@@ -16,7 +16,7 @@ public class StatusPlugin extends Plugin {
         int refreshSecond = getConfig().getInt("refreshSecond",10);
         if (refreshSecond < 3) refreshSecond = 3;
         getServer().getPluginManager().runTaskTimer(this,SystemStatusService::sampleNetwork,3,refreshSecond);
-        getServer().getPluginManager().registerCommand(this,new StatusCommand());
+        getServer().getPluginManager().registerCommand(this,new StatusCommand(this));
         getLogger().sendInfo("MBB-Status 已启用，采样间隔："+refreshSecond+" 秒！");
     }
 

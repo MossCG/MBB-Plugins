@@ -1,6 +1,6 @@
 {
   "name": "MBB-Status",
-  "version": "V0.0.1.0.2228",
+  "version": "V0.1.0.0.2225",
   "apiVersion": "0.1",
   "main": "org.moboxlab.mbb.status.StatusPlugin",
   "author": "MoBoxLab",
