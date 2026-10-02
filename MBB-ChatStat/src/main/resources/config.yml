@@ -1,0 +1,12 @@
+#MBB-ChatStat 插件配置
+
+#是否记录群聊消息
+enable: true
+#单条消息最多保存的文本长度
+maxContentLength: 500
+#统计图片中最近消息显示条数
+recentMessageCount: 10
+#统计图片中排行榜显示条数
+topCount: 10
+#默认统计天数
+defaultDays: 1

@@ -1,0 +1,13 @@
+{
+  "name": "MBB-ChatStat",
+  "version": "V0.1.0.0.2349",
+  "apiVersion": "0.2",
+  "main": "org.moboxlab.mbb.chatstat.ChatStatPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 群聊内容统计插件",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["chatstat"]
+}

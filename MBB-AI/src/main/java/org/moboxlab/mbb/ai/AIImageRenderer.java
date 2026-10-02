@@ -111,7 +111,7 @@ public class AIImageRenderer {
             drawChart(graphics,PADDING,chartY,WIDTH - PADDING * 2,220,daily);
 
             int tableY = chartY + 248;
-            drawPanel(graphics,PADDING,tableY,WIDTH - PADDING * 2,58 + rowCount * 28,"模型配置统计");
+            drawPanel(graphics,PADDING,tableY,WIDTH - PADDING * 2,112 + rowCount * 28,"模型配置统计");
             int rowY = tableY + 66;
             drawTableHeader(graphics,PADDING + 20,rowY);
             rowY += 26;
@@ -201,6 +201,13 @@ public class AIImageRenderer {
             int barY = chartY + chartHeight - barHeight;
             graphics.setColor(new Color(37,99,235));
             graphics.fillRoundRect(barX,barY,barWidth,Math.max(2,barHeight),8,8);
+            String tokenText = formatNumber(tokens);
+            graphics.setFont(new Font("Microsoft YaHei",Font.BOLD,12));
+            graphics.setColor(new Color(37,99,235));
+            int tokenWidth = graphics.getFontMetrics().stringWidth(tokenText);
+            int tokenY = barY - 7;
+            if (tokenY < chartY + 14) tokenY = barY + 18;
+            graphics.drawString(tokenText,barX + (barWidth - tokenWidth) / 2,tokenY);
             String date = safe(item.getString("date"));
             if (date.length() >= 10) date = date.substring(5);
             graphics.setColor(new Color(120,113,108));
