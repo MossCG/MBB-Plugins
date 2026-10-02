@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * AI 风险审查服务
@@ -36,6 +37,44 @@ public class GuardService {
     private final GuardRuleEngine ruleEngine;
     private final Map<String,Long> lastCheckMap = new LinkedHashMap<>();
     private final Map<String,long[]> rateMap = new LinkedHashMap<>();
+    private final Map<String,PendingReview> pendingMap = new ConcurrentHashMap<>();
+
+    private static class PendingReview {
+        private final long groupID;
+        private final long userID;
+        private final String groupName;
+        private long messageID;
+        private long firstTime;
+        private long lastTime;
+        private int count;
+        private int maxRuleScore;
+        private boolean safety;
+        private boolean scheduled;
+        private final StringBuilder content = new StringBuilder();
+
+        private PendingReview(long groupID,long userID,String groupName,long messageID) {
+            this.groupID = groupID;
+            this.userID = userID;
+            this.groupName = groupName == null ? "" : groupName;
+            this.messageID = messageID;
+            this.firstTime = System.currentTimeMillis();
+            this.lastTime = firstTime;
+        }
+
+        private synchronized void add(long messageID,String text,List<GuardMatch> matches) {
+            this.messageID = messageID;
+            this.lastTime = System.currentTimeMillis();
+            this.count++;
+            this.maxRuleScore = Math.max(this.maxRuleScore,maxScore(matches));
+            this.safety = this.safety || hasSafety(matches);
+            if (content.length() > 0) content.append("\n");
+            content.append(text);
+        }
+
+        private synchronized String content() {
+            return content.toString();
+        }
+    }
 
     public GuardService(Plugin plugin,GuardConfig config,GuardRuleEngine ruleEngine) {
         this.plugin = plugin;
@@ -107,21 +146,67 @@ public class GuardService {
                 && !(safetyMatch && !config.whitelistBypassSafety)) return;
         recordRecent(event,content);
         if (matches.isEmpty()) return;
-        if (!checkCooldown(event.getGroupID(),event.getUserID())) return;
+        String key = reviewKey(event.getGroupID(),event.getUserID());
+        int waitSeconds = tryAcquireReview(key);
+        String groupName = event.getRaw().getString("group_name");
+        if (waitSeconds > 0) {
+            queueReview(key,event.getGroupID(),event.getUserID(),groupName,event.getMessageID(),content,matches,waitSeconds);
+            return;
+        }
+        processReview(event.getGroupID(),event.getUserID(),groupName,event.getMessageID(),content,matches,1);
+    }
 
-        JSONObject result = analyze(event.getGroupID(),event.getUserID(),content,matches,event.getRaw().getString("group_name"));
+    private void processReview(long groupID,long userID,String groupName,long messageID,String content,List<GuardMatch> matches,int mergedCount) {
+        JSONObject result = analyze(groupID,userID,content,matches,groupName);
         if (result == null) result = fallback(matches);
         int score = result.getIntValue("score");
         String categories = result.getString("categories");
         String action = result.getString("action");
-        boolean safety = result.getBooleanValue("safety") || safetyMatch;
+        boolean safety = result.getBooleanValue("safety") || hasSafety(matches);
+        logReview(groupID,userID,score,categories,action,safety,mergedCount,result.getString("reason"));
         if (score < config.candidateRiskScore && !safety) return;
-
-        recordEvent(event,score,categories,result.getString("reason"),result.getString("evidence"),action,safety);
-        recordDaily(event.getGroupID(),event.getUserID(),categories,score);
-        if (safety || score >= getGroupThreshold(event.getGroupID())) {
-            alert(event.getGroupID(),event.getUserID(),score,categories,result.getString("reason"),result.getString("evidence"),safety);
+        recordEvent(groupID,userID,messageID,score,categories,result.getString("reason"),result.getString("evidence"),action,safety);
+        recordDaily(groupID,userID,categories,score);
+        if (safety || score >= getGroupThreshold(groupID)) {
+            alert(groupID,userID,score,categories,result.getString("reason"),result.getString("evidence"),safety);
         }
+    }
+
+    private void queueReview(String key,long groupID,long userID,String groupName,long messageID,
+                             String content,List<GuardMatch> matches,int waitSeconds) {
+        PendingReview pending = pendingMap.get(key);
+        if (pending == null) {
+            pending = new PendingReview(groupID,userID,groupName,messageID);
+            pendingMap.put(key,pending);
+        }
+        pending.add(messageID,content,matches);
+        schedulePending(key,pending,waitSeconds);
+    }
+
+    private void schedulePending(String key,PendingReview pending,int waitSeconds) {
+        synchronized (pending) {
+            if (pending.scheduled) return;
+            pending.scheduled = true;
+        }
+        plugin.getServer().getPluginManager().runTaskLater(plugin,() -> flushPending(key),Math.max(1,waitSeconds));
+    }
+
+    private void flushPending(String key) {
+        PendingReview pending = pendingMap.remove(key);
+        if (pending == null) return;
+        String content = pending.content();
+        List<GuardMatch> matches = ruleEngine.match(content);
+        if (matches.isEmpty()) return;
+        int waitSeconds = tryAcquireReview(key);
+        if (waitSeconds > 0) {
+            synchronized (pending) {
+                pending.scheduled = false;
+            }
+            pendingMap.put(key,pending);
+            schedulePending(key,pending,waitSeconds);
+            return;
+        }
+        processReview(pending.groupID,pending.userID,pending.groupName,pending.messageID,content,matches,pending.count);
     }
 
     public JSONObject test(long groupID,long userID,String content) {
@@ -433,9 +518,9 @@ public class GuardService {
         return count;
     }
 
-    private void recordEvent(GroupMessageEvent event,int score,String categories,String reason,String evidence,String action,boolean safety) {
+    private void recordEvent(long groupID,long userID,long messageID,int score,String categories,String reason,String evidence,String action,boolean safety) {
         storage().insert("INSERT INTO `"+EVENT_TABLE+"` (`groupID`,`userID`,`messageID`,`messageTime`,`riskScore`,`categories`,`reason`,`evidence`,`action`,`safety`,`updateTime`) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                event.getGroupID(),event.getUserID(),event.getMessageID(),System.currentTimeMillis(),
+                groupID,userID,messageID,System.currentTimeMillis(),
                 score,categories,reason,evidence,action,safety ? 1 : 0,System.currentTimeMillis());
     }
 
@@ -490,22 +575,40 @@ public class GuardService {
         storage().set(plugin,ALERT_RECIPIENT_KEY,array.toJSONString());
     }
 
-    private boolean checkCooldown(long groupID,long userID) {
-        String key = groupID+"|"+userID;
+    private String reviewKey(long groupID,long userID) {
+        return groupID+"|"+userID;
+    }
+
+    private synchronized int tryAcquireReview(String key) {
         long now = System.currentTimeMillis();
         Long last = lastCheckMap.get(key);
-        if (last != null && now - last < config.checkCooldownSecond * 1000L) return false;
+        if (last != null && now - last < config.checkCooldownSecond * 1000L) {
+            long remain = config.checkCooldownSecond * 1000L - (now - last);
+            return (int)Math.max(1,(remain + 999L) / 1000L);
+        }
         long minute = now / 60000L;
         long[] rate = rateMap.get(key);
         if (rate == null || rate[0] != minute) {
-            rate = new long[]{minute,1};
-            rateMap.put(key,rate);
+            rateMap.put(key,new long[]{minute,1});
         } else {
-            if (rate[1] >= config.maxAiChecksPerMinute) return false;
+            if (rate[1] >= config.maxAiChecksPerMinute) {
+                return (int)((60000L - (now % 60000L)) / 1000L) + 1;
+            }
             rate[1]++;
         }
         lastCheckMap.put(key,now);
-        return true;
+        return 0;
+    }
+
+    private void logReview(long groupID,long userID,int score,String categories,String action,
+                           boolean safety,int mergedCount,String reason) {
+        String text = reason == null ? "" : reason.trim();
+        if (text.length() > 160) text = text.substring(0,160)+"...";
+        plugin.getLogger().sendInfo("[审查] 群"+groupID+" 用户"+userID
+                +" 分数"+score+" 分类"+safe(categories)+" 动作"+safe(action)
+                +(safety ? " 安全分支" : "")
+                +(mergedCount > 1 ? " 合并"+mergedCount+"条" : "")
+                +(text.isEmpty() ? "" : " 原因："+text));
     }
 
     private JSONObject parseJson(String content) {
@@ -541,12 +644,12 @@ public class GuardService {
         return builder.toString().trim();
     }
 
-    private boolean hasSafety(List<GuardMatch> matches) {
+    private static boolean hasSafety(List<GuardMatch> matches) {
         for (GuardMatch match : matches) if (match.safety) return true;
         return false;
     }
 
-    private int maxScore(List<GuardMatch> matches) {
+    private static int maxScore(List<GuardMatch> matches) {
         int score = 0;
         for (GuardMatch match : matches) score = Math.max(score,match.risk);
         return score;
