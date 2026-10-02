@@ -1,10 +1,10 @@
 package org.moboxlab.mbb.ai;
 
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Command.BotCommand;
 import org.moboxlab.moboxbot.API.Command.CommandPermission;
 import org.moboxlab.moboxbot.API.Command.CommandSender;
+import org.moboxlab.moboxbot.API.Util.ImageUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,39 +44,51 @@ public class AICommand extends BotCommand {
     @Override
     public boolean execute(CommandSender sender,String[] args) {
         String action = args.length > 1 ? args[1].toLowerCase() : "status";
-        JSONObject result = plugin.getService().call(action,new JSONObject(true));
-        if (!result.getBooleanValue("status")) {
-            sender.sendMessage("AI 操作失败："+safe(result.getString("message")));
-            return true;
-        }
         if ("usage".equals(action)) {
-            sender.sendMessage("AI 统计：请求 "+result.getLongValue("requests")
-                    +"，成功 "+result.getLongValue("successes")
-                    +"，失败 "+result.getLongValue("failures")
-                    +"，Token "+result.getLongValue("totalTokens")
-                    +"，缓存 "+result.getLongValue("cacheSize"));
+            int days = parseDays(args);
+            JSONObject params = new JSONObject(true);
+            params.put("days",days);
+            JSONObject usage = plugin.getService().call("usage",params);
+            byte[] image = AIImageRenderer.renderUsage(usage,days);
+            if (image != null) {
+                sender.sendImage(ImageUtil.toBase64Uri(image));
+            } else {
+                sender.sendMessage("AI 统计图片生成失败，请查看控制台日志！");
+            }
             return true;
         }
+        JSONObject result;
         if ("reload".equals(action)) {
-            sender.sendMessage(result.getString("message"));
-        }
-        StringBuilder builder = new StringBuilder("MBB-AI 状态：")
-                .append(result.getBooleanValue("enable") ? "启用" : "关闭")
-                .append("\n默认配置：").append(result.getString("defaultProfile"))
-                .append("\n模型配置：");
-        JSONArray profiles = result.getJSONArray("profiles");
-        if (profiles == null || profiles.isEmpty()) {
-            builder.append("无");
-        } else {
-            for (int i = 0; i < profiles.size(); i++) {
-                JSONObject profile = profiles.getJSONObject(i);
-                builder.append("\n- ").append(profile.getString("name"))
-                        .append(" / ").append(profile.getString("model"))
-                        .append(" / ").append(profile.getString("baseUrl"));
+            result = plugin.getService().call("reload",new JSONObject(true));
+            if (!result.getBooleanValue("status")) {
+                sender.sendMessage("AI 操作失败："+safe(result.getString("message")));
+                return true;
             }
+        } else if ("status".equals(action)) {
+            result = plugin.getService().call("status",new JSONObject(true));
+        } else {
+            sender.sendMessage("用法：/ai status | /ai usage [天数] | /ai reload");
+            return true;
         }
-        sender.sendMessage(builder.toString());
+        JSONObject usage = plugin.getService().call("usage",new JSONObject(true));
+        byte[] image = AIImageRenderer.renderStatus(result,usage,"reload".equals(action) ? "配置已重载" : null);
+        if (image != null) {
+            sender.sendImage(ImageUtil.toBase64Uri(image));
+        } else {
+            sender.sendMessage("AI 状态图片生成失败，请查看控制台日志！");
+        }
         return true;
+    }
+
+    private int parseDays(String[] args) {
+        if (args.length < 3) return 7;
+        try {
+            int days = Integer.parseInt(args[2]);
+            if (days < 1) return 7;
+            return Math.min(days,30);
+        } catch (Exception e) {
+            return 7;
+        }
     }
 
     private String safe(String text) {

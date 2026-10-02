@@ -8,13 +8,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * AI 公共服务实现
  */
 public class AIService implements PluginService {
     private final AIPlugin plugin;
+    private final AIStatsService stats;
     private volatile AIConfig config;
     private volatile Semaphore semaphore;
     private final Map<String,CacheEntry> cache = new LinkedHashMap<String,CacheEntry>(16,0.75f,true) {
@@ -23,13 +23,6 @@ public class AIService implements PluginService {
             return size() > 100;
         }
     };
-
-    private final AtomicLong requestCount = new AtomicLong();
-    private final AtomicLong successCount = new AtomicLong();
-    private final AtomicLong failureCount = new AtomicLong();
-    private final AtomicLong promptTokens = new AtomicLong();
-    private final AtomicLong completionTokens = new AtomicLong();
-    private final AtomicLong totalTokens = new AtomicLong();
 
     private static class CacheEntry {
         private final long expireTime;
@@ -41,8 +34,9 @@ public class AIService implements PluginService {
         }
     }
 
-    public AIService(AIPlugin plugin,AIConfig config) {
+    public AIService(AIPlugin plugin,AIConfig config,AIStatsService stats) {
         this.plugin = plugin;
+        this.stats = stats;
         reload(config);
     }
 
@@ -55,10 +49,10 @@ public class AIService implements PluginService {
     public JSONObject call(String action,JSONObject params) {
         if (action == null) return error("缺少 AI 动作名！","action",false);
         if ("status".equalsIgnoreCase(action)) return status();
-        if ("usage".equalsIgnoreCase(action)) return usage();
+        if ("usage".equalsIgnoreCase(action)) return usage(params);
         if ("reload".equalsIgnoreCase(action)) return reloadAction();
         if (!config.enable) return error("AI 服务当前已关闭！","disabled",false);
-        if ("chat".equalsIgnoreCase(action)) return chat(params);
+        if ("chat".equalsIgnoreCase(action)) return chat(params,"chat");
         if ("complete".equalsIgnoreCase(action)) return complete(params);
         return error("不支持的 AI 动作："+action,"action",false);
     }
@@ -68,7 +62,7 @@ public class AIService implements PluginService {
         this.semaphore = new Semaphore(newConfig.maxConcurrent,true);
     }
 
-    private JSONObject chat(JSONObject params) {
+    private JSONObject chat(JSONObject params,String action) {
         if (params == null) return error("chat 参数不能为空！","params",false);
         JSONArray messages = params.getJSONArray("messages");
         if (messages == null || messages.isEmpty()) {
@@ -82,11 +76,11 @@ public class AIService implements PluginService {
         if (profile == null) {
             return error("没有找到 AI 模型配置："+(profileName == null ? config.defaultProfile : profileName),"profile",false);
         }
-        requestCount.incrementAndGet();
+        long startTime = System.currentTimeMillis();
         String cacheKey = cacheKey(profile,messages,params);
         JSONObject cached = getCache(cacheKey);
         if (cached != null) {
-            successCount.incrementAndGet();
+            stats.record(profile,action,true,true,0L,null);
             return cached;
         }
 
@@ -94,24 +88,23 @@ public class AIService implements PluginService {
         try {
             acquired = semaphore.tryAcquire(profile.timeoutSeconds,TimeUnit.SECONDS);
             if (!acquired) {
-                failureCount.incrementAndGet();
+                stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,null);
                 return error("AI 服务当前并发已满，请稍后再试！","busy",true);
             }
             JSONObject result = callWithRetry(profile,messages,params);
             if (result.getBooleanValue("status")) {
-                successCount.incrementAndGet();
-                result.put("action","chat");
+                result.put("action",action);
                 result.put("profile",profile.name);
                 result.put("cached",false);
-                readUsage(result.getJSONObject("usage"));
+                stats.record(profile,action,true,false,System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
                 putCache(cacheKey,result);
             } else {
-                failureCount.incrementAndGet();
+                stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
             }
             return result;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            failureCount.incrementAndGet();
+            stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,null);
             return error("AI 服务等待并发许可时被中断！","interrupted",true);
         } finally {
             if (acquired) semaphore.release();
@@ -129,9 +122,7 @@ public class AIService implements PluginService {
         JSONArray messages = new JSONArray();
         messages.add(message("user",prompt));
         chatParams.put("messages",messages);
-        JSONObject result = chat(chatParams);
-        if (result.getBooleanValue("status")) result.put("action","complete");
-        return result;
+        return chat(chatParams,"complete");
     }
 
     private JSONObject callWithRetry(AIProfile profile,JSONArray messages,JSONObject params) {
@@ -179,15 +170,10 @@ public class AIService implements PluginService {
         return result;
     }
 
-    private JSONObject usage() {
-        JSONObject result = new JSONObject(true);
-        result.put("status",true);
-        result.put("requests",requestCount.get());
-        result.put("successes",successCount.get());
-        result.put("failures",failureCount.get());
-        result.put("promptTokens",promptTokens.get());
-        result.put("completionTokens",completionTokens.get());
-        result.put("totalTokens",totalTokens.get());
+    private JSONObject usage(JSONObject params) {
+        int days = params == null ? 7 : params.getIntValue("days");
+        if (days < 1) days = 7;
+        JSONObject result = stats.summary(days);
         result.put("cacheSize",cacheSize());
         return result;
     }
@@ -197,13 +183,6 @@ public class AIService implements PluginService {
         JSONObject result = status();
         result.put("message","AI 配置已重载！");
         return result;
-    }
-
-    private void readUsage(JSONObject usage) {
-        if (usage == null) return;
-        promptTokens.addAndGet(usage.getLongValue("promptTokens"));
-        completionTokens.addAndGet(usage.getLongValue("completionTokens"));
-        totalTokens.addAndGet(usage.getLongValue("totalTokens"));
     }
 
     private JSONObject getCache(String key) {

@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.1.3.0.2321 | 2026-10-02 | `MBB-AI` 增加持久化统计：按日期、配置、模型和动作记录请求、Token、耗时、缓存命中，`/ai status` 与 `/ai usage [天数]` 输出图片和趋势图 |
 | V0.1.2.0.2308 | 2026-10-02 | `MBB-AI` 支持 profile 自定义请求头，默认补充 MoBoxBot User-Agent 与 Accept-Language，适配服务器和反向代理环境 |
 | V0.1.1.0.2304 | 2026-10-02 | 适配 opencodego：`MBB-AI` 增加 `x-opencode-session` 与 MoBoxBot User-Agent，`MBB-Chat` 按用户 QQ 传入稳定会话 ID，并补充 Cloudflare 1010 错误提示 |
 | V0.1.0.0.2249 | 2026-10-02 | 新增 `MBB-AI` 公共服务插件和 `MBB-Chat` 对话插件；支持 OpenAI 兼容协议、多模型配置、并发控制、缓存和 Token 统计；`/chat` 按用户隔离上下文，默认仅管理员可用并支持白名单 |

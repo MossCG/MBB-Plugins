@@ -11,6 +11,7 @@ import java.nio.file.Paths;
  */
 public class AIPlugin extends Plugin {
     private AIConfig aiConfig;
+    private AIStatsService statsService;
     private AIService service;
 
     @Override
@@ -23,7 +24,9 @@ public class AIPlugin extends Plugin {
 
     @Override
     public void onEnable() {
-        service = new AIService(this,aiConfig);
+        statsService = new AIStatsService(this);
+        statsService.init();
+        service = new AIService(this,aiConfig,statsService);
         getServer().getPluginManager().registerService(this,service);
         getServer().getPluginManager().registerCommand(this,new AICommand(this));
         getLogger().sendInfo("MBB-AI 已启用！");

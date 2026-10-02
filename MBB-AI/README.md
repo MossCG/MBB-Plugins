@@ -30,7 +30,7 @@ JSONObject result = service.call("chat",params);
 | `chat` | 对话，传入 `messages` |
 | `complete` | 单轮补全，传入 `prompt` |
 | `status` | 查看配置和服务状态 |
-| `usage` | 查看请求与 Token 统计 |
+| `usage` | 查看请求、Token、耗时和趋势统计 |
 | `reload` | 重载 AI 配置 |
 
 ## 配置
@@ -130,13 +130,34 @@ logRequestContent: false
 
 AI 调用是同步网络请求，调用方必须放入插件任务中执行，不要阻塞事件监听线程。
 
+## 统计
+
+`MBB-AI` 会把统计写入 SQLite：
+
+```text
+plugin_mbb_ai_usage
+```
+
+统计维度：
+
+- 日期
+- 模型配置
+- 模型名
+- 动作
+- 请求数、成功数、失败数
+- 输入、输出、总 Token
+- 总耗时与平均耗时
+- 缓存命中数
+
+`/ai usage [天数]` 会输出图片，默认展示最近 7 天，最长 30 天。
+
 ## 管理命令
 
 | 指令 | 权限 | 说明 |
 |---|---|---|
-| `/ai status` | `OWNER` | 查看服务状态和模型配置 |
-| `/ai usage` | `OWNER` | 查看请求与 Token 统计 |
-| `/ai reload` | `OWNER` | 重载 AI 配置 |
+| `/ai status` | `OWNER` | 图片查看服务状态和模型配置 |
+| `/ai usage [天数]` | `OWNER` | 图片查看请求、Token、耗时和趋势统计 |
+| `/ai reload` | `OWNER` | 重载 AI 配置并输出状态图片 |
 
 ## 构建
 
