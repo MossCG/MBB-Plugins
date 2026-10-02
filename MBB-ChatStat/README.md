@@ -40,11 +40,13 @@ recentMessageCount: 10
 topCount: 10
 defaultDays: 1
 aiProfile: "default"
-aiSummaryMessageCount: 50
-aiSummaryMaxTokens: 1200
+aiSummaryMessageCount: 300
+aiSummaryMaxTokens: 6000
 ```
 
 数据保存在主程序 SQLite 的插件专属表中。插件只统计机器人实际收到的群消息。
+
+群聊一天有上千条消息时，AI 总结会在统计时间范围内均匀采样最多 500 条消息，避免只截取最后一段。总结失败重试会提高到最高 8000 Token。
 
 `MBB-AI` 是软依赖：没有启用时，普通统计图片仍然可用，只有 AI 总结会提示服务不可用。
 

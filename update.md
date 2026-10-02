@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.3.3.1.0212 | 2026-10-03 | 修复 ChatStat 展示 reasoning_content 的问题；AI 总结改为 300 条均匀采样、最大 500 条、6000 Token，失败重试最高 8000 Token，不再向用户暴露思考过程 |
 | V0.3.3.0.0200 | 2026-10-03 | 统一处理 AI Markdown 输出：`MBB-AI` 底层清洗 Markdown，`MBB-Chat` 强制纯文本 prompt，`MBB-ChatStat` 总结和 `MBB-AIGuard` JSON 提示同步限制格式 |
 | V0.3.2.2.0149 | 2026-10-03 | 修复 `MBB-ChatStat` 群发言人排行误用 userID 过滤的问题；AI 总结提高输出 Token，并在 `content` 为空时兼容使用 `reasoning_content` |
 | V0.3.2.1.0145 | 2026-10-03 | 修复 `MBB-ChatStat` 查询排行时重复包裹反引号导致的 SQLite 语法错误 |

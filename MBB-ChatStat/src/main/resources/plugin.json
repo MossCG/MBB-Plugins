@@ -1,6 +1,6 @@
 {
   "name": "MBB-ChatStat",
-  "version": "V0.2.1.4.0200",
+  "version": "V0.2.1.5.0212",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.chatstat.ChatStatPlugin",
   "author": "MoBoxLab",

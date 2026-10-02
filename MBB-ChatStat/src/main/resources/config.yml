@@ -13,6 +13,6 @@ defaultDays: 1
 #AI 总结使用的模型配置名，对应 MBB-AI 的 profiles.json
 aiProfile: "default"
 #AI 总结最多读取的最近消息条数
-aiSummaryMessageCount: 50
+aiSummaryMessageCount: 300
 #AI 总结最大输出 Token
-aiSummaryMaxTokens: 1200
+aiSummaryMaxTokens: 6000

@@ -149,7 +149,7 @@ public class ChatStatCommand extends BotCommand {
         requestMessages.add(message("user",source.toString()));
         JSONObject params = new JSONObject(true);
         params.put("profile",plugin.getConfig().getString("aiProfile","default"));
-        params.put("maxTokens",plugin.getConfig().getInt("aiSummaryMaxTokens",1200));
+        params.put("maxTokens",plugin.getConfig().getInt("aiSummaryMaxTokens",6000));
         params.put("sessionId","moboxstat-"+Math.abs((groupID > 0 ? groupID : userID))+"-"+days);
         params.put("messages",requestMessages);
         JSONObject result = ai.call("chat",params);
@@ -158,6 +158,12 @@ public class ChatStatCommand extends BotCommand {
             return;
         }
         String summary = safe(result.getString("content"));
+        if (summary.isEmpty()) {
+            summary = retrySummary(ai,source.toString(),groupID,userID,days);
+        }
+        if (summary.isEmpty()) {
+            summary = fallbackSummary(stats);
+        }
         byte[] image = ChatStatImageRenderer.renderAiSummary(stats,summary);
         if (image != null) {
             sender.sendImage(ImageUtil.toBase64Uri(image));
@@ -201,5 +207,56 @@ public class ChatStatCommand extends BotCommand {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private String retrySummary(PluginService ai,String source,long groupID,long userID,int days) {
+        JSONArray messages = new JSONArray();
+        messages.add(message("system","只输出中文总结正文，禁止输出思考过程，禁止使用 Markdown、代码块、表格、标题和多余星号。"));
+        messages.add(message("user",source));
+        JSONObject params = new JSONObject(true);
+        params.put("profile",plugin.getConfig().getString("aiProfile","default"));
+        params.put("maxTokens",Math.min(12000,Math.max(8000,plugin.getConfig().getInt("aiSummaryMaxTokens",6000) + 2000)));
+        params.put("sessionId","moboxstat-"+Math.abs((groupID > 0 ? groupID : userID))+"-"+days+"-retry");
+        params.put("messages",messages);
+        JSONObject result = ai.call("chat",params);
+        if (result == null || !result.getBooleanValue("status")) return "";
+        return safe(result.getString("content"));
+    }
+
+    private String fallbackSummary(JSONObject stats) {
+        JSONObject summary = stats.getJSONObject("summary");
+        JSONArray top = stats.getJSONArray("top");
+        JSONArray recent = stats.getJSONArray("recent");
+        StringBuilder builder = new StringBuilder("模型暂时未返回总结，以下为统计摘要：\n");
+        builder.append("消息数：").append(value(summary,"messages")).append("\n");
+        if ("group".equals(stats.getString("scope"))) {
+            builder.append("活跃人数：").append(value(summary,"users")).append("\n");
+        } else {
+            builder.append("活跃群数：").append(value(summary,"groups")).append("\n");
+        }
+        builder.append("图片数：").append(value(summary,"images"))
+                .append("，@次数：").append(value(summary,"ats")).append("\n");
+        if (top != null && !top.isEmpty()) {
+            builder.append("主要活跃：");
+            for (int i = 0; i < top.size() && i < 5; i++) {
+                JSONObject item = top.getJSONObject(i);
+                if (i > 0) builder.append("、");
+                builder.append(safe(item.getString("name")));
+            }
+            builder.append("\n");
+        }
+        if (recent != null && !recent.isEmpty()) {
+            builder.append("最近内容：\n");
+            for (int i = 0; i < recent.size() && i < 5; i++) {
+                JSONObject item = recent.getJSONObject(i);
+                builder.append("- ").append(safe(item.getString("userName")))
+                        .append("：").append(safe(item.getString("content"))).append("\n");
+            }
+        }
+        return builder.toString().trim();
+    }
+
+    private long value(JSONObject row,String key) {
+        return row == null ? 0L : row.getLongValue(key);
     }
 }

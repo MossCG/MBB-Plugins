@@ -93,8 +93,8 @@ public class ChatStatService {
     }
 
     public JSONArray aiMessages(long groupID,long userID,int days,int limit) {
-        if (groupID > 0) return queryRecent("`groupID`=?",groupID,startTime(days),limit);
-        return queryRecent("`userID`=?",userID,startTime(days),limit);
+        if (groupID > 0) return querySampled("`groupID`=?",groupID,startTime(days),limit);
+        return querySampled("`userID`=?",userID,startTime(days),limit);
     }
 
     private JSONObject summary(String where,long id,long startTime) {
@@ -144,7 +144,7 @@ public class ChatStatService {
 
     private JSONArray queryRecent(String where,long id,long startTime,int limit) {
         if (limit < 1) limit = 1;
-        if (limit > 100) limit = 100;
+        if (limit > 500) limit = 500;
         JSONArray result = new JSONArray();
         List<JSONObject> rows = storage().query(
                 "SELECT `groupID`,`groupName`,`userID`,`userName`,`messageTime`,`content` "
@@ -163,6 +163,38 @@ public class ChatStatService {
             result.add(item);
         }
         return result;
+    }
+
+    private JSONArray querySampled(String where,long id,long startTime,int limit) {
+        if (limit < 1) limit = 1;
+        if (limit > 500) limit = 500;
+        List<JSONObject> rows = storage().query(
+                "SELECT `groupID`,`groupName`,`userID`,`userName`,`messageTime`,`content` "
+                        + "FROM `"+TABLE+"` WHERE "+where+" AND `messageTime`>=? "
+                        + "ORDER BY `messageTime` ASC",
+                id,startTime);
+        JSONArray result = new JSONArray();
+        if (rows == null || rows.isEmpty()) return result;
+        if (rows.size() <= limit) {
+            for (JSONObject row : rows) result.add(toMessageItem(row));
+            return result;
+        }
+        for (int i = 0; i < limit; i++) {
+            int index = (int)Math.round(i * (rows.size() - 1.0) / (limit - 1.0));
+            result.add(toMessageItem(rows.get(index)));
+        }
+        return result;
+    }
+
+    private JSONObject toMessageItem(JSONObject row) {
+        JSONObject item = new JSONObject(true);
+        item.put("groupID",row.getLongValue("groupID"));
+        item.put("groupName",safe(row.getString("groupName")));
+        item.put("userID",row.getLongValue("userID"));
+        item.put("userName",safe(row.getString("userName")));
+        item.put("messageTime",row.getLongValue("messageTime"));
+        item.put("content",safe(row.getString("content")));
+        return item;
     }
 
     private String groupName(long groupID) {
