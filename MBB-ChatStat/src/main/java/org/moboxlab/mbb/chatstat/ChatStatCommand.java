@@ -146,6 +146,8 @@ public class ChatStatCommand extends BotCommand {
         JSONArray requestMessages = new JSONArray();
         requestMessages.add(message("system","你是群聊内容总结助手。请根据给定的统计和消息，用中文总结主要话题、活跃用户和整体氛围。"
                 +"优先提炼主要内容、核心话题、重要结论和主要参与者；忽略寒暄、重复灌水、无实质内容的一两句小讨论和纯表情内容。"
+                +"忽略图片、表情、语音、视频、文件、卡片等非文本内容，不要总结图片本身。"
+                +"使用自然段输出，每个主题之间换行，段落简短。"
                 +"不要编造未出现的内容，总结要简洁清晰。只输出纯文本，禁止使用 Markdown、代码块、表格、标题、粗体或多余星号。"));
         requestMessages.add(message("user",source.toString()));
         JSONObject params = new JSONObject(true);
@@ -158,12 +160,12 @@ public class ChatStatCommand extends BotCommand {
             sender.sendMessage("AI 总结失败："+safe(result.getString("message")));
             return;
         }
-        String summary = safe(result.getString("content"));
+        String summary = normalizeSummary(safe(result.getString("content")));
         if (summary.isEmpty()) {
-            summary = retrySummary(ai,source.toString(),groupID,userID,days);
+            summary = normalizeSummary(retrySummary(ai,source.toString(),groupID,userID,days));
         }
         if (summary.isEmpty()) {
-            summary = fallbackSummary(stats);
+            summary = normalizeSummary(fallbackSummary(stats));
         }
         byte[] image = ChatStatImageRenderer.renderAiSummary(stats,summary);
         if (image != null) {
@@ -213,6 +215,7 @@ public class ChatStatCommand extends BotCommand {
     private String retrySummary(PluginService ai,String source,long groupID,long userID,int days) {
         JSONArray messages = new JSONArray();
         messages.add(message("system","只输出中文总结正文。重点总结主要内容、核心话题、重要结论和主要参与者，忽略零星闲聊和体量较小的讨论。"
+                +"忽略图片、表情、语音、视频、文件、卡片等非文本内容。使用自然段，每个主题之间换行。"
                 +"禁止输出思考过程，禁止使用 Markdown、代码块、表格、标题和多余星号。"));
         messages.add(message("user",source));
         JSONObject params = new JSONObject(true);
@@ -260,5 +263,15 @@ public class ChatStatCommand extends BotCommand {
 
     private long value(JSONObject row,String key) {
         return row == null ? 0L : row.getLongValue(key);
+    }
+
+    private String normalizeSummary(String summary) {
+        if (summary == null) return "";
+        return summary
+                .replace("\\r\\n","\n")
+                .replace("\\n","\n")
+                .replace("\\r","\r")
+                .replace("\r\n","\n")
+                .trim();
     }
 }
