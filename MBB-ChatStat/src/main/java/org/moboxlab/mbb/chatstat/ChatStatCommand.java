@@ -148,6 +148,7 @@ public class ChatStatCommand extends BotCommand {
         requestMessages.add(message("user",source.toString()));
         JSONObject params = new JSONObject(true);
         params.put("profile",plugin.getConfig().getString("aiProfile","default"));
+        params.put("maxTokens",plugin.getConfig().getInt("aiSummaryMaxTokens",1200));
         params.put("sessionId","moboxstat-"+Math.abs((groupID > 0 ? groupID : userID))+"-"+days);
         params.put("messages",requestMessages);
         JSONObject result = ai.call("chat",params);

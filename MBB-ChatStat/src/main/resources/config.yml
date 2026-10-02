@@ -14,3 +14,5 @@ defaultDays: 1
 aiProfile: "default"
 #AI 总结最多读取的最近消息条数
 aiSummaryMessageCount: 50
+#AI 总结最大输出 Token
+aiSummaryMaxTokens: 1200

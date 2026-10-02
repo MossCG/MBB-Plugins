@@ -117,6 +117,8 @@ logRequestContent: false
 }
 ```
 
+如果推理模型只返回 `reasoning_content` 而不返回 `content`，`MBB-AI` 会把 `reasoning_content` 作为兼容内容返回，避免调用方得到空结果。
+
 失败返回：
 
 ```json

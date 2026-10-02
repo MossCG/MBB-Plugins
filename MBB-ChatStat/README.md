@@ -39,6 +39,7 @@ topCount: 10
 defaultDays: 1
 aiProfile: "default"
 aiSummaryMessageCount: 50
+aiSummaryMaxTokens: 1200
 ```
 
 数据保存在主程序 SQLite 的插件专属表中。插件只统计机器人实际收到的群消息。

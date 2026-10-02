@@ -75,7 +75,7 @@ public class ChatStatService {
         result.put("groupName",groupName(groupID));
         result.put("days",days);
         result.put("summary",summary("`groupID`=?",groupID,startTime));
-        result.put("top",queryTop("userID","userName","`userID`=?",groupID,startTime));
+        result.put("top",queryTop("userID","userName","`groupID`=?",groupID,startTime));
         result.put("recent",queryRecent("`groupID`=?",groupID,startTime));
         return result;
     }
