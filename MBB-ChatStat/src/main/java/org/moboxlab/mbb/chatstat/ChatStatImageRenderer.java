@@ -13,6 +13,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -82,6 +84,69 @@ public class ChatStatImageRenderer {
             graphics.dispose();
         }
         return writePng(image);
+    }
+
+    public static byte[] renderAiSummary(JSONObject stats,String summary) {
+        if (stats == null) return null;
+        JSONObject summaryData = stats.getJSONObject("summary");
+        int cardY = PADDING + 76;
+        int panelY = cardY + 126;
+        List<String> lines = wrapText(summary == null ? "" : summary,52);
+        int panelHeight = 84 + Math.max(1,lines.size()) * 30;
+        int height = panelY + panelHeight + PADDING;
+
+        BufferedImage image = new BufferedImage(WIDTH,height,BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            init(graphics,height);
+            boolean group = "group".equals(stats.getString("scope"));
+            String title = group
+                    ? "AI 群聊总结 - "+safe(stats.getString("groupName"))+"("+stats.getLongValue("groupID")+")"
+                    : "AI 用户群聊总结 - "+stats.getLongValue("userID");
+            drawHeader(graphics,title,"最近 "+stats.getIntValue("days")+" 天");
+
+            int cardWidth = (WIDTH - PADDING * 2 - GAP * 3) / 4;
+            drawMetric(graphics,PADDING,cardY,cardWidth,96,"消息数",String.valueOf(value(summaryData,"messages")),"");
+            drawMetric(graphics,PADDING + (cardWidth + GAP),cardY,cardWidth,96,
+                    group ? "活跃人数" : "活跃群数",String.valueOf(group ? value(summaryData,"users") : value(summaryData,"groups")),"");
+            drawMetric(graphics,PADDING + (cardWidth + GAP) * 2,cardY,cardWidth,96,"图片",String.valueOf(value(summaryData,"images")),"");
+            drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,cardY,cardWidth,96,"@ 次数",String.valueOf(value(summaryData,"ats")),"");
+
+            drawPanel(graphics,PADDING,panelY,WIDTH - PADDING * 2,panelHeight,"AI 总结");
+            int lineY = panelY + 68;
+            if (lines.isEmpty()) {
+                drawText(graphics,"AI 没有返回总结内容。",PADDING + 20,lineY,new Color(120,113,108),Font.PLAIN,16);
+            } else {
+                for (String line : lines) {
+                    drawText(graphics,line,PADDING + 20,lineY,new Color(68,64,60),Font.PLAIN,17);
+                    lineY += 30;
+                }
+            }
+        } finally {
+            graphics.dispose();
+        }
+        return writePng(image);
+    }
+
+    private static List<String> wrapText(String text,int maxChars) {
+        List<String> lines = new ArrayList<>();
+        if (text == null) return lines;
+        String normalized = text.replace("\r","").trim();
+        if (normalized.isEmpty()) return lines;
+        String[] paragraphs = normalized.split("\n");
+        for (String paragraph : paragraphs) {
+            String value = paragraph.trim();
+            if (value.isEmpty()) {
+                lines.add("");
+                continue;
+            }
+            while (value.length() > maxChars) {
+                lines.add(value.substring(0,maxChars));
+                value = value.substring(maxChars);
+            }
+            lines.add(value);
+        }
+        return lines;
     }
 
     private static void drawTopRow(Graphics2D graphics,int x,int y,JSONObject item,long max) {

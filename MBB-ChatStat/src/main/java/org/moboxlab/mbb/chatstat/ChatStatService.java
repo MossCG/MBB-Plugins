@@ -92,6 +92,11 @@ public class ChatStatService {
         return result;
     }
 
+    public JSONArray aiMessages(long groupID,long userID,int days,int limit) {
+        if (groupID > 0) return queryRecent("`groupID`=?",groupID,startTime(days),limit);
+        return queryRecent("`userID`=?",userID,startTime(days),limit);
+    }
+
     private JSONObject summary(String where,long id,long startTime) {
         List<JSONObject> rows = storage().query(
                 "SELECT COUNT(*) AS `messages`,COUNT(DISTINCT `userID`) AS `users`,"
@@ -134,6 +139,12 @@ public class ChatStatService {
         int limit = plugin.getConfig().getInt("recentMessageCount",10);
         if (limit < 1) limit = 1;
         if (limit > 30) limit = 30;
+        return queryRecent(where,id,startTime,limit);
+    }
+
+    private JSONArray queryRecent(String where,long id,long startTime,int limit) {
+        if (limit < 1) limit = 1;
+        if (limit > 100) limit = 100;
         JSONArray result = new JSONArray();
         List<JSONObject> rows = storage().query(
                 "SELECT `groupID`,`groupName`,`userID`,`userName`,`messageTime`,`content` "
