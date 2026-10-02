@@ -93,8 +93,8 @@ public class ChatStatService {
     }
 
     public JSONArray aiMessages(long groupID,long userID,int days,int limit) {
-        if (groupID > 0) return querySampled("`groupID`=?",groupID,startTime(days),limit);
-        return querySampled("`userID`=?",userID,startTime(days),limit);
+        if (groupID > 0) return queryForSummary("`groupID`=?",groupID,startTime(days),limit);
+        return queryForSummary("`userID`=?",userID,startTime(days),limit);
     }
 
     private JSONObject summary(String where,long id,long startTime) {
@@ -165,9 +165,9 @@ public class ChatStatService {
         return result;
     }
 
-    private JSONArray querySampled(String where,long id,long startTime,int limit) {
-        if (limit < 1) limit = 1;
-        if (limit > 500) limit = 500;
+    private JSONArray queryForSummary(String where,long id,long startTime,int limit) {
+        boolean unlimited = limit <= 0;
+        if (!unlimited && limit > 500) limit = 500;
         List<JSONObject> rows = storage().query(
                 "SELECT `groupID`,`groupName`,`userID`,`userName`,`messageTime`,`content` "
                         + "FROM `"+TABLE+"` WHERE "+where+" AND `messageTime`>=? "
@@ -175,26 +175,41 @@ public class ChatStatService {
                 id,startTime);
         JSONArray result = new JSONArray();
         if (rows == null || rows.isEmpty()) return result;
-        if (rows.size() <= limit) {
-            for (JSONObject row : rows) result.add(toMessageItem(row));
-            return result;
+        for (JSONObject row : rows) {
+            String content = stripNonText(safe(row.getString("content")));
+            if (content.isEmpty()) continue;
+            JSONObject item = new JSONObject(true);
+            item.put("groupID",row.getLongValue("groupID"));
+            item.put("groupName",safe(row.getString("groupName")));
+            item.put("userID",row.getLongValue("userID"));
+            item.put("userName",safe(row.getString("userName")));
+            item.put("messageTime",row.getLongValue("messageTime"));
+            item.put("content",content);
+            result.add(item);
         }
-        for (int i = 0; i < limit; i++) {
-            int index = (int)Math.round(i * (rows.size() - 1.0) / (limit - 1.0));
-            result.add(toMessageItem(rows.get(index)));
+        if (!unlimited && result.size() > limit) {
+            JSONArray sampled = new JSONArray();
+            for (int i = 0; i < limit; i++) {
+                int index = (int)Math.round(i * (result.size() - 1.0) / (limit - 1.0));
+                sampled.add(result.getJSONObject(index));
+            }
+            return sampled;
         }
         return result;
     }
 
-    private JSONObject toMessageItem(JSONObject row) {
-        JSONObject item = new JSONObject(true);
-        item.put("groupID",row.getLongValue("groupID"));
-        item.put("groupName",safe(row.getString("groupName")));
-        item.put("userID",row.getLongValue("userID"));
-        item.put("userName",safe(row.getString("userName")));
-        item.put("messageTime",row.getLongValue("messageTime"));
-        item.put("content",safe(row.getString("content")));
-        return item;
+    private String stripNonText(String content) {
+        if (content == null || content.isEmpty()) return "";
+        return content
+                .replace("[图片]","")
+                .replace("[表情]","")
+                .replace("[语音]","")
+                .replace("[视频]","")
+                .replace("[文件]","")
+                .replace("[卡片]","")
+                .replace("[合并转发]","")
+                .replace("[回复]","")
+                .trim();
     }
 
     private String groupName(long groupID) {

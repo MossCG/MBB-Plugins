@@ -126,7 +126,7 @@ public class ChatStatCommand extends BotCommand {
             sender.sendMessage("AI 总结不可用，请确认 MBB-AI 已启用！");
             return;
         }
-        int limit = plugin.getConfig().getInt("aiSummaryMessageCount",50);
+        int limit = plugin.getConfig().getInt("aiSummaryMessageCount",0);
         JSONArray messages = statsService.aiMessages(groupID,userID,days,limit);
         StringBuilder source = new StringBuilder();
         source.append("统计范围：").append(groupID > 0 ? "群 "+groupID : "用户 "+userID)
@@ -145,11 +145,12 @@ public class ChatStatCommand extends BotCommand {
         }
         JSONArray requestMessages = new JSONArray();
         requestMessages.add(message("system","你是群聊内容总结助手。请根据给定的统计和消息，用中文总结主要话题、活跃用户和整体氛围。"
+                +"优先提炼主要内容、核心话题、重要结论和主要参与者；忽略寒暄、重复灌水、无实质内容的一两句小讨论和纯表情内容。"
                 +"不要编造未出现的内容，总结要简洁清晰。只输出纯文本，禁止使用 Markdown、代码块、表格、标题、粗体或多余星号。"));
         requestMessages.add(message("user",source.toString()));
         JSONObject params = new JSONObject(true);
         params.put("profile",plugin.getConfig().getString("aiProfile","default"));
-        params.put("maxTokens",plugin.getConfig().getInt("aiSummaryMaxTokens",6000));
+        params.put("maxTokens",plugin.getConfig().getInt("aiSummaryMaxTokens",8000));
         params.put("sessionId","moboxstat-"+Math.abs((groupID > 0 ? groupID : userID))+"-"+days);
         params.put("messages",requestMessages);
         JSONObject result = ai.call("chat",params);
@@ -211,11 +212,12 @@ public class ChatStatCommand extends BotCommand {
 
     private String retrySummary(PluginService ai,String source,long groupID,long userID,int days) {
         JSONArray messages = new JSONArray();
-        messages.add(message("system","只输出中文总结正文，禁止输出思考过程，禁止使用 Markdown、代码块、表格、标题和多余星号。"));
+        messages.add(message("system","只输出中文总结正文。重点总结主要内容、核心话题、重要结论和主要参与者，忽略零星闲聊和体量较小的讨论。"
+                +"禁止输出思考过程，禁止使用 Markdown、代码块、表格、标题和多余星号。"));
         messages.add(message("user",source));
         JSONObject params = new JSONObject(true);
         params.put("profile",plugin.getConfig().getString("aiProfile","default"));
-        params.put("maxTokens",Math.min(12000,Math.max(8000,plugin.getConfig().getInt("aiSummaryMaxTokens",6000) + 2000)));
+        params.put("maxTokens",Math.min(16000,Math.max(12000,plugin.getConfig().getInt("aiSummaryMaxTokens",8000) + 2000)));
         params.put("sessionId","moboxstat-"+Math.abs((groupID > 0 ? groupID : userID))+"-"+days+"-retry");
         params.put("messages",messages);
         JSONObject result = ai.call("chat",params);
