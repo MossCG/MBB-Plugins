@@ -29,6 +29,7 @@ public class GuardService {
     private static final String RECENT_TABLE = "plugin_mbb_aiguard_recent";
     private static final String WHITELIST_TABLE = "plugin_mbb_aiguard_whitelist";
     private static final String GROUP_TABLE = "plugin_mbb_aiguard_group_config";
+    private static final String ALERT_RECIPIENT_KEY = "guard-alert-recipients";
 
     private final Plugin plugin;
     private final GuardConfig config;
@@ -256,6 +257,40 @@ public class GuardService {
         return result;
     }
 
+    public Set<Long> listAlertRecipients() {
+        Set<Long> result = new LinkedHashSet<>();
+        String value = storage().get(plugin,ALERT_RECIPIENT_KEY);
+        if (value == null || value.trim().isEmpty()) return result;
+        try {
+            JSONArray array = JSONArray.parseArray(value);
+            if (array == null) return result;
+            for (Object item : array) {
+                try {
+                    long id = Long.parseLong(String.valueOf(item).trim());
+                    if (id > 0) result.add(id);
+                } catch (Exception ignored) {
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("读取告警推送名单失败："+e.getMessage());
+        }
+        return result;
+    }
+
+    public boolean addAlertRecipient(long userID) {
+        Set<Long> recipients = listAlertRecipients();
+        if (!recipients.add(userID)) return false;
+        saveAlertRecipients(recipients);
+        return true;
+    }
+
+    public boolean removeAlertRecipient(long userID) {
+        Set<Long> recipients = listAlertRecipients();
+        if (!recipients.remove(userID)) return false;
+        saveAlertRecipients(recipients);
+        return true;
+    }
+
     public int ruleCount() {
         return ruleEngine.size();
     }
@@ -436,16 +471,23 @@ public class GuardService {
         if (config.alertCurrentGroup) {
             client.sendGroupMessage(groupID,MessageUtil.message(MessageUtil.text(text)));
         }
+        Set<Long> recipients = new LinkedHashSet<>();
+        recipients.addAll(listAlertRecipients());
         if (config.alertAdminPrivate) {
             List<Long> admins = plugin.getServer().getAdminList();
-            if (admins != null) {
-                for (Long admin : admins) {
-                    if (admin != null && admin > 0) {
-                        client.sendPrivateMessage(admin,MessageUtil.message(MessageUtil.text(text)));
-                    }
-                }
+            if (admins != null) recipients.addAll(admins);
+        }
+        for (Long recipient : recipients) {
+            if (recipient != null && recipient > 0) {
+                client.sendPrivateMessage(recipient,MessageUtil.message(MessageUtil.text(text)));
             }
         }
+    }
+
+    private void saveAlertRecipients(Set<Long> recipients) {
+        JSONArray array = new JSONArray();
+        for (Long userID : recipients) array.add(String.valueOf(userID));
+        storage().set(plugin,ALERT_RECIPIENT_KEY,array.toJSONString());
     }
 
     private boolean checkCooldown(long groupID,long userID) {

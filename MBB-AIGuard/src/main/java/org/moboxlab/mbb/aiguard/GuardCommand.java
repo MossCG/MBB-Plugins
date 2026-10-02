@@ -54,6 +54,7 @@ public class GuardCommand extends BotCommand {
                 "/guard threshold <分数>",
                 "/guard test <文本>",
                 "/guard log [页码]",
+                "/guard remind [QQ|add <QQ>|remove <QQ>|clear]",
                 "/guard whitelist list [群号]",
                 "/guard whitelist add <QQ> [群号]",
                 "/guard whitelist remove <QQ> [群号]");
@@ -88,6 +89,10 @@ public class GuardCommand extends BotCommand {
         }
         if ("log".equals(action)) {
             sendLog(sender,args);
+            return true;
+        }
+        if ("remind".equals(action)) {
+            handleRemind(sender,args);
             return true;
         }
         if ("whitelist".equals(action)) {
@@ -271,6 +276,58 @@ public class GuardCommand extends BotCommand {
                 ? guardService.addWhitelist(scope,userID,scopeGroup,sender.getUserID())
                 : guardService.removeWhitelist(scope,userID,scopeGroup);
         sender.sendMessage("白名单"+(changed ? "操作成功" : "未发生变化")+"。");
+    }
+
+    private void handleRemind(CommandSender sender,String[] args) {
+        if (args.length == 2) {
+            sendRemindList(sender);
+            return;
+        }
+        String action = args[2].toLowerCase();
+        if ("list".equals(action)) {
+            sendRemindList(sender);
+            return;
+        }
+        if ("clear".equals(action)) {
+            java.util.Set<Long> recipients = guardService.listAlertRecipients();
+            for (Long userID : recipients) guardService.removeAlertRecipient(userID);
+            sender.sendMessage("告警推送名单已清空。");
+            return;
+        }
+        if ("add".equals(action) || "remove".equals(action)) {
+            if (args.length < 4) {
+                sender.sendMessage("用法：/guard remind "+action+" <QQ>");
+                return;
+            }
+            updateRemind(sender,args[3],"add".equals(action));
+            return;
+        }
+        updateRemind(sender,args[2],true);
+    }
+
+    private void updateRemind(CommandSender sender,String text,boolean add) {
+        int changed = 0;
+        for (String item : text.split(",")) {
+            try {
+                long userID = Long.parseLong(item.trim());
+                if (userID <= 0) continue;
+                boolean result = add ? guardService.addAlertRecipient(userID) : guardService.removeAlertRecipient(userID);
+                if (result) changed++;
+            } catch (Exception ignored) {
+            }
+        }
+        sender.sendMessage("告警推送名单"+(add ? "添加" : "移除")+"完成，变更 "+changed+" 个。");
+    }
+
+    private void sendRemindList(CommandSender sender) {
+        java.util.Set<Long> recipients = guardService.listAlertRecipients();
+        if (recipients.isEmpty()) {
+            sender.sendMessage("当前没有额外告警推送 QQ。");
+            return;
+        }
+        StringBuilder builder = new StringBuilder("告警推送名单：");
+        for (Long userID : recipients) builder.append("\n").append(userID);
+        sender.sendMessage(builder.toString());
     }
 
     private String joinArgs(String[] args,int start) {

@@ -21,6 +21,10 @@ MoBoxBot AI 群聊内容风险审查插件。
 | `/guard threshold <分数>` | `BOT_ADMIN` | 设置当前群告警阈值 |
 | `/guard test <文本>` | `BOT_ADMIN` | 测试文本风险判定 |
 | `/guard log [页码]` | `BOT_ADMIN` | 查看最近审查事件 |
+| `/guard remind <QQ>` | `BOT_ADMIN` | 添加告警私信推送 QQ，支持逗号分隔多个 |
+| `/guard remind list` | `BOT_ADMIN` | 查看告警推送名单 |
+| `/guard remind remove <QQ>` | `BOT_ADMIN` | 移除告警推送 QQ |
+| `/guard remind clear` | `BOT_ADMIN` | 清空额外告警推送名单 |
 | `/guard whitelist list [群号]` | `BOT_ADMIN` | 查看白名单 |
 | `/guard whitelist add <QQ>` | `OWNER` | 添加全局白名单 |
 | `/guard whitelist add <QQ> <群号>` | `BOT_ADMIN` | 添加群级白名单 |
