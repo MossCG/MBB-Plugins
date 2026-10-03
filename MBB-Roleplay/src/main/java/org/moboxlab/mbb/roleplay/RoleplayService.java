@@ -31,6 +31,7 @@ public class RoleplayService {
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,Long> lastReplyMap = new HashMap<>();
+    private final Map<Long,Long> lastReplyUserMap = new HashMap<>();
     private final Map<Long,Long> lastBotMessageMap = new HashMap<>();
     private final Map<Long,Integer> messageCountMap = new HashMap<>();
     private final Map<Long,long[]> replyRateMap = new HashMap<>();
@@ -92,6 +93,7 @@ public class RoleplayService {
         if (containsIgnoredContent(event.getMessage())) return;
         String content = extractContent(event.getMessage());
         if (content == null || content.trim().isEmpty()) return;
+        if (isCommand(content)) return;
         recordMessage(event,content,false);
         int count = countMessage(groupID);
         if (count >= config.memoryUpdateMessages) {
@@ -100,14 +102,14 @@ public class RoleplayService {
         }
 
         boolean direct = isDirect(event,content,selfID);
-        boolean continuation = isContinuation(groupID);
+        boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
+        boolean groupActive = isGroupActive(groupID);
         boolean interest = persona.matchesInterest(content);
-        boolean question = isQuestion(content);
-        double chance = config.ambientReplyChance;
+        if (!direct && !sameUserContinuation && !groupActive && !interest) return;
+        double chance = config.interestReplyChance;
         if (direct) chance = 1.0;
-        else if (continuation) chance = config.continuationReplyChance;
-        else if (interest) chance = config.interestReplyChance;
-        else if (question) chance = config.questionReplyChance;
+        else if (sameUserContinuation) chance = config.continuationReplyChance;
+        else if (groupActive) chance = config.otherParticipantReplyChance;
         if (content.length() < config.minMessageLength || Math.random() >= chance) return;
         if (!canReply(groupID)) return;
         String userName = senderName(event);
@@ -117,7 +119,7 @@ public class RoleplayService {
         if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null) return;
-        sendReply(client,groupID,selfID,reply);
+        sendReply(client,groupID,selfID,event.getUserID(),reply);
     }
 
     public JSONObject status(long groupID) {
@@ -200,7 +202,9 @@ public class RoleplayService {
                 +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
+                +"如果其他群员正在接续当前话题，可以自然参与；如果只是无关话题，只输出 <SKIP>。"
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
+                +"尽量只回复一句话，短句优先，不要分多段。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
@@ -361,7 +365,7 @@ public class RoleplayService {
                 messageID,groupID,botID,"角色",System.currentTimeMillis(),content,1);
     }
 
-    private void sendReply(OneBotClient client,long groupID,long selfID,String reply) {
+    private void sendReply(OneBotClient client,long groupID,long selfID,long userID,String reply) {
         List<String> segments = splitReply(reply);
         if (segments.isEmpty()) return;
         int count = Math.min(segments.size(),config.replyMaxSegments);
@@ -372,6 +376,7 @@ public class RoleplayService {
                         ? 0L : response.getJSONObject("data").getLongValue("message_id");
                 lastBotMessageMap.put(groupID,messageID);
                 recordBotMessage(groupID,selfID,segments.get(i),messageID);
+                lastReplyUserMap.put(groupID,userID);
             }
             if (i + 1 < count) {
                 try {
@@ -388,11 +393,20 @@ public class RoleplayService {
         List<String> result = new ArrayList<>();
         if (text == null || text.trim().isEmpty()) return result;
         String normalized = text.replace("\\n","\n").replace("\r\n","\n").replace("\r","\n");
-        String[] paragraphs = normalized.split("\n+");
-        for (String paragraph : paragraphs) {
-            addParagraph(result,paragraph.trim(),config.replySegmentMaxChars);
-        }
+        String compact = normalized.replaceAll("\\s*\\n\\s*"," ").replaceAll("\\s+"," ").trim();
+        addParagraph(result,compact,config.replySegmentMaxChars);
         return result;
+    }
+
+    private boolean isCommand(String content) {
+        String text = content == null ? "" : content.trim();
+        if (text.startsWith("@")) {
+            text = text.replaceFirst("^@[0-9]+\\s*","").trim();
+        }
+        for (String prefix : config.commandPrefixes.split(",")) {
+            if (!prefix.trim().isEmpty() && text.startsWith(prefix.trim())) return true;
+        }
+        return false;
     }
 
     private void addParagraph(List<String> result,String text,int maxChars) {
@@ -469,18 +483,16 @@ public class RoleplayService {
         return false;
     }
 
-    private boolean isContinuation(long groupID) {
+    private boolean isContinuation(long groupID,long userID) {
         Long last = lastReplyMap.get(groupID);
-        return last != null && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
+        Long lastUser = lastReplyUserMap.get(groupID);
+        return last != null && lastUser != null && lastUser == userID
+                && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
     }
 
-    private boolean isQuestion(String content) {
-        if (content == null) return false;
-        return content.contains("?") || content.contains("？")
-                || content.contains("什么") || content.contains("谁") || content.contains("为什么")
-                || content.contains("怎么") || content.contains("哪") || content.contains("多少")
-                || content.contains("是不是") || content.contains("能不能") || content.contains("可不可以")
-                || content.endsWith("吗") || content.endsWith("呢");
+    private boolean isGroupActive(long groupID) {
+        Long last = lastReplyMap.get(groupID);
+        return last != null && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
     }
 
     private String extractContent(JSONArray message) {

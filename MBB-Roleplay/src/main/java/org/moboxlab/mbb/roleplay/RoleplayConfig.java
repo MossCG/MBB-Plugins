@@ -13,18 +13,18 @@ public class RoleplayConfig {
     public double interestReplyChance = 0.65;
     public int conversationWindowSecond = 180;
     public double continuationReplyChance = 0.80;
-    public double questionReplyChance = 0.40;
-    public double ambientReplyChance = 0.12;
+    public double otherParticipantReplyChance = 0.45;
     public int shortContextMessages = 80;
     public int shortTermDays = 3;
     public int memoryUpdateMessages = 50;
     public int memoryExtractMessages = 300;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
-    public int replySegmentMaxChars = 120;
-    public int replyMaxSegments = 5;
+    public int replySegmentMaxChars = 160;
+    public int replyMaxSegments = 2;
     public String personaFile = "persona.json";
     public int minMessageLength = 2;
+    public String commandPrefixes = "/,!,＃,#";
 
     public static RoleplayConfig load(Plugin plugin) {
         RoleplayConfig config = new RoleplayConfig();
@@ -44,14 +44,9 @@ public class RoleplayConfig {
             config.continuationReplyChance = 0.80;
         }
         try {
-            config.questionReplyChance = Double.parseDouble(plugin.getConfig().getString("questionReplyChance","0.40"));
+            config.otherParticipantReplyChance = Double.parseDouble(plugin.getConfig().getString("otherParticipantReplyChance","0.45"));
         } catch (Exception e) {
-            config.questionReplyChance = 0.40;
-        }
-        try {
-            config.ambientReplyChance = Double.parseDouble(plugin.getConfig().getString("ambientReplyChance","0.12"));
-        } catch (Exception e) {
-            config.ambientReplyChance = 0.12;
+            config.otherParticipantReplyChance = 0.45;
         }
         config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",80);
         config.shortTermDays = plugin.getConfig().getInt("shortTermDays",3);
@@ -59,10 +54,11 @@ public class RoleplayConfig {
         config.memoryExtractMessages = plugin.getConfig().getInt("memoryExtractMessages",300);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
-        config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",120);
-        config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",5);
+        config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",160);
+        config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
         config.personaFile = plugin.getConfig().getString("personaFile","persona.json");
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
+        config.commandPrefixes = plugin.getConfig().getString("commandPrefixes","/,!,＃,#");
         if (config.aiProfile == null || config.aiProfile.trim().isEmpty()) config.aiProfile = "default";
         if (config.replyCooldownSecond < 0) config.replyCooldownSecond = 0;
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
@@ -71,10 +67,8 @@ public class RoleplayConfig {
         if (config.conversationWindowSecond < 10) config.conversationWindowSecond = 10;
         if (config.continuationReplyChance < 0) config.continuationReplyChance = 0;
         if (config.continuationReplyChance > 1) config.continuationReplyChance = 1;
-        if (config.questionReplyChance < 0) config.questionReplyChance = 0;
-        if (config.questionReplyChance > 1) config.questionReplyChance = 1;
-        if (config.ambientReplyChance < 0) config.ambientReplyChance = 0;
-        if (config.ambientReplyChance > 1) config.ambientReplyChance = 1;
+        if (config.otherParticipantReplyChance < 0) config.otherParticipantReplyChance = 0;
+        if (config.otherParticipantReplyChance > 1) config.otherParticipantReplyChance = 1;
         if (config.shortContextMessages < 1) config.shortContextMessages = 1;
         if (config.shortContextMessages > 300) config.shortContextMessages = 300;
         if (config.shortTermDays < 1) config.shortTermDays = 1;
@@ -88,8 +82,9 @@ public class RoleplayConfig {
         if (config.replySegmentMaxChars < 40) config.replySegmentMaxChars = 40;
         if (config.replySegmentMaxChars > 300) config.replySegmentMaxChars = 300;
         if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;
-        if (config.replyMaxSegments > 10) config.replyMaxSegments = 10;
+        if (config.replyMaxSegments > 2) config.replyMaxSegments = 2;
         if (config.minMessageLength < 1) config.minMessageLength = 1;
+        if (config.commandPrefixes == null) config.commandPrefixes = "/,!,＃,#";
         return config;
     }
 }

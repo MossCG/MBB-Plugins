@@ -55,11 +55,12 @@ maxRepliesPerHour: 180
 interestReplyChance: 0.65
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
-questionReplyChance: 0.40
-ambientReplyChance: 0.12
+otherParticipantReplyChance: 0.45
 shortContextMessages: 80
 memoryUpdateMessages: 50
 memoryExtractMessages: 300
 maxLongMemories: 150
 minMessageLength: 2
 ```
+
+非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求尽量只输出一句话。

@@ -13,10 +13,8 @@ interestReplyChance: 0.65
 #最近与角色聊过天后，延续对话的回复概率
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
-#普通疑问句的回复概率
-questionReplyChance: 0.40
-#普通群聊消息的随机参与概率
-ambientReplyChance: 0.12
+#其他群员接续当前话题时的回复概率
+otherParticipantReplyChance: 0.45
 #即时上下文消息条数
 shortContextMessages: 80
 #短期记忆覆盖天数
@@ -30,9 +28,11 @@ maxLongMemories: 150
 #单次角色回复最大 Token
 replyMaxTokens: 1200
 #单段回复最多字符数
-replySegmentMaxChars: 120
+replySegmentMaxChars: 160
 #最多拆分发送多少段
-replyMaxSegments: 5
+replyMaxSegments: 2
+#忽略以这些前缀开头的指令消息，英文逗号分隔
+commandPrefixes: "/,!,＃,#"
 #角色设定文件
 personaFile: "persona.json"
 #忽略少于多少字的纯文本消息
