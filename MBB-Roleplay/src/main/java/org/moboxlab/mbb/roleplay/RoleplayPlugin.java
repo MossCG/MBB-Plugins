@@ -17,7 +17,7 @@ public class RoleplayPlugin extends Plugin {
     @Override
     public void onLoad() {
         saveDefaultConfig();
-        saveDefaultPersona();
+        saveDefaultPersonas();
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
     }
@@ -46,18 +46,36 @@ public class RoleplayPlugin extends Plugin {
         if (service != null) service.reload(roleplayConfig,persona);
     }
 
-    private void saveDefaultPersona() {
-        try {
-            File file = new File(getDataFolder(),"persona.json");
-            if (file.exists()) return;
-            byte[] bytes = readResource("persona.json");
-            if (bytes == null) {
-                getLogger().sendWarn("插件 JAR 里没有 persona.json！");
-                return;
+    public String getPersonaFileName() {
+        return roleplayConfig.personaFile;
+    }
+
+    public boolean switchPersona(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) return false;
+        String name = fileName.trim();
+        File file = new File(getDataFolder(),name);
+        if (!file.exists()) return false;
+        getConfig().set("personaFile",name);
+        if (!getConfig().save()) return false;
+        reloadRoleplay();
+        return true;
+    }
+
+    private void saveDefaultPersonas() {
+        String[] files = new String[]{"persona.json","persona-momoi.json","persona-midori.json"};
+        for (String name : files) {
+            try {
+                File file = new File(getDataFolder(),name);
+                if (file.exists()) continue;
+                byte[] bytes = readResource(name);
+                if (bytes == null) {
+                    getLogger().sendWarn("插件 JAR 里没有 "+name+"！");
+                    continue;
+                }
+                Files.write(Paths.get(file.getAbsolutePath()),bytes);
+            } catch (Exception e) {
+                getLogger().sendException(e);
             }
-            Files.write(Paths.get(file.getAbsolutePath()),bytes);
-        } catch (Exception e) {
-            getLogger().sendException(e);
         }
     }
 }

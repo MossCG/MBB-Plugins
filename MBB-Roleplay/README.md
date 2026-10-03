@@ -26,6 +26,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 | `/role reload` | `BOT_ADMIN` | 重载角色设定和配置 |
 | `/role memory` | `BOT_ADMIN` | 查看当前群记忆概况 |
 | `/role forget` | `BOT_ADMIN` | 清空当前群记忆 |
+| `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
 
 ## 角色设定
 
@@ -36,6 +37,19 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 ```
 
 默认设定为《蔚蓝档案》的天童爱丽丝：游戏开发部、勇者见习生、RPG 爱好者，重视老师和伙伴，说话偶尔带游戏化表达。
+
+另外内置两份角色设定：
+
+- `persona-momoi.json`：才羽桃井，游戏开发部剧本作家，桃井式活泼吐槽。
+- `persona-midori.json`：才羽绿，游戏开发部美术，安静认真、常吐槽桃井。
+
+切换角色：
+
+```text
+/role persona persona-momoi.json
+/role persona persona-midori.json
+/role persona persona.json
+```
 
 默认口癖包括“邦邦咔邦！”、“爱丽丝，了解！”、“光呀！”等，要求低频自然使用，不会每句话都变成游戏台词。
 

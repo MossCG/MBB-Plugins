@@ -33,7 +33,7 @@ replySegmentMaxChars: 160
 replyMaxSegments: 2
 #忽略以这些前缀开头的指令消息，英文逗号分隔
 commandPrefixes: "/,!,＃,#"
-#角色设定文件
+#角色设定文件：persona.json（爱丽丝）/ persona-momoi.json（桃井）/ persona-midori.json（绿）
 personaFile: "persona.json"
 #忽略少于多少字的纯文本消息
 minMessageLength: 2

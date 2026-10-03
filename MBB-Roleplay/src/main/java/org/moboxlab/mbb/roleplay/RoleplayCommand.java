@@ -53,7 +53,8 @@ public class RoleplayCommand extends BotCommand {
                 "/role groups",
                 "/role reload",
                 "/role memory",
-                "/role forget");
+                "/role forget",
+                "/role persona [文件名]");
     }
 
     @Override
@@ -128,7 +129,17 @@ public class RoleplayCommand extends BotCommand {
             sender.sendMessage("当前群的角色记忆已清空。");
             return true;
         }
-        sender.sendMessage("用法：/role status | enable/disable | groups | reload | memory | forget");
+        if ("persona".equals(action)) {
+            if (args.length < 3) {
+                sender.sendMessage("当前角色设定文件："+plugin.getPersonaFileName()
+                        +"\n可用：persona.json、persona-momoi.json、persona-midori.json");
+                return true;
+            }
+            boolean changed = plugin.switchPersona(args[2]);
+            sender.sendMessage(changed ? "角色设定已切换："+args[2] : "切换失败，请检查文件名是否存在。");
+            return true;
+        }
+        sender.sendMessage("用法：/role status | enable/disable | groups | reload | memory | forget | persona");
         return true;
     }
 }
