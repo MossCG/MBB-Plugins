@@ -136,7 +136,8 @@ public class RoleplayService {
         if (content.length() < config.minMessageLength || Math.random() >= chance) return;
         if (!canReply(groupID)) return;
         String userName = senderName(event);
-        JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot);
+        String relationship = relationshipLabel(event,otherRoleBot);
+        JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,relationship);
         if (result == null || !result.getBooleanValue("status")) return;
         String rawReply = safe(result.getString("content")).trim();
         boolean remember = containsRememberMarker(rawReply);
@@ -254,12 +255,14 @@ public class RoleplayService {
         return persona.interests.size();
     }
 
-    private JSONObject reply(long groupID,long userID,String userName,String content,boolean otherRoleBot) {
+    private JSONObject reply(long groupID,long userID,String userName,String content,
+                             boolean otherRoleBot,String relationship) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
-        messages.add(message("system",buildSystemPrompt(groupID,otherRoleBot)));
+        messages.add(message("system",buildSystemPrompt(groupID,otherRoleBot,relationship)));
         messages.add(message("user","当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
+                +"当前关系："+relationship+"\n"
                 +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
@@ -269,12 +272,18 @@ public class RoleplayService {
         return ai.call("chat",params);
     }
 
-    private String buildSystemPrompt(long groupID,boolean otherRoleBot) {
+    private String buildSystemPrompt(long groupID,boolean otherRoleBot,String relationship) {
         String recentReplies = recentRoleReplyText(groupID);
         return persona.description()+"\n\n"
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
                 +"你最近说过的话：\n"+recentReplies+"\n"
+                +"当前发言者关系："+relationship+"\n"
+                +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
+                +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
+                +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
+                +"所有真人成员的初始好感度为 "+config.initialAffinity+"/100，整体保持较高好感，"
+                +"愿意接话、帮忙和分享，不要冷淡、疏远或无缘无故防备。"
                 +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
@@ -601,6 +610,14 @@ public class RoleplayService {
         String name = sender == null ? "" : sender.getString("card");
         if (name == null || name.trim().isEmpty()) name = sender == null ? "" : sender.getString("nickname");
         return name == null || name.trim().isEmpty() ? String.valueOf(event.getUserID()) : name;
+    }
+
+    private String relationshipLabel(GroupMessageEvent event,boolean otherRoleBot) {
+        if (otherRoleBot) return "其他角色机器人";
+        JSONObject sender = event == null ? null : event.getSender();
+        String role = sender == null ? "" : safe(sender.getString("role")).trim().toLowerCase(Locale.CHINA);
+        if ("owner".equals(role) || "admin".equals(role)) return "老师";
+        return "朋友";
     }
 
     private int countMessage(long groupID) {

@@ -10,6 +10,8 @@ aiProfile: "default"
 replyCooldownSecond: 5
 #同一群每小时最多回复次数
 maxRepliesPerHour: 180
+#角色对所有真人成员的初始好感度，0 到 100
+initialAffinity: 70
 #非直接提及消息命中兴趣关键词后的回复概率，0 到 1
 interestReplyChance: 0.65
 #最近与角色聊过后，延续对话的窗口秒数

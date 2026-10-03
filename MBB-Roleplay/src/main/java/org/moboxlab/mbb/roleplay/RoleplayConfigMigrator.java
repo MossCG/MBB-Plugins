@@ -35,6 +35,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("aiProfile","default","AI 使用的模型配置名，对应 MBB-AI 的 profiles.json"),
             new ConfigEntry("replyCooldownSecond","5","同一群两次回复的最小间隔秒数"),
             new ConfigEntry("maxRepliesPerHour","180","同一群每小时最多回复次数"),
+            new ConfigEntry("initialAffinity","70","角色对所有真人成员的初始好感度，0 到 100"),
             new ConfigEntry("interestReplyChance","0.65","非直接提及消息命中兴趣关键词后的回复概率，0 到 1"),
             new ConfigEntry("conversationWindowSecond","180","最近与角色聊过后，延续对话的窗口秒数"),
             new ConfigEntry("continuationReplyChance","0.80","最近与角色聊过天后，延续对话的回复概率"),

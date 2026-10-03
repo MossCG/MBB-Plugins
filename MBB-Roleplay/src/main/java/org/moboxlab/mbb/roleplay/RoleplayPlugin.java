@@ -10,6 +10,9 @@ import java.nio.file.Paths;
  * MBB-Roleplay 插件
  */
 public class RoleplayPlugin extends Plugin {
+    private static final String[] PERSONA_FILES =
+            new String[]{"persona.json","persona-momoi.json","persona-midori.json"};
+
     private RoleplayConfig roleplayConfig;
     private RoleplayPersona persona;
     private RoleplayService service;
@@ -75,6 +78,29 @@ public class RoleplayPlugin extends Plugin {
         return true;
     }
 
+    public boolean resetPersona(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) return false;
+        String name = fileName.trim();
+        boolean builtIn = false;
+        for (String item : PERSONA_FILES) {
+            if (item.equals(name)) {
+                builtIn = true;
+                break;
+            }
+        }
+        if (!builtIn) return false;
+        try {
+            byte[] bytes = readResource(name);
+            if (bytes == null) return false;
+            Files.write(Paths.get(new File(getDataFolder(),name).getAbsolutePath()),bytes);
+            reloadRoleplay();
+            return true;
+        } catch (Exception e) {
+            getLogger().sendException(e);
+            return false;
+        }
+    }
+
     public boolean setOtherRoleBotReplyChance(double chance) {
         if (chance < 0) chance = 0;
         if (chance > 1) chance = 1;
@@ -104,8 +130,7 @@ public class RoleplayPlugin extends Plugin {
     }
 
     private void saveDefaultPersonas() {
-        String[] files = new String[]{"persona.json","persona-momoi.json","persona-midori.json"};
-        for (String name : files) {
+        for (String name : PERSONA_FILES) {
             try {
                 File file = new File(getDataFolder(),name);
                 if (file.exists()) continue;

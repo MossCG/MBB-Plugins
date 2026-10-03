@@ -15,6 +15,8 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 机器人互聊概率默认调整为 `0.50`，两轮内至少接话一次的概率约为 75%
 - 回复前后会对照最近的角色发言，对高度重复的语义和固定开头进行拦截
 - 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
+- 群主和管理员视为老师，其他真人成员视为朋友，另一个角色机器人不按群权限归类
+- 所有真人成员使用可配置的初始好感度，默认 `70/100`
 - 明确艾特其他用户时不会误判为对爱丽丝说话
 - 同一话题下允许多个群员继续参与，AI 会判断是否真正接续话题
 - 高频群聊模式：秒级回复冷却，默认每小时可回复 180 次
@@ -40,6 +42,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 | `/role memory` | `BOT_ADMIN` | 查看当前群记忆概况 |
 | `/role forget` | `BOT_ADMIN` | 清空当前群记忆、聊天上下文并轮换 AI 会话 |
 | `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
+| `/role persona reset <文件名>` | `BOT_ADMIN` | 用内置版本覆盖指定角色设定文件 |
 
 ## 角色设定
 
@@ -53,8 +56,8 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 
 另外内置两份角色设定：
 
-- `persona-momoi.json`：才羽桃井，游戏开发部剧本作家，桃井式活泼吐槽。
-- `persona-midori.json`：才羽绿，游戏开发部美术，安静认真、常吐槽桃井。
+- `persona-momoi.json`：才羽桃井，游戏开发部剧本作家，更活泼主动、情绪外露。
+- `persona-midori.json`：才羽绿，游戏开发部美术，安静认真、冷幽默式短吐槽。
 
 桃井补充了“又菜又爱玩”的特点，绿补充了“小绿”别名和“偷跑”等妹妹侧社区梗。
 
@@ -78,6 +81,19 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 /role reload
 ```
 
+如果希望恢复插件内置设定，可以使用：
+
+```text
+/role persona reset persona-momoi.json
+/role persona reset persona-midori.json
+```
+
+## 关系与好感
+
+群主和管理员若不是其他角色机器人，统一视为老师；其他真人成员视为朋友；另一个角色机器人按角色设定中的同伴关系处理，不会因为群权限被误称为老师。
+
+`initialAffinity` 控制所有真人成员的初始好感度，默认 `70/100`。该值会注入回复提示词，让角色默认保持善意、亲近、愿意接话和帮忙，但不会自动改变群权限或持久化逐人好感数值。
+
 ## 依赖
 
 需要安装并启用 `MBB-AI`。`MBB-AI` 负责模型调用、纯文本输出清洗和会话统计。
@@ -87,6 +103,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 ```yaml
 replyCooldownSecond: 5
 maxRepliesPerHour: 180
+initialAffinity: 70
 interestReplyChance: 0.65
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
@@ -151,4 +168,4 @@ minMessageLength: 2
 
 ## 升级说明
 
-`config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放，如果要使用新的默认口癖说明，需要手动合并 `persona-*.json`，或删除旧角色文件后重新释放并按需恢复自定义内容。
+`config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放；如果要应用新版桃井或绿设定，可以执行 `/role persona reset <文件名>`，或手动合并 `persona-*.json`。

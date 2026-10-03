@@ -62,7 +62,8 @@ public class RoleplayCommand extends BotCommand {
                 "/role bot name [list|add|remove|set|clear|reset] [名称...]",
                 "/role memory",
                 "/role forget",
-                "/role persona [文件名]");
+                "/role persona [文件名]",
+                "/role persona reset <文件名>");
     }
 
     @Override
@@ -149,6 +150,17 @@ public class RoleplayCommand extends BotCommand {
             if (args.length < 3) {
                 sender.sendMessage("当前角色设定文件："+plugin.getPersonaFileName()
                         +"\n可用：persona.json、persona-momoi.json、persona-midori.json");
+                return true;
+            }
+            if ("reset".equalsIgnoreCase(args[2])) {
+                if (args.length < 4) {
+                    sender.sendMessage("用法：/role persona reset <文件名>");
+                    return true;
+                }
+                boolean reset = plugin.resetPersona(args[3]);
+                sender.sendMessage(reset
+                        ? "角色设定已重置为内置版本："+args[3]
+                        : "重置失败，请检查文件名或插件资源。");
                 return true;
             }
             boolean changed = plugin.switchPersona(args[2]);
