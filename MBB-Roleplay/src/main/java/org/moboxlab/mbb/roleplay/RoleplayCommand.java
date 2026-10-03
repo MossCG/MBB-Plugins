@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Command.BotCommand;
 import org.moboxlab.moboxbot.API.Command.CommandPermission;
 import org.moboxlab.moboxbot.API.Command.CommandSender;
+import org.moboxlab.moboxbot.API.Util.ImageUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +61,7 @@ public class RoleplayCommand extends BotCommand {
                 "/role bot max <1-10>",
                 "/role bot qq [list|add|remove|set|clear] [QQ...]",
                 "/role bot name [list|add|remove|set|clear|reset] [名称...]",
-                "/role memory",
+                "/role memory [页码]",
                 "/role forget",
                 "/role persona [文件名]",
                 "/role persona reset <文件名>");
@@ -120,20 +121,7 @@ public class RoleplayCommand extends BotCommand {
             return true;
         }
         if ("memory".equals(action)) {
-            long groupID = sender.getGroupID();
-            JSONObject result = service.memoryStats(groupID);
-            JSONArray memories = result.getJSONArray("memories");
-            StringBuilder builder = new StringBuilder("角色："+result.getString("role"))
-                    .append("\n短期记忆：").append(result.getString("shortSummary"))
-                    .append("\n长期记忆数：").append(memories == null ? 0 : memories.size());
-            if (memories != null) {
-                for (int i = 0; i < memories.size() && i < 10; i++) {
-                    JSONObject item = memories.getJSONObject(i);
-                    builder.append("\n- [").append(item.getString("type")).append("] ")
-                            .append(item.getString("content"));
-                }
-            }
-            sender.sendMessage(builder.toString());
+            handleMemory(sender,args);
             return true;
         }
         if ("forget".equals(action)) {
@@ -169,6 +157,48 @@ public class RoleplayCommand extends BotCommand {
         }
         sender.sendMessage("用法：/role status | enable/disable | groups | reload | memory | forget | persona");
         return true;
+    }
+
+    private void handleMemory(CommandSender sender,String[] args) {
+        int page = 1;
+        if (args.length > 2) {
+            try {
+                page = Integer.parseInt(args[2]);
+                if (page < 1) page = 1;
+            } catch (Exception ignored) {
+            }
+        }
+        long groupID = sender.getGroupID();
+        JSONObject result = service.memoryStats(groupID);
+        JSONArray memories = result.getJSONArray("memories");
+        int pageSize = 12;
+        int total = memories == null ? 0 : memories.size();
+        int totalPages = Math.max(1,(total + pageSize - 1) / pageSize);
+        if (page > totalPages) page = totalPages;
+        JSONArray pageMemories = new JSONArray();
+        if (memories != null) {
+            int start = (page - 1) * pageSize;
+            int end = Math.min(total,start + pageSize);
+            for (int i = start; i < end; i++) pageMemories.add(memories.getJSONObject(i));
+        }
+        JSONObject pageData = new JSONObject(true);
+        pageData.putAll(result);
+        pageData.put("memories",pageMemories);
+        byte[] image = RoleplayMemoryImageRenderer.render(pageData,page,pageSize);
+        if (image != null) {
+            sender.sendImage(ImageUtil.toBase64Uri(image));
+            return;
+        }
+        StringBuilder builder = new StringBuilder("角色："+result.getString("role"))
+                .append("\n短期记忆：").append(result.getString("shortSummary"))
+                .append("\n长期记忆数：").append(total)
+                .append("\n第 ").append(page).append(" / ").append(totalPages).append(" 页");
+        for (int i = 0; i < pageMemories.size(); i++) {
+            JSONObject item = pageMemories.getJSONObject(i);
+            builder.append("\n- [").append(item.getString("type")).append("] ")
+                    .append(item.getString("content"));
+        }
+        sender.sendMessage(builder.toString());
     }
 
     private void handleConfig(CommandSender sender,String[] args) {

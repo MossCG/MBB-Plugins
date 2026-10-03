@@ -159,6 +159,7 @@ public class RoleplayService {
     public JSONObject status(long groupID) {
         JSONObject result = new JSONObject(true);
         result.put("status",true);
+        result.put("groupID",groupID);
         result.put("role",persona.name);
         result.put("groupEnabled",groupID <= 0 || isGroupEnabled(groupID));
         result.put("shortSummary",shortSummary(groupID));
