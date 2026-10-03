@@ -193,8 +193,10 @@ public class RoleplayService {
         return persona.description()+"\n\n"
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
-                +"规则：你正在群里自然聊天。只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
+                +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
+                +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
+                +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
@@ -209,15 +211,16 @@ public class RoleplayService {
                 long last = lastMemoryTime(groupID);
                 List<JSONObject> rows = storage().query(
                         "SELECT `userID`,`userName`,`content`,`messageTime` FROM `"+MSG_TABLE+"` "
-                                + "WHERE `groupID`=? AND `messageTime`>? ORDER BY `messageTime` ASC LIMIT 200",
-                        groupID,last);
+                                + "WHERE `groupID`=? AND `messageTime`>? ORDER BY `messageTime` ASC LIMIT ?",
+                        groupID,last,config.memoryExtractMessages);
                 if (rows == null || rows.isEmpty()) return;
                 JSONArray messages = new JSONArray();
                 messages.add(message("system","你是角色扮演插件的记忆整理器。只输出 JSON，不要 Markdown。"
                         +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
                         +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
                         +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
-                        +"只记录有长期价值的信息，忽略普通寒暄和表情。"));
+                        +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
+                        +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄和表情。"));
                 StringBuilder source = new StringBuilder();
                 for (JSONObject row : rows) {
                     source.append(safe(row.getString("userName"))).append("：")

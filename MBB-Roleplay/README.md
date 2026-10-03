@@ -9,6 +9,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 长期记忆：群友印象、群友信息、群内氛围、群梗、角色自己做过的事
 - 短期记忆：近几天事件、群友日常、角色当前正在做的事
 - 不逐条回复，只回复角色感兴趣或被直接提及的消息
+- 高频群聊模式：秒级回复冷却，默认每小时可回复 180 次
 - 输出纯文本聊天，不使用 Markdown
 
 ## 指令
@@ -33,6 +34,8 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 
 默认设定为《蔚蓝档案》的天童爱丽丝：游戏开发部、勇者见习生、RPG 爱好者，重视老师和伙伴，说话偶尔带游戏化表达。
 
+默认口癖包括“邦邦咔邦！”、“爱丽丝，了解！”、“光呀！”等，要求低频自然使用，不会每句话都变成游戏台词。
+
 可以修改名称、身份、性格、说话方式、兴趣、禁忌和行为规则。修改后执行：
 
 ```text
@@ -42,3 +45,16 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 ## 依赖
 
 需要安装并启用 `MBB-AI`。`MBB-AI` 负责模型调用、纯文本输出清洗和会话统计。
+
+## 默认性能
+
+```yaml
+replyCooldownSecond: 5
+maxRepliesPerHour: 180
+interestReplyChance: 0.65
+shortContextMessages: 80
+memoryUpdateMessages: 50
+memoryExtractMessages: 300
+maxLongMemories: 150
+minMessageLength: 2
+```
