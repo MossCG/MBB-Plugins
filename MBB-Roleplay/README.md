@@ -12,7 +12,9 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 角色认为内容值得长期记住时，可以在回复末尾输出 `<remember>`，插件会剥离标记并单独触发一次记忆整理
 - 不逐条回复，只回复角色感兴趣或被直接提及的消息
 - 检测到另一个角色机器人时会显著降低接话概率，并限制双方无人插话时的连续往返次数
+- 机器人互聊概率默认调整为 `0.50`，两轮内至少接话一次的概率约为 75%
 - 回复前后会对照最近的角色发言，对高度重复的语义和固定开头进行拦截
+- 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
 - 明确艾特其他用户时不会误判为对爱丽丝说话
 - 同一话题下允许多个群员继续参与，AI 会判断是否真正接续话题
 - 高频群聊模式：秒级回复冷却，默认每小时可回复 180 次
@@ -28,6 +30,13 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 | `/role disable [群号]` | `BOT_ADMIN` | 关闭当前群或指定群 |
 | `/role groups` | `BOT_ADMIN` | 查看已开启群 |
 | `/role reload` | `BOT_ADMIN` | 重载角色设定和配置 |
+| `/role config` | `BOT_ADMIN` | 查看配置文件与补全状态 |
+| `/role config repair` | `BOT_ADMIN` | 手动补全缺失配置项 |
+| `/role bot` | `BOT_ADMIN` | 查看机器人互聊设置 |
+| `/role bot chance <0.3-1>` | `BOT_ADMIN` | 设置其他角色机器人的接话概率 |
+| `/role bot max <1-10>` | `BOT_ADMIN` | 设置无人插话时的连续回应上限 |
+| `/role bot qq ...` | `BOT_ADMIN` | 查看、增删或清空其他角色机器人 QQ |
+| `/role bot name ...` | `BOT_ADMIN` | 查看、增删、重置或清空名称识别关键词 |
 | `/role memory` | `BOT_ADMIN` | 查看当前群记忆概况 |
 | `/role forget` | `BOT_ADMIN` | 清空当前群记忆 |
 | `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
@@ -82,7 +91,7 @@ interestReplyChance: 0.65
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
 otherParticipantReplyChance: 0.45
-otherRoleBotReplyChance: 0.10
+otherRoleBotReplyChance: 0.50
 maxConsecutiveOtherRoleMessages: 2
 shortContextMessages: 80
 memoryUpdateMessages: 50
@@ -101,7 +110,30 @@ minMessageLength: 2
 
 ## 多角色部署
 
-同一群部署桃井、绿、爱丽丝等多个角色时，建议保留默认的 `otherRoleBotNames`，或通过 `otherRoleBotQQs` 明确填写其他角色机器人的 QQ。插件会降低角色之间的互聊概率，并在没有真人插话时截断连续往返。
+同一群部署桃井、绿、爱丽丝等多个角色时，建议保留默认的 `otherRoleBotNames`，或通过 `otherRoleBotQQs` 明确填写其他角色机器人的 QQ。默认接话概率为 `0.50`，在没有真人插话时最多连续处理 2 条对方消息。
+
+常用管理命令：
+
+```text
+/role bot status
+/role bot chance 0.5
+/role bot max 2
+/role bot qq add 1004331369,123456789
+/role bot qq list
+/role bot name reset
+```
+
+名称识别支持 `list`、`add`、`remove`、`set`、`clear` 和 `reset`。QQ 识别支持 `list`、`add`、`remove`、`set` 和 `clear`。
+
+## 配置补全
+
+插件启动和重载时会检查 `config.yml`。缺失的配置项会自动追加到文件末尾，并附带中文注释。旧版本默认的 `otherRoleBotReplyChance: 0.10` 会一次性迁移为 `0.50`。
+
+如需手动触发：
+
+```text
+/role config repair
+```
 
 ## 记忆标记
 
@@ -115,4 +147,4 @@ minMessageLength: 2
 
 ## 升级说明
 
-`config.yml` 和角色文件只在文件不存在时释放。升级到本版本后，如果要使用新的默认开关和口癖说明，需要手动合并 `config.yml` 的新增配置，或删除旧文件后重新释放并按需恢复自定义内容。
+`config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放，如果要使用新的默认口癖说明，需要手动合并 `persona-*.json`，或删除旧角色文件后重新释放并按需恢复自定义内容。

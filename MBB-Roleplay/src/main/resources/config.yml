@@ -1,5 +1,7 @@
 #MBB-Roleplay 插件配置
 
+#配置结构版本，插件升级时自动维护
+configVersion: 2
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -10,13 +12,13 @@ replyCooldownSecond: 5
 maxRepliesPerHour: 180
 #非直接提及消息命中兴趣关键词后的回复概率，0 到 1
 interestReplyChance: 0.65
-#最近与角色聊过天后，延续对话的回复概率
+#最近与角色聊过后，延续对话的窗口秒数
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
 #其他群员接续当前话题时的回复概率
 otherParticipantReplyChance: 0.45
 #检测到另一个角色机器人发言时，继续接话的概率
-otherRoleBotReplyChance: 0.10
+otherRoleBotReplyChance: 0.50
 #没有真人插话时，最多连续回应另一个角色机器人多少条
 maxConsecutiveOtherRoleMessages: 2
 #识别其他角色机器人显示名的关键词，英文逗号分隔

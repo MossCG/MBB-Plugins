@@ -17,6 +17,10 @@ public class RoleplayPlugin extends Plugin {
     @Override
     public void onLoad() {
         saveDefaultConfig();
+        int repaired = RoleplayConfigMigrator.ensure(this);
+        if (repaired > 0) {
+            getLogger().sendInfo("Roleplay 配置已自动补全或迁移 "+repaired+" 项。");
+        }
         saveDefaultPersonas();
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
@@ -41,9 +45,19 @@ public class RoleplayPlugin extends Plugin {
     }
 
     public void reloadRoleplay() {
+        int repaired = RoleplayConfigMigrator.ensure(this);
+        if (repaired > 0) {
+            getLogger().sendInfo("Roleplay 配置重载时自动补全或迁移 "+repaired+" 项。");
+        }
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
         if (service != null) service.reload(roleplayConfig,persona);
+    }
+
+    public int repairConfig() {
+        int repaired = RoleplayConfigMigrator.ensure(this);
+        reloadRoleplay();
+        return repaired;
     }
 
     public String getPersonaFileName() {
@@ -56,6 +70,34 @@ public class RoleplayPlugin extends Plugin {
         File file = new File(getDataFolder(),name);
         if (!file.exists()) return false;
         getConfig().set("personaFile",name);
+        if (!getConfig().save()) return false;
+        reloadRoleplay();
+        return true;
+    }
+
+    public boolean setOtherRoleBotReplyChance(double chance) {
+        if (chance < 0) chance = 0;
+        if (chance > 1) chance = 1;
+        return setConfigValue("otherRoleBotReplyChance",String.valueOf(chance));
+    }
+
+    public boolean setMaxConsecutiveOtherRoleMessages(int count) {
+        if (count < 1) count = 1;
+        if (count > 10) count = 10;
+        return setConfigValue("maxConsecutiveOtherRoleMessages",String.valueOf(count));
+    }
+
+    public boolean setOtherRoleBotQQs(String value) {
+        return setConfigValue("otherRoleBotQQs",value == null ? "" : value.trim());
+    }
+
+    public boolean setOtherRoleBotNames(String value) {
+        return setConfigValue("otherRoleBotNames",value == null ? "" : value.trim());
+    }
+
+    private boolean setConfigValue(String key,String value) {
+        RoleplayConfigMigrator.ensure(this);
+        getConfig().set(key,value);
         if (!getConfig().save()) return false;
         reloadRoleplay();
         return true;

@@ -6,6 +6,11 @@ import org.moboxlab.moboxbot.API.Plugin;
  * MBB-Roleplay 配置
  */
 public class RoleplayConfig {
+    public static final double DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE = 0.50;
+    public static final int DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES = 2;
+    public static final String DEFAULT_OTHER_ROLE_BOT_NAMES =
+            "桃井,小桃,桃,才羽桃井,绿,小绿,才羽绿,爱丽丝,天童爱丽丝,モモイ,ミドリ";
+
     public boolean enable = true;
     public String aiProfile = "default";
     public int replyCooldownSecond = 5;
@@ -14,9 +19,9 @@ public class RoleplayConfig {
     public int conversationWindowSecond = 180;
     public double continuationReplyChance = 0.80;
     public double otherParticipantReplyChance = 0.45;
-    public double otherRoleBotReplyChance = 0.10;
-    public int maxConsecutiveOtherRoleMessages = 2;
-    public String otherRoleBotNames = "桃井,小桃,桃,才羽桃井,绿,小绿,才羽绿,爱丽丝,天童爱丽丝,モモイ,ミドリ";
+    public double otherRoleBotReplyChance = DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE;
+    public int maxConsecutiveOtherRoleMessages = DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES;
+    public String otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
     public String otherRoleBotQQs = "";
     public int shortContextMessages = 80;
     public int shortTermDays = 3;
@@ -59,11 +64,13 @@ public class RoleplayConfig {
             config.otherParticipantReplyChance = 0.45;
         }
         try {
-            config.otherRoleBotReplyChance = Double.parseDouble(plugin.getConfig().getString("otherRoleBotReplyChance","0.10"));
+            config.otherRoleBotReplyChance = Double.parseDouble(plugin.getConfig().getString(
+                    "otherRoleBotReplyChance",String.valueOf(DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE)));
         } catch (Exception e) {
-            config.otherRoleBotReplyChance = 0.10;
+            config.otherRoleBotReplyChance = DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE;
         }
-        config.maxConsecutiveOtherRoleMessages = plugin.getConfig().getInt("maxConsecutiveOtherRoleMessages",2);
+        config.maxConsecutiveOtherRoleMessages = plugin.getConfig().getInt(
+                "maxConsecutiveOtherRoleMessages",DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES);
         config.otherRoleBotNames = plugin.getConfig().getString("otherRoleBotNames",config.otherRoleBotNames);
         config.otherRoleBotQQs = plugin.getConfig().getString("otherRoleBotQQs","");
         config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",80);

@@ -8,7 +8,9 @@ import org.moboxlab.moboxbot.API.Command.CommandSender;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * /role 角色扮演管理命令
@@ -52,6 +54,12 @@ public class RoleplayCommand extends BotCommand {
                 "/role disable [群号]",
                 "/role groups",
                 "/role reload",
+                "/role config [repair]",
+                "/role bot [status]",
+                "/role bot chance <0.3-1>",
+                "/role bot max <1-10>",
+                "/role bot qq [list|add|remove|set|clear] [QQ...]",
+                "/role bot name [list|add|remove|set|clear|reset] [名称...]",
                 "/role memory",
                 "/role forget",
                 "/role persona [文件名]");
@@ -102,6 +110,14 @@ public class RoleplayCommand extends BotCommand {
             sender.sendMessage("角色设定和配置已重载。");
             return true;
         }
+        if ("config".equals(action)) {
+            handleConfig(sender,args);
+            return true;
+        }
+        if ("bot".equals(action)) {
+            handleBot(sender,args);
+            return true;
+        }
         if ("memory".equals(action)) {
             long groupID = sender.getGroupID();
             JSONObject result = service.memoryStats(groupID);
@@ -141,5 +157,175 @@ public class RoleplayCommand extends BotCommand {
         }
         sender.sendMessage("用法：/role status | enable/disable | groups | reload | memory | forget | persona");
         return true;
+    }
+
+    private void handleConfig(CommandSender sender,String[] args) {
+        if (args.length > 2 && "repair".equalsIgnoreCase(args[2])) {
+            int repaired = plugin.repairConfig();
+            sender.sendMessage(repaired > 0
+                    ? "配置补全完成，共处理 "+repaired+" 项。"
+                    : "配置没有缺失项，无需补全。");
+            return;
+        }
+        sender.sendMessage("Roleplay 配置：\n"
+                +"文件："+plugin.getConfig().getPath()+"\n"
+                +"结构版本："+plugin.getConfig().getString("configVersion","未知")+"\n"
+                +"缺失配置会在启动和重载时自动补全。\n"
+                +"手动补全：/role config repair");
+    }
+
+    private void handleBot(CommandSender sender,String[] args) {
+        if (args.length < 3 || "status".equalsIgnoreCase(args[2])) {
+            sendBotStatus(sender);
+            return;
+        }
+        String action = args[2].toLowerCase();
+        if ("chance".equals(action)) {
+            if (args.length < 4) {
+                sender.sendMessage("用法：/role bot chance <0.3-1>");
+                return;
+            }
+            double chance;
+            try {
+                chance = Double.parseDouble(args[3]);
+            } catch (Exception e) {
+                sender.sendMessage("概率格式不正确。");
+                return;
+            }
+            if (chance < 0 || chance > 1) {
+                sender.sendMessage("概率必须在 0 到 1 之间。");
+                return;
+            }
+            boolean changed = plugin.setOtherRoleBotReplyChance(chance);
+            sender.sendMessage(changed
+                    ? "机器人互聊概率已设置为："+chance
+                    : "保存配置失败，请检查 config.yml 权限。");
+            if (changed && (chance < 0.3 || chance > 0.7)) {
+                sender.sendMessage("提示：推荐范围是 0.3 到 0.7。");
+            }
+            return;
+        }
+        if ("max".equals(action)) {
+            if (args.length < 4) {
+                sender.sendMessage("用法：/role bot max <1-10>");
+                return;
+            }
+            int count;
+            try {
+                count = Integer.parseInt(args[3]);
+            } catch (Exception e) {
+                sender.sendMessage("次数格式不正确。");
+                return;
+            }
+            if (count < 1 || count > 10) {
+                sender.sendMessage("次数必须在 1 到 10 之间。");
+                return;
+            }
+            boolean changed = plugin.setMaxConsecutiveOtherRoleMessages(count);
+            sender.sendMessage(changed
+                    ? "连续回应其他角色的上限已设置为："+count
+                    : "保存配置失败，请检查 config.yml 权限。");
+            return;
+        }
+        if ("qq".equals(action)) {
+            handleBotCsv(sender,args,true);
+            return;
+        }
+        if ("name".equals(action)) {
+            handleBotCsv(sender,args,false);
+            return;
+        }
+        sender.sendMessage("用法：/role bot status | chance <0.3-1> | max <1-10> | qq | name");
+    }
+
+    private void handleBotCsv(CommandSender sender,String[] args,boolean qq) {
+        String action = args.length > 3 ? args[3].toLowerCase() : "list";
+        String current = qq ? plugin.getRoleplayConfig().otherRoleBotQQs : plugin.getRoleplayConfig().otherRoleBotNames;
+        if ("list".equals(action)) {
+            sender.sendMessage(qq
+                    ? "其他角色机器人 QQ："+(current == null || current.trim().isEmpty() ? "未配置" : current)
+                    : "其他角色机器人名称："+(current == null || current.trim().isEmpty() ? "未配置" : current));
+            return;
+        }
+        if (!qq && "reset".equals(action)) {
+            boolean changed = plugin.setOtherRoleBotNames(RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES);
+            sender.sendMessage(changed ? "其他角色机器人名称已恢复默认。" : "保存配置失败，请检查 config.yml 权限。");
+            return;
+        }
+        if ("clear".equals(action)) {
+            boolean changed = qq ? plugin.setOtherRoleBotQQs("") : plugin.setOtherRoleBotNames("");
+            sender.sendMessage(changed
+                    ? (qq ? "其他角色机器人 QQ 已清空。" : "其他角色机器人名称已清空。")
+                    : "保存配置失败，请检查 config.yml 权限。");
+            return;
+        }
+        if (!"add".equals(action) && !"remove".equals(action) && !"set".equals(action)) {
+            sender.sendMessage("用法：/role bot "+(qq ? "qq" : "name")+" [list|add|remove|set|clear"
+                    +(!qq ? "|reset" : "")+"] [值...]");
+            return;
+        }
+        if (args.length < 5) {
+            sender.sendMessage("请提供要"+(qq ? "设置的 QQ" : "设置的名称")+"。");
+            return;
+        }
+        Set<String> values = new LinkedHashSet<>();
+        if (!"set".equals(action)) values.addAll(splitCsv(current));
+        for (int i = 4; i < args.length; i++) {
+            for (String item : splitCsv(args[i])) {
+                if (qq) {
+                    try {
+                        long userID = Long.parseLong(item);
+                        if (userID <= 0) throw new NumberFormatException();
+                        values.add(String.valueOf(userID));
+                    } catch (Exception e) {
+                        sender.sendMessage("QQ 格式不正确："+item);
+                        return;
+                    }
+                } else if (!item.isEmpty()) {
+                    values.add(item);
+                }
+            }
+        }
+        if ("remove".equals(action)) {
+            for (int i = 4; i < args.length; i++) {
+                for (String item : splitCsv(args[i])) values.remove(item);
+            }
+        }
+        String value = joinCsv(values);
+        boolean changed = qq ? plugin.setOtherRoleBotQQs(value) : plugin.setOtherRoleBotNames(value);
+        sender.sendMessage(changed
+                ? (qq ? "其他角色机器人 QQ 已更新：" : "其他角色机器人名称已更新：")
+                + (value.isEmpty() ? "空" : value)
+                : "保存配置失败，请检查 config.yml 权限。");
+    }
+
+    private void sendBotStatus(CommandSender sender) {
+        RoleplayConfig config = plugin.getRoleplayConfig();
+        sender.sendMessage("机器人互聊设置：\n"
+                +"接话概率："+config.otherRoleBotReplyChance+"\n"
+                +"连续上限："+config.maxConsecutiveOtherRoleMessages+" 条\n"
+                +"机器人 QQ："+(config.otherRoleBotQQs == null || config.otherRoleBotQQs.isEmpty()
+                ? "未配置" : config.otherRoleBotQQs)+"\n"
+                +"名称识别："+(config.otherRoleBotNames == null || config.otherRoleBotNames.isEmpty()
+                ? "未配置" : config.otherRoleBotNames));
+    }
+
+    private Set<String> splitCsv(String text) {
+        Set<String> result = new LinkedHashSet<>();
+        if (text == null || text.trim().isEmpty()) return result;
+        for (String item : text.split("[,，]")) {
+            String value = item.trim();
+            if (!value.isEmpty()) result.add(value);
+        }
+        return result;
+    }
+
+    private String joinCsv(Set<String> values) {
+        StringBuilder builder = new StringBuilder();
+        for (String value : values) {
+            if (builder.length() > 0) builder.append(",");
+            builder.append(value);
+        }
+        return builder.toString();
     }
 }
