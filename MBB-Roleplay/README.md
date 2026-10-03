@@ -52,6 +52,10 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 replyCooldownSecond: 5
 maxRepliesPerHour: 180
 interestReplyChance: 0.65
+conversationWindowSecond: 180
+continuationReplyChance: 0.80
+questionReplyChance: 0.40
+ambientReplyChance: 0.12
 shortContextMessages: 80
 memoryUpdateMessages: 50
 memoryExtractMessages: 300

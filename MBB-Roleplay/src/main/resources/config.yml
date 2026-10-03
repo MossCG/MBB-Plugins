@@ -10,6 +10,13 @@ replyCooldownSecond: 5
 maxRepliesPerHour: 180
 #非直接提及消息命中兴趣关键词后的回复概率，0 到 1
 interestReplyChance: 0.65
+#最近与角色聊过天后，延续对话的回复概率
+conversationWindowSecond: 180
+continuationReplyChance: 0.80
+#普通疑问句的回复概率
+questionReplyChance: 0.40
+#普通群聊消息的随机参与概率
+ambientReplyChance: 0.12
 #即时上下文消息条数
 shortContextMessages: 80
 #短期记忆覆盖天数

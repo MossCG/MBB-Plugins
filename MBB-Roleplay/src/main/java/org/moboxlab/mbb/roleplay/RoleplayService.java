@@ -99,8 +99,15 @@ public class RoleplayService {
         }
 
         boolean direct = isDirect(event,content,selfID);
-        boolean interest = direct || (persona.matchesInterest(content) && Math.random() < config.interestReplyChance);
-        if (!interest || content.length() < config.minMessageLength) return;
+        boolean continuation = isContinuation(groupID);
+        boolean interest = persona.matchesInterest(content);
+        boolean question = isQuestion(content);
+        double chance = config.ambientReplyChance;
+        if (direct) chance = 1.0;
+        else if (continuation) chance = config.continuationReplyChance;
+        else if (interest) chance = config.interestReplyChance;
+        else if (question) chance = config.questionReplyChance;
+        if (content.length() < config.minMessageLength || Math.random() >= chance) return;
         if (!canReply(groupID)) return;
         JSONObject result = reply(groupID,event.getUserID(),content);
         if (result == null || !result.getBooleanValue("status")) return;
@@ -400,6 +407,20 @@ public class RoleplayService {
             }
         }
         return false;
+    }
+
+    private boolean isContinuation(long groupID) {
+        Long last = lastReplyMap.get(groupID);
+        return last != null && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
+    }
+
+    private boolean isQuestion(String content) {
+        if (content == null) return false;
+        return content.contains("?") || content.contains("？")
+                || content.contains("什么") || content.contains("谁") || content.contains("为什么")
+                || content.contains("怎么") || content.contains("哪") || content.contains("多少")
+                || content.contains("是不是") || content.contains("能不能") || content.contains("可不可以")
+                || content.endsWith("吗") || content.endsWith("呢");
     }
 
     private String extractContent(JSONArray message) {

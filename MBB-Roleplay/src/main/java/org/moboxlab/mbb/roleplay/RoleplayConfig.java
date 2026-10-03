@@ -11,6 +11,10 @@ public class RoleplayConfig {
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
     public double interestReplyChance = 0.65;
+    public int conversationWindowSecond = 180;
+    public double continuationReplyChance = 0.80;
+    public double questionReplyChance = 0.40;
+    public double ambientReplyChance = 0.12;
     public int shortContextMessages = 80;
     public int shortTermDays = 3;
     public int memoryUpdateMessages = 50;
@@ -31,6 +35,22 @@ public class RoleplayConfig {
         } catch (Exception e) {
             config.interestReplyChance = 0.65;
         }
+        config.conversationWindowSecond = plugin.getConfig().getInt("conversationWindowSecond",180);
+        try {
+            config.continuationReplyChance = Double.parseDouble(plugin.getConfig().getString("continuationReplyChance","0.80"));
+        } catch (Exception e) {
+            config.continuationReplyChance = 0.80;
+        }
+        try {
+            config.questionReplyChance = Double.parseDouble(plugin.getConfig().getString("questionReplyChance","0.40"));
+        } catch (Exception e) {
+            config.questionReplyChance = 0.40;
+        }
+        try {
+            config.ambientReplyChance = Double.parseDouble(plugin.getConfig().getString("ambientReplyChance","0.12"));
+        } catch (Exception e) {
+            config.ambientReplyChance = 0.12;
+        }
         config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",80);
         config.shortTermDays = plugin.getConfig().getInt("shortTermDays",3);
         config.memoryUpdateMessages = plugin.getConfig().getInt("memoryUpdateMessages",50);
@@ -44,6 +64,13 @@ public class RoleplayConfig {
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
         if (config.interestReplyChance < 0) config.interestReplyChance = 0;
         if (config.interestReplyChance > 1) config.interestReplyChance = 1;
+        if (config.conversationWindowSecond < 10) config.conversationWindowSecond = 10;
+        if (config.continuationReplyChance < 0) config.continuationReplyChance = 0;
+        if (config.continuationReplyChance > 1) config.continuationReplyChance = 1;
+        if (config.questionReplyChance < 0) config.questionReplyChance = 0;
+        if (config.questionReplyChance > 1) config.questionReplyChance = 1;
+        if (config.ambientReplyChance < 0) config.ambientReplyChance = 0;
+        if (config.ambientReplyChance > 1) config.ambientReplyChance = 1;
         if (config.shortContextMessages < 1) config.shortContextMessages = 1;
         if (config.shortContextMessages > 300) config.shortContextMessages = 300;
         if (config.shortTermDays < 1) config.shortTermDays = 1;
