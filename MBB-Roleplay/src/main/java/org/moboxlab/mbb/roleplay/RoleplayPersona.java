@@ -21,6 +21,7 @@ public class RoleplayPersona {
     public String behavior = "";
     public List<String> catchphrases = new ArrayList<>();
     public List<String> aliases = new ArrayList<>();
+    public List<String> memes = new ArrayList<>();
     public List<String> interests = new ArrayList<>();
     public List<String> dislikes = new ArrayList<>();
 
@@ -37,6 +38,7 @@ public class RoleplayPersona {
             persona.behavior = safe(json.getString("behavior"),"");
             persona.catchphrases = readList(json.getJSONArray("catchphrases"));
             persona.aliases = readList(json.getJSONArray("aliases"));
+            persona.memes = readList(json.getJSONArray("memes"));
             if (persona.aliases.isEmpty()) {
                 persona.aliases.add(persona.name);
                 if (persona.name.contains("爱丽丝")) persona.aliases.add("爱丽丝");
@@ -66,6 +68,7 @@ public class RoleplayPersona {
                 +"说话方式："+speechStyle+"\n"
                 +(catchphrases.isEmpty() ? "" : "口癖："+String.join("、",catchphrases)+"\n")
                 +(aliases.isEmpty() ? "" : "称呼："+String.join("、",aliases)+"\n")
+                +(memes.isEmpty() ? "" : "了解的梗："+String.join("；",memes)+"\n")
                 +"行为规则："+behavior;
     }
 
