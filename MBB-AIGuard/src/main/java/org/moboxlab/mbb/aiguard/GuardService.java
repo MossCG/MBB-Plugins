@@ -318,13 +318,16 @@ public class GuardService {
         return result;
     }
 
-    public JSONArray recentEvents(int limit) {
-        if (limit < 1) limit = 10;
-        if (limit > 50) limit = 50;
+    public JSONArray recentEvents(int page,int pageSize) {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 20) pageSize = 20;
+        int offset = (page - 1) * pageSize;
         JSONArray result = new JSONArray();
         List<JSONObject> rows = storage().query(
                 "SELECT `ID`,`groupID`,`userID`,`messageTime`,`riskScore`,`categories`,`reason`,`action`,`safety` "
-                        + "FROM `"+EVENT_TABLE+"` ORDER BY `messageTime` DESC LIMIT ?",limit);
+                        + "FROM `"+EVENT_TABLE+"` ORDER BY `messageTime` DESC,`ID` DESC LIMIT ? OFFSET ?",
+                pageSize,offset);
         if (rows == null) return result;
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);

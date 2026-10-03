@@ -15,6 +15,14 @@ conversationWindowSecond: 180
 continuationReplyChance: 0.80
 #其他群员接续当前话题时的回复概率
 otherParticipantReplyChance: 0.45
+#检测到另一个角色机器人发言时，继续接话的概率
+otherRoleBotReplyChance: 0.10
+#没有真人插话时，最多连续回应另一个角色机器人多少条
+maxConsecutiveOtherRoleMessages: 2
+#识别其他角色机器人显示名的关键词，英文逗号分隔
+otherRoleBotNames: "桃井,小桃,桃,才羽桃井,绿,小绿,才羽绿,爱丽丝,天童爱丽丝,モモイ,ミドリ"
+#其他角色机器人 QQ，多个用英文逗号分隔；为空时只按显示名识别
+otherRoleBotQQs: ""
 #即时上下文消息条数
 shortContextMessages: 80
 #短期记忆覆盖天数
@@ -23,6 +31,10 @@ shortTermDays: 3
 memoryUpdateMessages: 50
 #每次记忆整理最多读取的消息条数
 memoryExtractMessages: 300
+#单次自动整理最多连续处理的批次，避免积压消息一次消耗过多
+memoryExtractBatches: 3
+#是否允许角色通过回复末尾的 <remember> 主动触发记忆整理
+activeMemory: true
 #最多加载多少条长期记忆
 maxLongMemories: 150
 #单次角色回复最大 Token
@@ -31,6 +43,14 @@ replyMaxTokens: 1200
 replySegmentMaxChars: 160
 #最多拆分发送多少段
 replyMaxSegments: 2
+#重复检测时参考最近多少条角色回复
+recentReplyCheckCount: 8
+#与最近角色回复相似度达到多少时跳过，0.3 到 1
+repeatSimilarityThreshold: 0.72
+#少于多少字的回复不进行重复检测
+repeatCheckMinChars: 6
+#同一开头在最近角色回复中出现多少次后禁止再次使用
+repeatOpeningLimit: 2
 #忽略以这些前缀开头的指令消息，英文逗号分隔
 commandPrefixes: "/,!,＃,#"
 #角色设定文件：persona.json（爱丽丝）/ persona-momoi.json（桃井）/ persona-midori.json（绿）

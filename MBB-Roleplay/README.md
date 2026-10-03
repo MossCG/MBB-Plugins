@@ -8,7 +8,11 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 角色设定文件可替换
 - 长期记忆：群友印象、群友信息、群内氛围、群梗、角色自己做过的事
 - 短期记忆：近几天事件、群友日常、角色当前正在做的事
+- 记忆游标按消息 ID 精确定位，AI 返回空短期记忆时也会正常推进，不会反复整理同一批消息
+- 角色认为内容值得长期记住时，可以在回复末尾输出 `<remember>`，插件会剥离标记并单独触发一次记忆整理
 - 不逐条回复，只回复角色感兴趣或被直接提及的消息
+- 检测到另一个角色机器人时会显著降低接话概率，并限制双方无人插话时的连续往返次数
+- 回复前后会对照最近的角色发言，对高度重复的语义和固定开头进行拦截
 - 明确艾特其他用户时不会误判为对爱丽丝说话
 - 同一话题下允许多个群员继续参与，AI 会判断是否真正接续话题
 - 高频群聊模式：秒级回复冷却，默认每小时可回复 180 次
@@ -78,11 +82,37 @@ interestReplyChance: 0.65
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
 otherParticipantReplyChance: 0.45
+otherRoleBotReplyChance: 0.10
+maxConsecutiveOtherRoleMessages: 2
 shortContextMessages: 80
 memoryUpdateMessages: 50
 memoryExtractMessages: 300
+memoryExtractBatches: 3
+activeMemory: true
 maxLongMemories: 150
+recentReplyCheckCount: 8
+repeatSimilarityThreshold: 0.72
+repeatCheckMinChars: 6
+repeatOpeningLimit: 2
 minMessageLength: 2
 ```
 
-非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求尽量只输出一句话。
+非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求尽量只输出一句话，不要反复纠缠同一个生活细节，也不要连续使用同一种开头或口癖。
+
+## 多角色部署
+
+同一群部署桃井、绿、爱丽丝等多个角色时，建议保留默认的 `otherRoleBotNames`，或通过 `otherRoleBotQQs` 明确填写其他角色机器人的 QQ。插件会降低角色之间的互聊概率，并在没有真人插话时截断连续往返。
+
+## 记忆标记
+
+默认开启 `activeMemory`。模型判断当前消息包含值得长期记住的人物信息、群梗或自身重要行为时，会在回复末尾输出：
+
+```text
+<remember>
+```
+
+标记不会发送到 QQ。插件会剥离标记，把实际回复正常发出，并以当前群最近未整理的消息执行一次记忆更新。
+
+## 升级说明
+
+`config.yml` 和角色文件只在文件不存在时释放。升级到本版本后，如果要使用新的默认开关和口癖说明，需要手动合并 `config.yml` 的新增配置，或删除旧文件后重新释放并按需恢复自定义内容。

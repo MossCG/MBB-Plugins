@@ -22,7 +22,7 @@ MoBoxBot AI 群聊内容风险审查插件。
 | `/guard enable` / `/guard disable` | `BOT_ADMIN` | 切换当前群审查 |
 | `/guard threshold <分数>` | `BOT_ADMIN` | 设置当前群告警阈值 |
 | `/guard test <文本>` | `BOT_ADMIN` | 测试文本风险判定 |
-| `/guard log [页码]` | `BOT_ADMIN` | 查看最近审查事件 |
+| `/guard log [页码]` | `BOT_ADMIN` | 分页查看风险审查事件图片，每页 10 条 |
 | `/guard remind <QQ>` | `BOT_ADMIN` | 添加告警私信推送 QQ，支持逗号分隔多个 |
 | `/guard remind list` | `BOT_ADMIN` | 查看告警推送名单 |
 | `/guard remind remove <QQ>` | `BOT_ADMIN` | 移除告警推送 QQ |
@@ -33,6 +33,8 @@ MoBoxBot AI 群聊内容风险审查插件。
 | `/guard whitelist remove <QQ> [群号]` | `BOT_ADMIN` | 移除白名单 |
 
 ## 规则扩展
+
+`/guard log` 会输出审查记录图片，包含事件编号、时间、群号、用户、风险分、分类、动作、安全分支和原因。页码从 1 开始，每页最多 10 条。
 
 首次运行会释放：
 

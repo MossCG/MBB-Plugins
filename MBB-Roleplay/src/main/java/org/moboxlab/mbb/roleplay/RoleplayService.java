@@ -14,9 +14,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 角色扮演与记忆服务
@@ -36,6 +38,18 @@ public class RoleplayService {
     private final Map<Long,Integer> messageCountMap = new HashMap<>();
     private final Map<Long,long[]> replyRateMap = new HashMap<>();
     private final Map<Long,Boolean> memoryUpdatingMap = new HashMap<>();
+    private final Map<Long,Boolean> pendingMemoryMap = new HashMap<>();
+    private final Map<Long,Integer> otherRoleMessageStreakMap = new HashMap<>();
+
+    private static class MemoryCursor {
+        private final long time;
+        private final long id;
+
+        private MemoryCursor(long time,long id) {
+            this.time = time;
+            this.id = id;
+        }
+    }
 
     public RoleplayService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona) {
         this.plugin = plugin;
@@ -68,8 +82,10 @@ public class RoleplayService {
                 + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
                 + "`shortSummary` TEXT NOT NULL DEFAULT '',"
                 + "`lastMemoryTime` INTEGER NOT NULL DEFAULT 0,"
+                + "`lastMemoryID` INTEGER NOT NULL DEFAULT 0,"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0"
                 + ")");
+        ensureColumn(STATE_TABLE,"lastMemoryID","INTEGER NOT NULL DEFAULT 0");
         storage().update("CREATE TABLE IF NOT EXISTS `"+GROUP_TABLE+"` ("
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
@@ -94,12 +110,15 @@ public class RoleplayService {
         String content = extractContent(event.getMessage());
         if (content == null || content.trim().isEmpty()) return;
         if (isCommand(content)) return;
+        boolean otherRoleBot = isOtherRoleBot(event,selfID);
+        int otherRoleStreak = updateOtherRoleMessageStreak(groupID,otherRoleBot);
         recordMessage(event,content,false);
         int count = countMessage(groupID);
         if (count >= config.memoryUpdateMessages) {
             messageCountMap.put(groupID,0);
-            updateMemory(groupID);
+            triggerMemory(groupID,"定时整理");
         }
+        if (otherRoleBot && otherRoleStreak > config.maxConsecutiveOtherRoleMessages) return;
 
         boolean direct = isDirect(event,content,selfID);
         boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
@@ -107,16 +126,27 @@ public class RoleplayService {
         boolean interest = persona.matchesInterest(content);
         if (!direct && !sameUserContinuation && !groupActive && !interest) return;
         double chance = config.interestReplyChance;
-        if (direct) chance = 1.0;
+        if (otherRoleBot) chance = config.otherRoleBotReplyChance;
+        else if (direct) chance = 1.0;
         else if (sameUserContinuation) chance = config.continuationReplyChance;
         else if (groupActive) chance = config.otherParticipantReplyChance;
         if (content.length() < config.minMessageLength || Math.random() >= chance) return;
         if (!canReply(groupID)) return;
         String userName = senderName(event);
-        JSONObject result = reply(groupID,event.getUserID(),userName,content);
+        JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot);
         if (result == null || !result.getBooleanValue("status")) return;
-        String reply = safe(result.getString("content")).trim();
+        String rawReply = safe(result.getString("content")).trim();
+        boolean remember = containsRememberMarker(rawReply);
+        String reply = stripRememberMarker(rawReply).trim();
+        if (remember && config.activeMemory) {
+            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 角色主动请求记忆");
+            triggerMemory(groupID,"主动记忆");
+        }
         if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
+        if (shouldSuppressRepeat(groupID,reply)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过重复回复："+shortText(reply,80));
+            return;
+        }
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null) return;
         sendReply(client,groupID,selfID,event.getUserID(),reply);
@@ -169,7 +199,9 @@ public class RoleplayService {
         storage().update("DELETE FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
         storage().update("DELETE FROM `"+MSG_TABLE+"` WHERE `groupID`=?",groupID);
         memoryUpdatingMap.remove(groupID);
+        pendingMemoryMap.remove(groupID);
         messageCountMap.put(groupID,0);
+        otherRoleMessageStreakMap.remove(groupID);
     }
 
     public String getRoleName() {
@@ -180,11 +212,11 @@ public class RoleplayService {
         return persona.interests.size();
     }
 
-    private JSONObject reply(long groupID,long userID,String userName,String content) {
+    private JSONObject reply(long groupID,long userID,String userName,String content,boolean otherRoleBot) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
-        messages.add(message("system",buildSystemPrompt(groupID)));
+        messages.add(message("system",buildSystemPrompt(groupID,otherRoleBot)));
         messages.add(message("user","当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                 +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
         JSONObject params = new JSONObject(true);
@@ -195,89 +227,142 @@ public class RoleplayService {
         return ai.call("chat",params);
     }
 
-    private String buildSystemPrompt(long groupID) {
+    private String buildSystemPrompt(long groupID,boolean otherRoleBot) {
+        String recentReplies = recentRoleReplyText(groupID);
         return persona.description()+"\n\n"
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
+                +"你最近说过的话：\n"+recentReplies+"\n"
                 +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
                 +"如果其他群员正在接续当前话题，可以自然参与；如果只是无关话题，只输出 <SKIP>。"
+                +(otherRoleBot ? "当前发言者是另一个角色机器人。不要和另一个机器人旁若无人地连续互动，"
+                +"只有对方明确叫你、提出新问题、或真人正在参与时才简短回应；不要追问、捧哏或主动延长话题。" : "")
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
                 +"尽量只回复一句话，短句优先，不要分多段。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
+                +"不要复述自己最近说过的话，也不要换同义词继续重复同一个细节。"
+                +"同一件小事最多回应一次，除非出现了明确的新进展；没有新信息时只输出 <SKIP>。"
+                +"不要固定使用同一句式或同一开头。像“姐姐……”“哼哼！”这类口癖在最近几条回复里出现过时，"
+                +"必须换一种自然说法；最近 5 条回复中，同一种开头最多出现一次。"
                 +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
+                +(config.activeMemory ? "如果当前内容出现了值得长期记忆的新人物信息、稳定偏好、重要事件、群梗，"
+                +"或你自己的重要承诺与行为，可以在回复末尾额外输出 <remember>。"
+                +"用户看不到该标记；没有长期价值时不要输出，不要解释这个标记。" : "")
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
-    private void updateMemory(long groupID) {
-        Boolean updating = memoryUpdatingMap.get(groupID);
-        if (updating != null && updating) return;
-        memoryUpdatingMap.put(groupID,true);
-        plugin.getServer().getPluginManager().runTask(plugin,() -> {
-            try {
-                PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
-                if (ai == null) return;
-                long last = lastMemoryTime(groupID);
-                List<JSONObject> rows = storage().query(
-                        "SELECT `userID`,`userName`,`content`,`messageTime` FROM `"+MSG_TABLE+"` "
-                                + "WHERE `groupID`=? AND `messageTime`>? ORDER BY `messageTime` ASC LIMIT ?",
-                        groupID,last,config.memoryExtractMessages);
-                if (rows == null || rows.isEmpty()) return;
-                JSONArray messages = new JSONArray();
-                messages.add(message("system","你是角色扮演插件的记忆整理器。只输出 JSON，不要 Markdown。"
-                        +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
-                        +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
-                        +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
-                        +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
-                        +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄和表情。"));
-                StringBuilder source = new StringBuilder();
-                for (JSONObject row : rows) {
-                    source.append(safe(row.getString("userName"))).append("：")
-                            .append(safe(row.getString("content"))).append("\n");
-                }
-                messages.add(message("user",source.toString()));
-                JSONObject params = new JSONObject(true);
-                params.put("profile",config.aiProfile);
-                params.put("maxTokens",1600);
-                params.put("sessionId","roleplay-memory-"+groupID);
-                params.put("messages",messages);
-                JSONObject result = ai.call("chat",params);
-                if (result == null || !result.getBooleanValue("status")) return;
-                JSONObject parsed = parseJson(result.getString("content"));
-                if (parsed == null) return;
-                saveShortSummary(groupID,parsed.getString("shortTerm"));
-                JSONArray longTerm = parsed.getJSONArray("longTerm");
-                if (longTerm != null) {
-                    for (Object object : longTerm) {
-                        if (!(object instanceof JSONObject)) continue;
-                        saveLongMemory(groupID,(JSONObject) object);
-                    }
-                }
-            } finally {
-                memoryUpdatingMap.put(groupID,false);
+    private void triggerMemory(long groupID,String reason) {
+        synchronized (memoryUpdatingMap) {
+            Boolean updating = memoryUpdatingMap.get(groupID);
+            if (updating != null && updating) {
+                pendingMemoryMap.put(groupID,true);
+                return;
             }
-        });
+            memoryUpdatingMap.put(groupID,true);
+        }
+        plugin.getServer().getPluginManager().runTask(plugin,() -> runMemoryUpdate(groupID,reason));
     }
 
-    private void saveShortSummary(long groupID,String text) {
-        if (text == null || text.trim().isEmpty()) return;
-        JSONObject row = storage().queryOne("SELECT `ID` FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
-        long now = System.currentTimeMillis();
-        if (row == null) {
-            storage().insert("INSERT INTO `"+STATE_TABLE+"` (`groupID`,`shortSummary`,`lastMemoryTime`,`updateTime`) VALUES (?,?,?,?)",
-                    groupID,text.trim(),now,now);
-        } else {
-            storage().update("UPDATE `"+STATE_TABLE+"` SET `shortSummary`=?,`lastMemoryTime`=?,`updateTime`=? WHERE `groupID`=?",
-                    text.trim(),now,now,groupID);
+    private void runMemoryUpdate(long groupID,String reason) {
+        try {
+            for (int batch = 0; batch < config.memoryExtractBatches; batch++) {
+                MemoryCursor cursor = memoryCursor(groupID);
+                List<JSONObject> rows = storage().query(
+                        "SELECT `ID`,`userID`,`userName`,`content`,`messageTime` FROM `"+MSG_TABLE+"` "
+                                + "WHERE `groupID`=? AND (`messageTime`>? OR (`messageTime`=? AND `ID`>?)) "
+                                + "ORDER BY `ID` ASC LIMIT ?",
+                        groupID,cursor.time,cursor.time,cursor.id,config.memoryExtractMessages);
+                if (rows == null || rows.isEmpty()) break;
+                plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 开始整理"
+                        +(batch > 0 ? "下一批" : "")+"，消息 "+rows.size()+" 条，触发："+safe(reason));
+                if (!updateMemoryBatch(groupID,rows)) break;
+            }
+        } finally {
+            boolean pending;
+            synchronized (memoryUpdatingMap) {
+                memoryUpdatingMap.remove(groupID);
+                pending = Boolean.TRUE.equals(pendingMemoryMap.remove(groupID));
+            }
+            if (pending) triggerMemory(groupID,"待处理");
         }
     }
 
-    private void saveLongMemory(long groupID,JSONObject json) {
+    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows) {
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：MBB-AI 未启用");
+            return false;
+        }
+        JSONArray messages = new JSONArray();
+        messages.add(message("system","你是角色扮演插件的记忆整理器。只输出 JSON，不要 Markdown。"
+                +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
+                +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
+                +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
+                +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
+                +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
+                +"不要重复已有记忆；已有短期记忆如下：\n"+shortSummary(groupID)));
+        StringBuilder source = new StringBuilder();
+        for (JSONObject row : rows) {
+            source.append(safe(row.getString("userName"))).append("：")
+                    .append(safe(row.getString("content"))).append("\n");
+        }
+        messages.add(message("user",source.toString()));
+        JSONObject params = new JSONObject(true);
+        params.put("profile",config.aiProfile);
+        params.put("maxTokens",2000);
+        params.put("sessionId","roleplay-memory-"+groupID);
+        params.put("messages",messages);
+        JSONObject result = ai.call("chat",params);
+        if (result == null || !result.getBooleanValue("status")) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败："
+                    +safe(result == null ? "" : result.getString("message")));
+            return false;
+        }
+        JSONObject parsed = parseJson(result.getString("content"));
+        if (parsed == null) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：模型没有返回合法 JSON");
+            return false;
+        }
+        String shortTerm = safe(parsed.getString("shortTerm")).trim();
+        int saved = 0;
+        JSONArray longTerm = parsed.getJSONArray("longTerm");
+        if (longTerm != null) {
+            for (Object object : longTerm) {
+                if (!(object instanceof JSONObject)) continue;
+                if (saveLongMemory(groupID,(JSONObject) object)) saved++;
+            }
+        }
+        JSONObject lastRow = rows.get(rows.size() - 1);
+        saveMemoryState(groupID,shortTerm,lastRow.getLongValue("messageTime"),lastRow.getLongValue("ID"));
+        plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 整理完成：消息"+rows.size()
+                +"条，长期记忆"+saved+"条，短期记忆"+shortTerm.length()+"字");
+        return true;
+    }
+
+    private void saveMemoryState(long groupID,String shortTerm,long lastTime,long lastID) {
+        JSONObject row = storage().queryOne("SELECT `ID` FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
+        long now = System.currentTimeMillis();
+        String summary = shortTerm == null ? "" : shortTerm.trim();
+        if (row == null) {
+            storage().insert("INSERT INTO `"+STATE_TABLE+"` "
+                            + "(`groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`updateTime`) VALUES (?,?,?,?,?)",
+                    groupID,summary,lastTime,lastID,now);
+        } else if (summary.isEmpty()) {
+            storage().update("UPDATE `"+STATE_TABLE+"` SET `lastMemoryTime`=?,`lastMemoryID`=?,`updateTime`=? WHERE `groupID`=?",
+                    lastTime,lastID,now,groupID);
+        } else {
+            storage().update("UPDATE `"+STATE_TABLE+"` SET `shortSummary`=?,`lastMemoryTime`=?,`lastMemoryID`=?,`updateTime`=? WHERE `groupID`=?",
+                    summary,lastTime,lastID,now,groupID);
+        }
+    }
+
+    private boolean saveLongMemory(long groupID,JSONObject json) {
         String type = safe(json.getString("type"));
         String content = safe(json.getString("content")).trim();
-        if (type.isEmpty() || content.isEmpty()) return;
+        if (type.isEmpty() || content.isEmpty()) return false;
         long subjectID = json.getLongValue("subjectID");
         int importance = json.getIntValue("importance");
         if (importance < 1) importance = 1;
@@ -288,10 +373,43 @@ public class RoleplayService {
         if (exists != null) {
             storage().update("UPDATE `"+MEMORY_TABLE+"` SET `importance`=MAX(`importance`,?),`updateTime`=? WHERE `ID`=?",
                     importance,System.currentTimeMillis(),exists.getLongValue("ID"));
-            return;
+            return true;
         }
         storage().insert("INSERT INTO `"+MEMORY_TABLE+"` (`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime`) VALUES (?,?,?,?,?,?)",
                 groupID,type,subjectID,content,importance,System.currentTimeMillis());
+        return true;
+    }
+
+    private String recentRoleReplyText(long groupID) {
+        JSONArray replies = recentRoleReplies(groupID);
+        if (replies.isEmpty()) return "暂无。";
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < replies.size(); i++) {
+            builder.append("- ").append(safe(replies.getJSONObject(i).getString("content"))).append("\n");
+        }
+        return builder.toString();
+    }
+
+    private JSONArray recentRoleReplies(long groupID) {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `userName`,`content`,`isBot` FROM `"+MSG_TABLE+"` "
+                        + "WHERE `groupID`=? ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?",
+                groupID,Math.max(20,config.recentReplyCheckCount * 3));
+        if (rows == null || rows.isEmpty()) return result;
+        List<JSONObject> selected = new ArrayList<>();
+        for (JSONObject row : rows) {
+            if (row.getIntValue("isBot") == 1 || isRoleParticipantName(row.getString("userName"))) {
+                selected.add(row);
+                if (selected.size() >= config.recentReplyCheckCount) break;
+            }
+        }
+        for (int i = selected.size() - 1; i >= 0; i--) {
+            JSONObject item = new JSONObject(true);
+            item.put("content",selected.get(i).getString("content"));
+            result.add(item);
+        }
+        return result;
     }
 
     private String recentContext(long groupID) {
@@ -343,9 +461,12 @@ public class RoleplayService {
                 ? "暂无短期记忆。" : row.getString("shortSummary");
     }
 
-    private long lastMemoryTime(long groupID) {
-        JSONObject row = storage().queryOne("SELECT `lastMemoryTime` FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
-        return row == null ? 0L : row.getLongValue("lastMemoryTime");
+    private MemoryCursor memoryCursor(long groupID) {
+        JSONObject row = storage().queryOne(
+                "SELECT `lastMemoryTime`,`lastMemoryID` FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
+        return row == null
+                ? new MemoryCursor(0L,0L)
+                : new MemoryCursor(row.getLongValue("lastMemoryTime"),row.getLongValue("lastMemoryID"));
     }
 
     private int memoryCount(long groupID) {
@@ -515,6 +636,114 @@ public class RoleplayService {
         return last != null && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
     }
 
+    private int updateOtherRoleMessageStreak(long groupID,boolean otherRoleBot) {
+        if (!otherRoleBot) {
+            otherRoleMessageStreakMap.remove(groupID);
+            return 0;
+        }
+        Integer streak = otherRoleMessageStreakMap.get(groupID);
+        streak = streak == null ? 0 : streak;
+        streak++;
+        otherRoleMessageStreakMap.put(groupID,streak);
+        return streak;
+    }
+
+    private boolean isOtherRoleBot(GroupMessageEvent event,long selfID) {
+        if (event == null || event.getUserID() <= 0 || event.getUserID() == selfID) return false;
+        if (containsCSVLong(config.otherRoleBotQQs,event.getUserID())) return true;
+        return isRoleParticipantName(senderName(event));
+    }
+
+    private boolean isRoleParticipantName(String name) {
+        if (name == null || name.trim().isEmpty()) return false;
+        String value = name.trim();
+        for (String item : config.otherRoleBotNames.split(",")) {
+            String key = item.trim();
+            if (!key.isEmpty() && (value.equalsIgnoreCase(key)
+                    || (key.length() >= 2 && value.contains(key)))) return true;
+        }
+        return false;
+    }
+
+    private boolean containsCSVLong(String csv,long value) {
+        if (csv == null || csv.trim().isEmpty()) return false;
+        for (String item : csv.split(",")) {
+            try {
+                if (Long.parseLong(item.trim()) == value) return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    private boolean shouldSuppressRepeat(long groupID,String reply) {
+        if (reply == null || reply.trim().length() < config.repeatCheckMinChars) return false;
+        JSONArray recent = recentRoleReplies(groupID);
+        if (recent.isEmpty()) return false;
+        String candidate = normalizeForSimilarity(reply);
+        if (candidate.length() < config.repeatCheckMinChars) return false;
+        String opening = openingOf(candidate);
+        int openingCount = 0;
+        for (int i = 0; i < recent.size(); i++) {
+            String old = normalizeForSimilarity(recent.getJSONObject(i).getString("content"));
+            if (old.isEmpty()) continue;
+            if (opening.length() >= 2 && old.startsWith(opening)) openingCount++;
+            if (similarity(candidate,old) >= config.repeatSimilarityThreshold) return true;
+        }
+        return opening.length() >= 2 && openingCount >= config.repeatOpeningLimit;
+    }
+
+    private String openingOf(String text) {
+        if (text == null) return "";
+        int length = Math.min(2,text.length());
+        return length <= 0 ? "" : text.substring(0,length);
+    }
+
+    private double similarity(String left,String right) {
+        if (left == null || right == null) return 0;
+        if (left.equals(right)) return 1.0;
+        Set<String> leftSet = bigrams(left);
+        Set<String> rightSet = bigrams(right);
+        if (leftSet.isEmpty() || rightSet.isEmpty()) return 0;
+        int intersection = 0;
+        for (String item : leftSet) {
+            if (rightSet.contains(item)) intersection++;
+        }
+        int union = leftSet.size() + rightSet.size() - intersection;
+        return union <= 0 ? 0 : intersection / (double)union;
+    }
+
+    private Set<String> bigrams(String text) {
+        Set<String> result = new LinkedHashSet<>();
+        if (text == null || text.length() < 2) return result;
+        for (int i = 0; i < text.length() - 1; i++) {
+            result.add(text.substring(i,i + 2));
+        }
+        return result;
+    }
+
+    private String normalizeForSimilarity(String text) {
+        if (text == null) return "";
+        return text.toLowerCase(Locale.CHINA)
+                .replaceAll("[^\\u4e00-\\u9fa5a-z0-9]","")
+                .trim();
+    }
+
+    private boolean containsRememberMarker(String text) {
+        return text != null && text.matches("(?is).*<\\s*/?\\s*remember\\s*/?\\s*>.*");
+    }
+
+    private String stripRememberMarker(String text) {
+        if (text == null) return "";
+        return text.replaceAll("(?is)<\\s*/?\\s*remember\\s*/?\\s*>","").trim();
+    }
+
+    private String shortText(String text,int maxChars) {
+        String value = safe(text).replace("\n"," ").trim();
+        if (value.length() <= maxChars) return value;
+        return value.substring(0,maxChars)+"...";
+    }
+
     private String extractContent(JSONArray message) {
         if (message == null) return "";
         StringBuilder builder = new StringBuilder();
@@ -560,6 +789,16 @@ public class RoleplayService {
         message.put("role",role);
         message.put("content",content == null ? "" : content);
         return message;
+    }
+
+    private void ensureColumn(String table,String column,String definition) {
+        List<JSONObject> columns = storage().query("PRAGMA table_info(`"+table+"`)");
+        if (columns != null) {
+            for (JSONObject item : columns) {
+                if (column.equalsIgnoreCase(safe(item.getString("name")))) return;
+            }
+        }
+        storage().update("ALTER TABLE `"+table+"` ADD COLUMN `"+column+"` "+definition);
     }
 
     private StorageService storage() {

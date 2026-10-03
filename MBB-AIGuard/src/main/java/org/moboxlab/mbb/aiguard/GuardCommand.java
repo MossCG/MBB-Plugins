@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Command.BotCommand;
 import org.moboxlab.moboxbot.API.Command.CommandPermission;
 import org.moboxlab.moboxbot.API.Command.CommandSender;
+import org.moboxlab.moboxbot.API.Util.ImageUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -188,29 +189,35 @@ public class GuardCommand extends BotCommand {
     }
 
     private void sendLog(CommandSender sender,String[] args) {
-        int limit = 10;
+        int page = 1;
         if (args.length > 2) {
             try {
-                int page = Integer.parseInt(args[2]);
-                if (page > 0) limit = Math.min(50,page * 10);
+                page = Integer.parseInt(args[2]);
+                if (page < 1) page = 1;
             } catch (Exception ignored) {
             }
         }
-        JSONArray events = guardService.recentEvents(limit);
+        int pageSize = 10;
+        JSONArray events = guardService.recentEvents(page,pageSize);
         if (events.isEmpty()) {
-            sender.sendMessage("暂无风险审查记录。");
+            sender.sendMessage(page == 1 ? "暂无风险审查记录。" : "第 "+page+" 页暂无风险审查记录。");
             return;
         }
-        StringBuilder builder = new StringBuilder("最近风险事件：");
-        for (int i = 0; i < events.size(); i++) {
-            JSONObject event = events.getJSONObject(i);
-            builder.append("\n#").append(event.getLongValue("id"))
-                    .append(" 群").append(event.getLongValue("groupID"))
-                    .append(" 用户").append(event.getLongValue("userID"))
-                    .append(" 分数").append(event.getIntValue("score"))
-                    .append(" 分类").append(safe(event.getString("categories")));
+        byte[] image = GuardLogImageRenderer.render(events,page,pageSize);
+        if (image != null) {
+            sender.sendImage(ImageUtil.toBase64Uri(image));
+        } else {
+            StringBuilder builder = new StringBuilder("第 "+page+" 页风险事件：");
+            for (int i = 0; i < events.size(); i++) {
+                JSONObject event = events.getJSONObject(i);
+                builder.append("\n#").append(event.getLongValue("id"))
+                        .append(" 群").append(event.getLongValue("groupID"))
+                        .append(" 用户").append(event.getLongValue("userID"))
+                        .append(" 分数").append(event.getIntValue("score"))
+                        .append(" 分类").append(safe(event.getString("categories")));
+            }
+            sender.sendMessage(builder.toString());
         }
-        sender.sendMessage(builder.toString());
     }
 
     private void handleWhitelist(CommandSender sender,String[] args) {
