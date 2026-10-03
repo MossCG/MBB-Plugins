@@ -37,6 +37,10 @@ public class RoleplayPersona {
             persona.behavior = safe(json.getString("behavior"),"");
             persona.catchphrases = readList(json.getJSONArray("catchphrases"));
             persona.aliases = readList(json.getJSONArray("aliases"));
+            if (persona.aliases.isEmpty()) {
+                persona.aliases.add(persona.name);
+                if (persona.name.contains("爱丽丝")) persona.aliases.add("爱丽丝");
+            }
             persona.interests = readList(json.getJSONArray("interests"));
             persona.dislikes = readList(json.getJSONArray("dislikes"));
         } catch (Exception e) {
