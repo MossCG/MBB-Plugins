@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Roleplay",
+  "version": "V0.1.0.0.0812",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.roleplay.RoleplayPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 角色扮演插件：长期与短期记忆",
+  "website": "",
+  "depend": [],
+  "softDepend": ["MBB-AI"],
+  "loadBefore": [],
+  "provides": ["roleplay"]
+}

@@ -1,0 +1,26 @@
+#MBB-Roleplay 插件配置
+
+#是否启用角色扮演
+enable: true
+#AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
+aiProfile: "default"
+#同一群两次回复的最小间隔秒数
+replyCooldownSecond: 90
+#同一群每小时最多回复次数
+maxRepliesPerHour: 20
+#非直接提及消息命中兴趣关键词后的回复概率，0 到 1
+interestReplyChance: 0.35
+#即时上下文消息条数
+shortContextMessages: 40
+#短期记忆覆盖天数
+shortTermDays: 3
+#每累计多少条消息更新一次记忆
+memoryUpdateMessages: 30
+#最多加载多少条长期记忆
+maxLongMemories: 30
+#单次角色回复最大 Token
+replyMaxTokens: 1200
+#角色设定文件
+personaFile: "persona.json"
+#忽略少于多少字的纯文本消息
+minMessageLength: 4
