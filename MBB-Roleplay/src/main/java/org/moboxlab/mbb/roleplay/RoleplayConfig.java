@@ -21,6 +21,8 @@ public class RoleplayConfig {
     public int memoryExtractMessages = 300;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
+    public int replySegmentMaxChars = 120;
+    public int replyMaxSegments = 5;
     public String personaFile = "persona.json";
     public int minMessageLength = 2;
 
@@ -57,6 +59,8 @@ public class RoleplayConfig {
         config.memoryExtractMessages = plugin.getConfig().getInt("memoryExtractMessages",300);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
+        config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",120);
+        config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",5);
         config.personaFile = plugin.getConfig().getString("personaFile","persona.json");
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
         if (config.aiProfile == null || config.aiProfile.trim().isEmpty()) config.aiProfile = "default";
@@ -81,6 +85,10 @@ public class RoleplayConfig {
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;
         if (config.replyMaxTokens > 8000) config.replyMaxTokens = 8000;
+        if (config.replySegmentMaxChars < 40) config.replySegmentMaxChars = 40;
+        if (config.replySegmentMaxChars > 300) config.replySegmentMaxChars = 300;
+        if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;
+        if (config.replyMaxSegments > 10) config.replyMaxSegments = 10;
         if (config.minMessageLength < 1) config.minMessageLength = 1;
         return config;
     }

@@ -89,6 +89,7 @@ public class RoleplayService {
         if (!isGroupEnabled(groupID)) return;
         long selfID = event.getRaw().getLongValue("self_id");
         if (selfID > 0 && selfID == event.getUserID()) return;
+        if (containsIgnoredContent(event.getMessage())) return;
         String content = extractContent(event.getMessage());
         if (content == null || content.trim().isEmpty()) return;
         recordMessage(event,content,false);
@@ -109,19 +110,14 @@ public class RoleplayService {
         else if (question) chance = config.questionReplyChance;
         if (content.length() < config.minMessageLength || Math.random() >= chance) return;
         if (!canReply(groupID)) return;
-        JSONObject result = reply(groupID,event.getUserID(),content);
+        String userName = senderName(event);
+        JSONObject result = reply(groupID,event.getUserID(),userName,content);
         if (result == null || !result.getBooleanValue("status")) return;
         String reply = safe(result.getString("content")).trim();
         if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null) return;
-        JSONObject response = client.sendGroupMessage(groupID,MessageUtil.message(MessageUtil.text(reply)));
-        if (response != null && response.getIntValue("retcode") == 0) {
-            long messageID = response.getJSONObject("data") == null
-                    ? 0L : response.getJSONObject("data").getLongValue("message_id");
-            lastBotMessageMap.put(groupID,messageID);
-            recordBotMessage(groupID,selfID,reply,messageID);
-        }
+        sendReply(client,groupID,selfID,reply);
     }
 
     public JSONObject status(long groupID) {
@@ -182,12 +178,13 @@ public class RoleplayService {
         return persona.interests.size();
     }
 
-    private JSONObject reply(long groupID,long userID,String content) {
+    private JSONObject reply(long groupID,long userID,String userName,String content) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
         messages.add(message("system",buildSystemPrompt(groupID)));
-        messages.add(message("user","当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
+        messages.add(message("user","当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
+                +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
         params.put("maxTokens",config.replyMaxTokens);
@@ -202,6 +199,7 @@ public class RoleplayService {
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
                 +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
+                +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
@@ -363,6 +361,65 @@ public class RoleplayService {
                 messageID,groupID,botID,"角色",System.currentTimeMillis(),content,1);
     }
 
+    private void sendReply(OneBotClient client,long groupID,long selfID,String reply) {
+        List<String> segments = splitReply(reply);
+        if (segments.isEmpty()) return;
+        int count = Math.min(segments.size(),config.replyMaxSegments);
+        for (int i = 0; i < count; i++) {
+            JSONObject response = client.sendGroupMessage(groupID,MessageUtil.message(MessageUtil.text(segments.get(i))));
+            if (response != null && response.getIntValue("retcode") == 0) {
+                long messageID = response.getJSONObject("data") == null
+                        ? 0L : response.getJSONObject("data").getLongValue("message_id");
+                lastBotMessageMap.put(groupID,messageID);
+                recordBotMessage(groupID,selfID,segments.get(i),messageID);
+            }
+            if (i + 1 < count) {
+                try {
+                    Thread.sleep(250L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    private List<String> splitReply(String text) {
+        List<String> result = new ArrayList<>();
+        if (text == null || text.trim().isEmpty()) return result;
+        String normalized = text.replace("\\n","\n").replace("\r\n","\n").replace("\r","\n");
+        String[] paragraphs = normalized.split("\n+");
+        for (String paragraph : paragraphs) {
+            addParagraph(result,paragraph.trim(),config.replySegmentMaxChars);
+        }
+        return result;
+    }
+
+    private void addParagraph(List<String> result,String text,int maxChars) {
+        while (text.length() > maxChars) {
+            int cut = -1;
+            int start = Math.max(0,maxChars - 20);
+            for (int i = Math.min(maxChars - 1,text.length() - 1); i >= start; i--) {
+                char c = text.charAt(i);
+                if (c == '。' || c == '！' || c == '？' || c == '!' || c == '?' || c == '；' || c == ';') {
+                    cut = i + 1;
+                    break;
+                }
+            }
+            if (cut <= 0) cut = maxChars;
+            result.add(text.substring(0,cut).trim());
+            text = text.substring(cut).trim();
+        }
+        if (!text.isEmpty()) result.add(text);
+    }
+
+    private String senderName(GroupMessageEvent event) {
+        JSONObject sender = event.getSender();
+        String name = sender == null ? "" : sender.getString("card");
+        if (name == null || name.trim().isEmpty()) name = sender == null ? "" : sender.getString("nickname");
+        return name == null || name.trim().isEmpty() ? String.valueOf(event.getUserID()) : name;
+    }
+
     private int countMessage(long groupID) {
         Integer count = messageCountMap.get(groupID);
         count = count == null ? 0 : count;
@@ -390,6 +447,9 @@ public class RoleplayService {
 
     private boolean isDirect(GroupMessageEvent event,String content,long selfID) {
         if (content.contains(persona.name) || content.contains(plugin.getServer().getBotName())) return true;
+        for (String alias : persona.aliases) {
+            if (alias != null && !alias.trim().isEmpty() && content.contains(alias)) return true;
+        }
         String raw = event.getRawMessage();
         if (raw != null && selfID > 0) {
             if (raw.contains("[CQ:at,qq="+selfID+"]") || raw.contains("[CQ:at,qq=\""+selfID+"\"]")) return true;
@@ -437,6 +497,17 @@ public class RoleplayService {
             else if ("face".equals(type)) builder.append("[表情]");
         }
         return builder.toString().trim();
+    }
+
+    private boolean containsIgnoredContent(JSONArray message) {
+        if (message == null) return false;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null) continue;
+            String type = segment.getString("type");
+            if ("image".equals(type) || "mface".equals(type) || "face".equals(type)) return true;
+        }
+        return false;
     }
 
     private JSONObject parseJson(String content) {

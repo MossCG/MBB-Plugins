@@ -20,6 +20,7 @@ public class RoleplayPersona {
     public String speechStyle = "";
     public String behavior = "";
     public List<String> catchphrases = new ArrayList<>();
+    public List<String> aliases = new ArrayList<>();
     public List<String> interests = new ArrayList<>();
     public List<String> dislikes = new ArrayList<>();
 
@@ -35,6 +36,7 @@ public class RoleplayPersona {
             persona.speechStyle = safe(json.getString("speechStyle"),"");
             persona.behavior = safe(json.getString("behavior"),"");
             persona.catchphrases = readList(json.getJSONArray("catchphrases"));
+            persona.aliases = readList(json.getJSONArray("aliases"));
             persona.interests = readList(json.getJSONArray("interests"));
             persona.dislikes = readList(json.getJSONArray("dislikes"));
         } catch (Exception e) {
@@ -59,6 +61,7 @@ public class RoleplayPersona {
                 +"性格："+personality+"\n"
                 +"说话方式："+speechStyle+"\n"
                 +(catchphrases.isEmpty() ? "" : "口癖："+String.join("、",catchphrases)+"\n")
+                +(aliases.isEmpty() ? "" : "称呼："+String.join("、",aliases)+"\n")
                 +"行为规则："+behavior;
     }
 
