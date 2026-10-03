@@ -31,6 +31,8 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 ./MoBoxBot/plugins/MBB-Roleplay/persona.json
 ```
 
+默认设定为《蔚蓝档案》的天童爱丽丝：游戏开发部、勇者见习生、RPG 爱好者，重视老师和伙伴，说话偶尔带游戏化表达。
+
 可以修改名称、身份、性格、说话方式、兴趣、禁忌和行为规则。修改后执行：
 
 ```text
