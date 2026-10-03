@@ -206,6 +206,7 @@ public class RoleplayService {
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
                 +"尽量只回复一句话，短句优先，不要分多段。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
+                +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
@@ -460,14 +461,8 @@ public class RoleplayService {
     }
 
     private boolean isDirect(GroupMessageEvent event,String content,long selfID) {
-        if (content.contains(persona.name) || content.contains(plugin.getServer().getBotName())) return true;
-        for (String alias : persona.aliases) {
-            if (alias != null && !alias.trim().isEmpty() && content.contains(alias)) return true;
-        }
-        String raw = event.getRawMessage();
-        if (raw != null && selfID > 0) {
-            if (raw.contains("[CQ:at,qq="+selfID+"]") || raw.contains("[CQ:at,qq=\""+selfID+"\"]")) return true;
-        }
+        boolean mentionedSelf = false;
+        boolean mentionedOther = false;
         JSONArray message = event.getMessage();
         if (message != null) {
             Long lastBot = lastBotMessageMap.get(event.getGroupID());
@@ -475,12 +470,36 @@ public class RoleplayService {
                 JSONObject segment = message.getJSONObject(i);
                 if (segment == null) continue;
                 JSONObject data = segment.getJSONObject("data");
-                if ("at".equals(segment.getString("type")) && data != null && data.getLongValue("qq") == selfID) return true;
+                if ("at".equals(segment.getString("type")) && data != null) {
+                    long atID = data.getLongValue("qq");
+                    if (atID == selfID) mentionedSelf = true;
+                    else if (atID > 0) mentionedOther = true;
+                }
                 if ("reply".equals(segment.getString("type")) && data != null && lastBot != null
                         && data.getLongValue("id") == lastBot) return true;
             }
         }
+        if (mentionedSelf) return true;
+        if (mentionedOther) return false;
+
+        String text = content == null ? "" : content.trim();
+        if (startsWithAlias(text,persona.name) || startsWithAlias(text,plugin.getServer().getBotName())) return true;
+        for (String alias : persona.aliases) {
+            if (startsWithAlias(text,alias)) return true;
+        }
+
+        String raw = event.getRawMessage();
+        if (raw != null && selfID > 0) {
+            if (raw.contains("[CQ:at,qq="+selfID+"]") || raw.contains("[CQ:at,qq=\""+selfID+"\"]")) return true;
+        }
         return false;
+    }
+
+    private boolean startsWithAlias(String text,String alias) {
+        if (text == null || alias == null || alias.trim().isEmpty()) return false;
+        String value = text.trim();
+        String name = alias.trim();
+        return value.startsWith(name) || value.startsWith("@"+name);
     }
 
     private boolean isContinuation(long groupID,long userID) {
