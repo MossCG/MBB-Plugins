@@ -142,7 +142,7 @@ public class RoleplayCommand extends BotCommand {
                 return true;
             }
             service.clearMemory(groupID);
-            sender.sendMessage("当前群的角色记忆已清空。");
+            sender.sendMessage("当前群的角色记忆、聊天上下文和 AI 会话已清空。");
             return true;
         }
         if ("persona".equals(action)) {

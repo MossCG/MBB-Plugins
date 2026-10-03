@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 角色扮演与记忆服务
@@ -90,8 +91,10 @@ public class RoleplayService {
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
                 + "`enabled` INTEGER NOT NULL DEFAULT 0,"
+                + "`contextToken` TEXT NOT NULL DEFAULT '',"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0"
                 + ")");
+        ensureColumn(GROUP_TABLE,"contextToken","TEXT NOT NULL DEFAULT ''");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_msg_group` ON `"+MSG_TABLE+"` (`groupID`,`messageTime`)");
     }
 
@@ -167,6 +170,40 @@ public class RoleplayService {
         return row != null && row.getIntValue("enabled") == 1;
     }
 
+    private String contextToken(long groupID) {
+        JSONObject row = storage().queryOne(
+                "SELECT `contextToken` FROM `"+GROUP_TABLE+"` WHERE `groupID`=?",groupID);
+        if (row != null && row.getString("contextToken") != null
+                && !row.getString("contextToken").trim().isEmpty()) {
+            return row.getString("contextToken").trim();
+        }
+        String token = newContextToken();
+        if (row == null) {
+            storage().insert("INSERT INTO `"+GROUP_TABLE+"` "
+                            + "(`groupID`,`enabled`,`contextToken`,`updateTime`) VALUES (?,?,?,?)",
+                    groupID,0,token,System.currentTimeMillis());
+        } else {
+            storage().update("UPDATE `"+GROUP_TABLE+"` SET `contextToken`=?,`updateTime`=? WHERE `groupID`=?",
+                    token,System.currentTimeMillis(),groupID);
+        }
+        return token;
+    }
+
+    private void rotateContextToken(long groupID) {
+        String token = newContextToken();
+        int rows = storage().update("UPDATE `"+GROUP_TABLE+"` SET `contextToken`=?,`updateTime`=? WHERE `groupID`=?",
+                token,System.currentTimeMillis(),groupID);
+        if (rows <= 0) {
+            storage().insert("INSERT INTO `"+GROUP_TABLE+"` "
+                            + "(`groupID`,`enabled`,`contextToken`,`updateTime`) VALUES (?,?,?,?)",
+                    groupID,0,token,System.currentTimeMillis());
+        }
+    }
+
+    private String newContextToken() {
+        return UUID.randomUUID().toString().replace("-","");
+    }
+
     public void setGroupEnabled(long groupID,boolean enabled) {
         JSONObject row = storage().queryOne("SELECT `ID` FROM `"+GROUP_TABLE+"` WHERE `groupID`=?",groupID);
         long now = System.currentTimeMillis();
@@ -198,10 +235,15 @@ public class RoleplayService {
         storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
         storage().update("DELETE FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
         storage().update("DELETE FROM `"+MSG_TABLE+"` WHERE `groupID`=?",groupID);
+        rotateContextToken(groupID);
         memoryUpdatingMap.remove(groupID);
         pendingMemoryMap.remove(groupID);
         messageCountMap.put(groupID,0);
         otherRoleMessageStreakMap.remove(groupID);
+        lastReplyMap.remove(groupID);
+        lastReplyUserMap.remove(groupID);
+        lastBotMessageMap.remove(groupID);
+        replyRateMap.remove(groupID);
     }
 
     public String getRoleName() {
@@ -222,7 +264,7 @@ public class RoleplayService {
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
         params.put("maxTokens",config.replyMaxTokens);
-        params.put("sessionId","roleplay-"+groupID);
+        params.put("sessionId","roleplay-"+groupID+"-"+contextToken(groupID));
         params.put("messages",messages);
         return ai.call("chat",params);
     }
@@ -278,7 +320,7 @@ public class RoleplayService {
                 if (rows == null || rows.isEmpty()) break;
                 plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 开始整理"
                         +(batch > 0 ? "下一批" : "")+"，消息 "+rows.size()+" 条，触发："+safe(reason));
-                if (!updateMemoryBatch(groupID,rows)) break;
+                if (!updateMemoryBatch(groupID,rows,contextToken(groupID))) break;
             }
         } finally {
             boolean pending;
@@ -290,7 +332,7 @@ public class RoleplayService {
         }
     }
 
-    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows) {
+    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows,String contextToken) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：MBB-AI 未启用");
@@ -313,7 +355,7 @@ public class RoleplayService {
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
         params.put("maxTokens",2000);
-        params.put("sessionId","roleplay-memory-"+groupID);
+        params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken);
         params.put("messages",messages);
         JSONObject result = ai.call("chat",params);
         if (result == null || !result.getBooleanValue("status")) {
@@ -324,6 +366,10 @@ public class RoleplayService {
         JSONObject parsed = parseJson(result.getString("content"));
         if (parsed == null) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：模型没有返回合法 JSON");
+            return false;
+        }
+        if (!contextToken.equals(contextToken(groupID))) {
+            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 上下文已重置，放弃旧批次记忆");
             return false;
         }
         String shortTerm = safe(parsed.getString("shortTerm")).trim();

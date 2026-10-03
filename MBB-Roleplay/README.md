@@ -38,7 +38,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 | `/role bot qq ...` | `BOT_ADMIN` | 查看、增删或清空其他角色机器人 QQ |
 | `/role bot name ...` | `BOT_ADMIN` | 查看、增删、重置或清空名称识别关键词 |
 | `/role memory` | `BOT_ADMIN` | 查看当前群记忆概况 |
-| `/role forget` | `BOT_ADMIN` | 清空当前群记忆 |
+| `/role forget` | `BOT_ADMIN` | 清空当前群记忆、聊天上下文并轮换 AI 会话 |
 | `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
 
 ## 角色设定
@@ -144,6 +144,10 @@ minMessageLength: 2
 ```
 
 标记不会发送到 QQ。插件会剥离标记，把实际回复正常发出，并以当前群最近未整理的消息执行一次记忆更新。
+
+## 清空上下文
+
+`/role forget` 会同时清空当前群的长期记忆、短期记忆、消息上下文和运行态回复状态，并轮换持久化 AI 会话标识。轮换后即使模型服务端按 `sessionId` 保留会话，也会从新的空上下文开始。
 
 ## 升级说明
 
