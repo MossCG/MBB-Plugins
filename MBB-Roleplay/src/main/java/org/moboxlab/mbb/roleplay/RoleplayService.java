@@ -52,6 +52,9 @@ public class RoleplayService {
     private final Map<Long,Boolean> memoryMergingMap = new HashMap<>();
     private final Map<Long,long[]> imageVisionRateMap = new HashMap<>();
     private final Map<String,RecentImage> recentImageMap = new ConcurrentHashMap<>();
+    private final Map<String,PendingTurn> pendingTurnMap = new ConcurrentHashMap<>();
+    private final Map<String,RecentSticker> recentStickerMap = new ConcurrentHashMap<>();
+    private final Map<String,Integer> pendingGenerationMap = new ConcurrentHashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
@@ -156,6 +159,47 @@ public class RoleplayService {
         }
     }
 
+    private static class RecentSticker {
+        private final String emotion;
+        private final long expireAt;
+
+        private RecentSticker(String emotion,long expireAt) {
+            this.emotion = emotion;
+            this.expireAt = expireAt;
+        }
+
+        private boolean expired() {
+            return System.currentTimeMillis() > expireAt;
+        }
+    }
+
+    private static class PendingTurn {
+        private final GroupMessageEvent event;
+        private final long selfID;
+        private final String userName;
+        private final String relationship;
+        private final String content;
+        private final RecentImage imageContext;
+        private final int generation;
+        private final boolean otherRoleBot;
+        private volatile String stickerEmotion = "";
+        private volatile boolean stickerPending = false;
+        private volatile long hardDeadline = 0L;
+
+        private PendingTurn(GroupMessageEvent event,long selfID,String userName,
+                            String relationship,String content,RecentImage imageContext,
+                            int generation,boolean otherRoleBot) {
+            this.event = event;
+            this.selfID = selfID;
+            this.userName = userName;
+            this.relationship = relationship;
+            this.content = content;
+            this.imageContext = imageContext;
+            this.generation = generation;
+            this.otherRoleBot = otherRoleBot;
+        }
+    }
+
     public RoleplayService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona) {
         this.plugin = plugin;
         this.config = config;
@@ -236,6 +280,9 @@ public class RoleplayService {
         boolean hasText = hasMeaningfulText(event.getMessage());
         RecentImage currentImage = null;
         if (hasImage) {
+            if (hasStickerContent(event.getMessage())) {
+                markStickerRecognitionPending(groupID,event.getUserID());
+            }
             currentImage = rememberImageContext(event,groupID);
             if (shouldUnderstandImages(event,content,direct,sameUserContinuation)) {
                 content = enrichImageContent(event,content,groupID,currentImage);
@@ -252,7 +299,13 @@ public class RoleplayService {
             messageCountMap.put(groupID,0);
             triggerMemory(groupID,"定时整理");
         }
-        if (hasImage && !hasText) return;
+        if (hasImage && !hasText) {
+            if (hasStickerContent(event.getMessage())) {
+                String emotion = content == null || content.trim().isEmpty() ? "[表情包]" : content.trim();
+                finishStickerRecognition(groupID,event.getUserID(),emotion);
+            }
+            return;
+        }
         if (isAddressedToOtherRole(event,content,selfID)) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过指向其他角色的消息："
                     +shortText(content,80));
@@ -273,9 +326,19 @@ public class RoleplayService {
         if (!canReply(groupID)) return;
         String userName = senderName(event);
         String relationship = relationshipLabel(event,otherRoleBot);
+        if (shouldDeferTurn(event,otherRoleBot,hasImage)) {
+            deferTurn(event,groupID,selfID,userName,relationship,content,replyImage,otherRoleBot);
+            return;
+        }
         JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,
                 relationship,replyImage);
         if (result == null || !result.getBooleanValue("status")) return;
+        processReplyResult(event,groupID,selfID,userName,relationship,content,result);
+    }
+
+    private void processReplyResult(GroupMessageEvent event,long groupID,long selfID,
+                                    String userName,String relationship,String content,
+                                    JSONObject result) {
         String rawReply = safe(result.getString("content")).trim();
         ReminderMarkerResult reminderMarker = extractReminderMarker(rawReply);
         GlobalRememberResult globalRemember = extractGlobalRemember(reminderMarker.reply);
@@ -1593,6 +1656,106 @@ public class RoleplayService {
 
     private String recentImageKey(long groupID,long userID) {
         return groupID+"|"+userID;
+    }
+
+    private boolean shouldDeferTurn(GroupMessageEvent event,boolean otherRoleBot,boolean hasImage) {
+        return config.stickerAttachEnable
+                && !otherRoleBot
+                && !hasImage
+                && !hasStickerContent(event.getMessage());
+    }
+
+    private void deferTurn(GroupMessageEvent event,long groupID,long selfID,String userName,
+                           String relationship,String content,RecentImage imageContext,
+                           boolean otherRoleBot) {
+        String key = recentImageKey(groupID,event.getUserID());
+        int generation = nextPendingGeneration(key);
+        PendingTurn pending = new PendingTurn(event,selfID,userName,relationship,
+                content,imageContext,generation,otherRoleBot);
+        pending.stickerEmotion = recentStickerEmotion(groupID,event.getUserID());
+        pending.hardDeadline = System.currentTimeMillis() + config.stickerAttachMaxWaitSecond * 1000L;
+        pendingTurnMap.put(key,pending);
+        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+event.getUserID()
+                +" 等待 "+config.stickerAttachWindowSecond+" 秒合并表情包语气。");
+        plugin.getServer().getPluginManager().runTaskLater(plugin,
+                () -> executePendingTurn(key,generation),config.stickerAttachWindowSecond);
+    }
+
+    private void executePendingTurn(String key,int generation) {
+        PendingTurn pending = pendingTurnMap.get(key);
+        if (pending == null || pending.generation != generation) return;
+        if (pending.stickerPending) {
+            long now = System.currentTimeMillis();
+            if (now < pending.hardDeadline) {
+                plugin.getServer().getPluginManager().runTaskLater(plugin,
+                        () -> executePendingTurn(key,generation),1);
+                return;
+            }
+            plugin.getLogger().sendWarn("[角色] 群"+pending.event.getGroupID()
+                    +" 等待表情包识别超时，按无表情包继续。");
+        }
+        pendingTurnMap.remove(key,pending);
+        long groupID = pending.event.getGroupID();
+        if (!canReply(groupID)) return;
+        String content = mergeStickerEmotion(pending.content,pending.stickerEmotion);
+        JSONObject result = reply(groupID,pending.event.getUserID(),pending.userName,content,
+                pending.otherRoleBot,pending.relationship,pending.imageContext);
+        if (result == null || !result.getBooleanValue("status")) return;
+        processReplyResult(pending.event,groupID,pending.selfID,pending.userName,
+                pending.relationship,content,result);
+    }
+
+    private void markStickerRecognitionPending(long groupID,long userID) {
+        PendingTurn pending = pendingTurnMap.get(recentImageKey(groupID,userID));
+        if (pending == null) return;
+        pending.stickerPending = true;
+        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+userID
+                +" 表情包正在识别，暂缓本回合。");
+    }
+
+    private void finishStickerRecognition(long groupID,long userID,String emotion) {
+        String key = recentImageKey(groupID,userID);
+        rememberStickerEmotion(groupID,userID,emotion);
+        PendingTurn pending = pendingTurnMap.get(key);
+        if (pending == null) return;
+        if (emotion != null && !emotion.trim().isEmpty()) {
+            pending.stickerEmotion = emotion.trim();
+        }
+        pending.stickerPending = false;
+        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+userID
+                +" 表情包识别完成，立即合并回复。");
+        executePendingTurn(key,pending.generation);
+    }
+
+    private void rememberStickerEmotion(long groupID,long userID,String emotion) {
+        if (emotion == null || emotion.trim().isEmpty()) return;
+        recentStickerMap.put(recentImageKey(groupID,userID),new RecentSticker(
+                emotion.trim(),System.currentTimeMillis() + config.stickerAttachWindowSecond * 1000L));
+    }
+
+    private String recentStickerEmotion(long groupID,long userID) {
+        String key = recentImageKey(groupID,userID);
+        RecentSticker recent = recentStickerMap.get(key);
+        if (recent == null) return "";
+        if (recent.expired()) {
+            recentStickerMap.remove(key);
+            return "";
+        }
+        return recent.emotion;
+    }
+
+    private String mergeStickerEmotion(String content,String emotion) {
+        String text = safe(content);
+        String sticker = safe(emotion).trim();
+        if (sticker.isEmpty()) return text;
+        return text+"\n"+sticker;
+    }
+
+    private synchronized int nextPendingGeneration(String key) {
+        Integer current = pendingGenerationMap.get(key);
+        int next = current == null ? 1 : current + 1;
+        pendingGenerationMap.put(key,next);
+        return next;
     }
 
     private boolean shouldUnderstandImages(GroupMessageEvent event,String content,

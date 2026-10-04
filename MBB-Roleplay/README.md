@@ -39,6 +39,8 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 用户先发送图片再追问时，会在时间窗口内把原图作为多模态上下文传给模型，图片本身不会单独触发回复
 - 同一图片已经识别过时会复用摘要，后续追问不会重复调用识图
 - 多个角色同时处理同一图片时，识图请求会按图片哈希合并，避免重复调用视觉模型
+- 文字回合默认等待 3 秒，把用户随后补发的表情包语气合并进同一次回复；表情包先到也能被后续文字吸收
+- 表情包已开始识别时会暂停回合，识别完成后立即合并；最多额外等待 15 秒，超时按无表情包继续
 - 安装 `MBB-Sticker` 后，角色可以按当前真实标签集输出 `<sticker>tag</sticker>` 发送匹配表情包，不会调用不存在的标签
 - 表情包是可选表达，提示词会要求低频自然使用，不会每句话都携带
 
@@ -166,6 +168,9 @@ imageUnderstandingInjectOcr: true
 imageUnderstandingProfile: ""
 imageUnderstandingMaxChars: 600
 imageContextTimeoutSecond: 300
+stickerAttachEnable: true
+stickerAttachWindowSecond: 3
+stickerAttachMaxWaitSecond: 15
 replyImageMaxTokens: 4000
 maxLongMemories: 150
 recentReplyCheckCount: 8

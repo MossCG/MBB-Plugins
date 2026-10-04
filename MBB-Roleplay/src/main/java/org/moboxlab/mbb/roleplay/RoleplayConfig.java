@@ -55,6 +55,9 @@ public class RoleplayConfig {
     public String imageUnderstandingProfile = "";
     public int imageUnderstandingMaxChars = 600;
     public int imageContextTimeoutSecond = 300;
+    public boolean stickerAttachEnable = true;
+    public int stickerAttachWindowSecond = 3;
+    public int stickerAttachMaxWaitSecond = 15;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
@@ -142,6 +145,9 @@ public class RoleplayConfig {
         config.imageUnderstandingProfile = plugin.getConfig().getString("imageUnderstandingProfile","");
         config.imageUnderstandingMaxChars = plugin.getConfig().getInt("imageUnderstandingMaxChars",600);
         config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
+        config.stickerAttachEnable = plugin.getConfig().getBoolean("stickerAttachEnable",true);
+        config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",3);
+        config.stickerAttachMaxWaitSecond = plugin.getConfig().getInt("stickerAttachMaxWaitSecond",15);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
@@ -226,6 +232,12 @@ public class RoleplayConfig {
         if (config.imageUnderstandingMaxChars > 3000) config.imageUnderstandingMaxChars = 3000;
         if (config.imageContextTimeoutSecond < 10) config.imageContextTimeoutSecond = 10;
         if (config.imageContextTimeoutSecond > 3600) config.imageContextTimeoutSecond = 3600;
+        if (config.stickerAttachWindowSecond < 1) config.stickerAttachWindowSecond = 1;
+        if (config.stickerAttachWindowSecond > 10) config.stickerAttachWindowSecond = 10;
+        if (config.stickerAttachMaxWaitSecond < config.stickerAttachWindowSecond) {
+            config.stickerAttachMaxWaitSecond = config.stickerAttachWindowSecond;
+        }
+        if (config.stickerAttachMaxWaitSecond > 60) config.stickerAttachMaxWaitSecond = 60;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;
