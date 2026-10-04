@@ -11,7 +11,8 @@ import java.util.regex.Pattern;
  */
 public class RoleplayReminderParser {
     private static final Pattern RELATIVE_PATTERN = Pattern.compile(
-            "(?<!\\d)(\\d+)\\s*(分钟|个小时|小时|天|周)后");
+            "(?<![0-9一二三四五六七八九十两])([0-9一二三四五六七八九十两]+)\\s*"
+                    +"(分钟|个小时|小时|天|周)后");
     private static final Pattern DATE_TIME_PATTERN = Pattern.compile(
             "(今天|明天|后天|今晚|明晚)?\\s*(凌晨|早上|上午|中午|下午|傍晚|晚上)?\\s*"
                     +"([0-9一二三四五六七八九十两]+)\\s*(?:点|时)"

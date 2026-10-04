@@ -147,7 +147,11 @@ public class RoleplayService {
             messageCountMap.put(groupID,0);
             triggerMemory(groupID,"定时整理");
         }
-        if (isAddressedToOtherRole(event,content,selfID)) return;
+        if (isAddressedToOtherRole(event,content,selfID)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过指向其他角色的消息："
+                    +shortText(content,80));
+            return;
+        }
         if (otherRoleBot && isReminderNotification(content)) return;
         if (!otherRoleBot && reminderService.handle(event,content)) return;
         if (otherRoleBot && otherRoleStreak > config.maxConsecutiveOtherRoleMessages) return;
@@ -753,7 +757,8 @@ public class RoleplayService {
         if (text.startsWith("@")) {
             text = text.replaceFirst("^@[0-9]+\\s*","").trim();
         }
-        for (String item : config.otherRoleBotNames.split(",")) {
+        String names = config.otherRoleBotNames+","+RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES;
+        for (String item : names.split(",")) {
             String name = item.trim();
             if (name.isEmpty() || isOwnRoleName(name)) continue;
             if (startsWithAlias(text,name)) return true;

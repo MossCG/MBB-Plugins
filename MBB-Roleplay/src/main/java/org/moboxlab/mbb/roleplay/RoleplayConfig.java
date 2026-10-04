@@ -129,7 +129,9 @@ public class RoleplayConfig {
         if (config.otherRoleBotReplyChance < 0) config.otherRoleBotReplyChance = 0;
         if (config.otherRoleBotReplyChance > 1) config.otherRoleBotReplyChance = 1;
         if (config.maxConsecutiveOtherRoleMessages < 0) config.maxConsecutiveOtherRoleMessages = 0;
-        if (config.otherRoleBotNames == null) config.otherRoleBotNames = "";
+        if (config.otherRoleBotNames == null || config.otherRoleBotNames.trim().isEmpty()) {
+            config.otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
+        }
         if (config.otherRoleBotQQs == null) config.otherRoleBotQQs = "";
         if (config.shortContextMessages < 1) config.shortContextMessages = 1;
         if (config.shortContextMessages > 300) config.shortContextMessages = 300;
