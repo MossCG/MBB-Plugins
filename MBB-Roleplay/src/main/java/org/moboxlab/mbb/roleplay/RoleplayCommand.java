@@ -62,6 +62,7 @@ public class RoleplayCommand extends BotCommand {
                 "/role bot qq [list|add|remove|set|clear] [QQ...]",
                 "/role bot name [list|add|remove|set|clear|reset] [名称...]",
                 "/role memory [页码]",
+                "/role memory merge",
                 "/role gmemory [页码]",
                 "/role gmemory backup",
                 "/role gmemory merge",
@@ -173,6 +174,14 @@ public class RoleplayCommand extends BotCommand {
     }
 
     private void handleMemory(CommandSender sender,String[] args) {
+        long groupID = sender.getGroupID();
+        if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {
+            boolean started = service.mergeLongMemoryNow(groupID);
+            sender.sendMessage(started
+                    ? "长期记忆整理合并已开始，请查看控制台日志确认结果。"
+                    : "当前群已有长期记忆整理任务在执行。");
+            return;
+        }
         int page = 1;
         if (args.length > 2) {
             try {
@@ -181,7 +190,6 @@ public class RoleplayCommand extends BotCommand {
             } catch (Exception ignored) {
             }
         }
-        long groupID = sender.getGroupID();
         JSONObject result = service.memoryStats(groupID);
         JSONArray memories = result.getJSONArray("memories");
         int pageSize = 12;

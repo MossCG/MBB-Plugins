@@ -48,6 +48,7 @@ public class RoleplayService {
     private final Map<Long,Boolean> memoryUpdatingMap = new HashMap<>();
     private final Map<Long,String> pendingMemoryMap = new HashMap<>();
     private final Map<Long,Integer> otherRoleMessageStreakMap = new HashMap<>();
+    private final Map<Long,Boolean> memoryMergingMap = new HashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
@@ -663,11 +664,106 @@ public class RoleplayService {
         if (exists != null) {
             storage().update("UPDATE `"+MEMORY_TABLE+"` SET `importance`=MAX(`importance`,?),`updateTime`=? WHERE `ID`=?",
                     importance,System.currentTimeMillis(),exists.getLongValue("ID"));
+            mergeLongMemoryIfNeeded(groupID);
             return true;
         }
         storage().insert("INSERT INTO `"+MEMORY_TABLE+"` (`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime`) VALUES (?,?,?,?,?,?)",
                 groupID,type,subjectID,content,importance,System.currentTimeMillis());
+        mergeLongMemoryIfNeeded(groupID);
         return true;
+    }
+
+    private void mergeLongMemoryIfNeeded(long groupID) {
+        if (memoryCount(groupID) <= config.maxLongMemories) return;
+        mergeLongMemoryNow(groupID);
+    }
+
+    public boolean mergeLongMemoryNow(long groupID) {
+        synchronized (memoryMergingMap) {
+            Boolean merging = memoryMergingMap.get(groupID);
+            if (merging != null && merging) return false;
+            memoryMergingMap.put(groupID,true);
+        }
+        plugin.getServer().getPluginManager().runTask(plugin,() -> {
+            try {
+                mergeLongMemory(groupID);
+            } finally {
+                memoryMergingMap.put(groupID,false);
+            }
+        });
+        return true;
+    }
+
+    private void mergeLongMemory(long groupID) {
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并跳过：MBB-AI 未启用");
+            return;
+        }
+        int total = memoryCount(groupID);
+        List<JSONObject> rows = storage().query(
+                "SELECT `memoryType`,`subjectID`,`content`,`importance` FROM `"+MEMORY_TABLE+"` "
+                        + "WHERE `groupID`=? ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
+                groupID,Math.max(total,config.maxLongMemories));
+        if (rows == null || rows.size() < 2) return;
+        JSONArray source = new JSONArray();
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("type",row.getString("memoryType"));
+            item.put("subjectID",row.getLongValue("subjectID"));
+            item.put("content",row.getString("content"));
+            item.put("importance",row.getIntValue("importance"));
+            source.add(item);
+        }
+        JSONArray messages = new JSONArray();
+        messages.add(message("system","你是角色扮演插件的长期记忆整理器。请合并重复或高度相似的记忆，"
+                +"保留用户印象、用户信息、群内氛围、群梗、角色行为和重要事件，不要因为压缩而丢失关键内容。"
+                +"只输出 JSON，不要 Markdown：{\"memories\":[{\"type\":\"user_impression|user_info|"
+                +"group_atmosphere|meme|self_action|topic\",\"subjectID\":0,\"content\":\"整理后的内容\","
+                +"\"importance\":1}]}。最多输出 "+config.maxLongMemories+" 条。"));
+        messages.add(message("user",source.toJSONString()));
+        JSONObject params = new JSONObject(true);
+        String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
+                ? config.aiProfile : config.memoryProfile.trim();
+        params.put("profile",profile);
+        params.put("maxTokens",config.memoryMaxTokens);
+        params.put("temperature",0.1);
+        params.put("sessionId","roleplay-memory-merge-"+groupID);
+        params.put("messages",messages);
+        JSONObject result = ai.call("chat",params);
+        if (result == null || !result.getBooleanValue("status")) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败："
+                    +safe(result == null ? "" : result.getString("message")));
+            return;
+        }
+        JSONObject parsed = parseJson(result.getString("content"));
+        JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
+        if (merged == null || merged.isEmpty()) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败：模型没有返回有效 memories");
+            return;
+        }
+        storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
+        int saved = 0;
+        long now = System.currentTimeMillis();
+        for (Object object : merged) {
+            if (!(object instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject)object;
+            String type = safe(item.getString("type")).trim();
+            String content = safe(item.getString("content")).trim();
+            if (content.isEmpty()) continue;
+            if (type.isEmpty()) type = "topic";
+            long subjectID = item.getLongValue("subjectID");
+            int importance = item.getIntValue("importance");
+            if (importance < 1) importance = 1;
+            if (importance > 5) importance = 5;
+            storage().insert("INSERT INTO `"+MEMORY_TABLE+"` "
+                            + "(`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?)",
+                    groupID,type,subjectID,content,importance,now);
+            saved++;
+        }
+        plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆整理合并完成：原 "+rows.size()
+                +" 条，合并后 "+saved+" 条");
     }
 
     private String recentRoleReplyText(long groupID) {

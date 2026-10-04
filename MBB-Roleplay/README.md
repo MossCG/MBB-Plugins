@@ -53,6 +53,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role bot qq ...` | `BOT_ADMIN` | 查看、增删或清空其他角色机器人 QQ |
 | `/role bot name ...` | `BOT_ADMIN` | 查看、增删、重置或清空名称识别关键词 |
 | `/role memory [页码]` | `BOT_ADMIN` | 以图片查看当前群短期记忆和长期记忆 |
+| `/role memory merge` | `BOT_ADMIN` | 手动整理合并当前群长期记忆 |
 | `/role forget` | `BOT_ADMIN` | 清空当前群记忆、聊天上下文并轮换 AI 会话 |
 | `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
 | `/role persona reset <文件名>` | `BOT_ADMIN` | 用内置版本覆盖指定角色设定文件 |
@@ -253,6 +254,8 @@ global-memory-backup.json
 ```
 
 永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是调用 AI 对重复或高度相似的条目进行整理合并。合并失败时保留原数据。
+
+当前群的长期记忆超过 `maxLongMemories` 时也会异步调用 AI 做整理合并，保留用户印象、群内氛围、群梗、角色行为和重要事件。合并失败时保留原数据。
 
 ## 台词语料检索
 
