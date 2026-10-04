@@ -20,6 +20,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 角色扮演与记忆服务
@@ -39,8 +41,14 @@ public class RoleplayService {
     private final Map<Long,Integer> messageCountMap = new HashMap<>();
     private final Map<Long,long[]> replyRateMap = new HashMap<>();
     private final Map<Long,Boolean> memoryUpdatingMap = new HashMap<>();
-    private final Map<Long,Boolean> pendingMemoryMap = new HashMap<>();
+    private final Map<Long,String> pendingMemoryMap = new HashMap<>();
     private final Map<Long,Integer> otherRoleMessageStreakMap = new HashMap<>();
+    private static final Pattern REMEMBER_PAIR = Pattern.compile(
+            "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
+    private static final Pattern REMEMBER_OPEN = Pattern.compile(
+            "(?is)<\\s*remember\\s*/?\\s*>");
+    private static final Pattern REMEMBER_CLOSE = Pattern.compile(
+            "(?is)<\\s*/\\s*remember\\s*>");
 
     private static class MemoryCursor {
         private final long time;
@@ -49,6 +57,18 @@ public class RoleplayService {
         private MemoryCursor(long time,long id) {
             this.time = time;
             this.id = id;
+        }
+    }
+
+    private static class RememberResult {
+        private final boolean requested;
+        private final String reply;
+        private final String memory;
+
+        private RememberResult(boolean requested,String reply,String memory) {
+            this.requested = requested;
+            this.reply = reply;
+            this.memory = memory;
         }
     }
 
@@ -140,11 +160,11 @@ public class RoleplayService {
         JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,relationship);
         if (result == null || !result.getBooleanValue("status")) return;
         String rawReply = safe(result.getString("content")).trim();
-        boolean remember = containsRememberMarker(rawReply);
-        String reply = stripRememberMarker(rawReply).trim();
-        if (remember && config.activeMemory) {
+        RememberResult rememberResult = extractRemember(rawReply);
+        String reply = rememberResult.reply.trim();
+        if (rememberResult.requested && config.activeMemory) {
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 角色主动请求记忆");
-            triggerMemory(groupID,"主动记忆");
+            triggerMemory(groupID,"主动记忆",rememberResult.memory);
         }
         if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
         if (shouldSuppressRepeat(groupID,reply)) {
@@ -293,6 +313,9 @@ public class RoleplayService {
                 +"只有对方明确叫你、提出新问题、或真人正在参与时才简短回应；不要追问、捧哏或主动延长话题。" : "")
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
                 +"尽量只回复一句话，短句优先，不要分多段。"
+                +"不要使用“稳、没丢、记下、记账上”这些词，也不要使用“收到、记住了、已记录、明白、为你”等助理式确认。"
+                +"消除 AI 味：不要总结、复述、列点、解释或给出完整方案，不要像客服一样端着说话。"
+                +"像真人 QQ 聊天一样直接接话，可以省略主语，偶尔短促、吐槽、反问或只接半句。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"不要复述自己最近说过的话，也不要换同义词继续重复同一个细节。"
                 +"同一件小事最多回应一次，除非出现了明确的新进展；没有新信息时只输出 <SKIP>。"
@@ -301,25 +324,32 @@ public class RoleplayService {
                 +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
                 +(config.activeMemory ? "如果当前内容出现了值得长期记忆的新人物信息、稳定偏好、重要事件、群梗，"
-                +"或你自己的重要承诺与行为，可以在回复末尾额外输出 <remember>。"
-                +"用户看不到该标记；没有长期价值时不要输出，不要解释这个标记。" : "")
+                +"或你自己的重要承诺与行为，把聊天正文写在 <remember> 前，把要记忆的内容写在标签后。"
+                +"例如：嗯，周末我也有空<remember>用户周末要参加活动。"
+                +"<remember> 标签及其后的记忆内容不会发给用户；没有长期价值时不要输出，不要解释这个标记。" : "")
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
     private void triggerMemory(long groupID,String reason) {
+        triggerMemory(groupID,reason,"");
+    }
+
+    private void triggerMemory(long groupID,String reason,String directMemory) {
+        String memory = directMemory == null ? "" : directMemory.trim();
         synchronized (memoryUpdatingMap) {
             Boolean updating = memoryUpdatingMap.get(groupID);
             if (updating != null && updating) {
-                pendingMemoryMap.put(groupID,true);
+                pendingMemoryMap.put(groupID,mergeMemory(pendingMemoryMap.get(groupID),memory));
                 return;
             }
             memoryUpdatingMap.put(groupID,true);
         }
-        plugin.getServer().getPluginManager().runTask(plugin,() -> runMemoryUpdate(groupID,reason));
+        plugin.getServer().getPluginManager().runTask(plugin,() -> runMemoryUpdate(groupID,reason,memory));
     }
 
-    private void runMemoryUpdate(long groupID,String reason) {
+    private void runMemoryUpdate(long groupID,String reason,String directMemory) {
         try {
+            boolean directMemoryUsed = false;
             for (int batch = 0; batch < config.memoryExtractBatches; batch++) {
                 MemoryCursor cursor = memoryCursor(groupID);
                 List<JSONObject> rows = storage().query(
@@ -327,22 +357,31 @@ public class RoleplayService {
                                 + "WHERE `groupID`=? AND (`messageTime`>? OR (`messageTime`=? AND `ID`>?)) "
                                 + "ORDER BY `ID` ASC LIMIT ?",
                         groupID,cursor.time,cursor.time,cursor.id,config.memoryExtractMessages);
-                if (rows == null || rows.isEmpty()) break;
+                if (rows == null) rows = new ArrayList<>();
+                String batchMemory = batch == 0 ? directMemory : "";
+                if (rows.isEmpty()) {
+                    if (!directMemoryUsed && !batchMemory.isEmpty()) {
+                        updateMemoryBatch(groupID,rows,contextToken(groupID),batchMemory);
+                        directMemoryUsed = true;
+                    }
+                    break;
+                }
                 plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 开始整理"
                         +(batch > 0 ? "下一批" : "")+"，消息 "+rows.size()+" 条，触发："+safe(reason));
-                if (!updateMemoryBatch(groupID,rows,contextToken(groupID))) break;
+                if (!updateMemoryBatch(groupID,rows,contextToken(groupID),batchMemory)) break;
+                if (!batchMemory.isEmpty()) directMemoryUsed = true;
             }
         } finally {
-            boolean pending;
+            String pending;
             synchronized (memoryUpdatingMap) {
                 memoryUpdatingMap.remove(groupID);
-                pending = Boolean.TRUE.equals(pendingMemoryMap.remove(groupID));
+                pending = pendingMemoryMap.remove(groupID);
             }
-            if (pending) triggerMemory(groupID,"待处理");
+            if (pending != null) triggerMemory(groupID,"待处理",pending);
         }
     }
 
-    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows,String contextToken) {
+    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows,String contextToken,String directMemory) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：MBB-AI 未启用");
@@ -355,8 +394,12 @@ public class RoleplayService {
                 +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
                 +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
+                +"如果输入中包含“角色主动标记的记忆内容”，必须优先把其中的长期价值整理进 longTerm。"
                 +"不要重复已有记忆；已有短期记忆如下：\n"+shortSummary(groupID)));
         StringBuilder source = new StringBuilder();
+        if (directMemory != null && !directMemory.trim().isEmpty()) {
+            source.append("角色主动标记的记忆内容：").append(directMemory.trim()).append("\n");
+        }
         for (JSONObject row : rows) {
             source.append(safe(row.getString("userName"))).append("：")
                     .append(safe(row.getString("content"))).append("\n");
@@ -391,8 +434,10 @@ public class RoleplayService {
                 if (saveLongMemory(groupID,(JSONObject) object)) saved++;
             }
         }
-        JSONObject lastRow = rows.get(rows.size() - 1);
-        saveMemoryState(groupID,shortTerm,lastRow.getLongValue("messageTime"),lastRow.getLongValue("ID"));
+        if (!rows.isEmpty()) {
+            JSONObject lastRow = rows.get(rows.size() - 1);
+            saveMemoryState(groupID,shortTerm,lastRow.getLongValue("messageTime"),lastRow.getLongValue("ID"));
+        }
         plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 整理完成：消息"+rows.size()
                 +"条，长期记忆"+saved+"条，短期记忆"+shortTerm.length()+"字");
         return true;
@@ -793,13 +838,41 @@ public class RoleplayService {
                 .trim();
     }
 
-    private boolean containsRememberMarker(String text) {
-        return text != null && text.matches("(?is).*<\\s*/?\\s*remember\\s*/?\\s*>.*");
+    private RememberResult extractRemember(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return new RememberResult(false,"","");
+        }
+        Matcher pair = REMEMBER_PAIR.matcher(text);
+        if (pair.find()) {
+            String reply = (text.substring(0,pair.start())+text.substring(pair.end())).trim();
+            String memory = cleanRememberText(pair.group(1));
+            return new RememberResult(true,reply,memory);
+        }
+        Matcher open = REMEMBER_OPEN.matcher(text);
+        if (open.find()) {
+            String reply = text.substring(0,open.start()).trim();
+            String memory = cleanRememberText(text.substring(open.end()));
+            return new RememberResult(true,reply,memory);
+        }
+        Matcher close = REMEMBER_CLOSE.matcher(text);
+        if (close.find()) {
+            String reply = (text.substring(0,close.start())+text.substring(close.end())).trim();
+            return new RememberResult(true,reply,"");
+        }
+        return new RememberResult(false,text.trim(),"");
     }
 
-    private String stripRememberMarker(String text) {
+    private String cleanRememberText(String text) {
         if (text == null) return "";
-        return text.replaceAll("(?is)<\\s*/?\\s*remember\\s*/?\\s*>","").trim();
+        return REMEMBER_CLOSE.matcher(text).replaceAll("").trim();
+    }
+
+    private String mergeMemory(String first,String second) {
+        String left = first == null ? "" : first.trim();
+        String right = second == null ? "" : second.trim();
+        if (left.isEmpty()) return right;
+        if (right.isEmpty()) return left;
+        return left+"\n"+right;
     }
 
     private String shortText(String text,int maxChars) {
