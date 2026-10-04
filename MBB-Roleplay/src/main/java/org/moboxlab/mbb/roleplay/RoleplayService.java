@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -300,6 +301,7 @@ public class RoleplayService {
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
                 +"你最近说过的话：\n"+recentReplies+"\n"
+                +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
                 +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
@@ -317,6 +319,7 @@ public class RoleplayService {
                 +"不要使用“稳、没丢、记下、记账上”这些词，也不要使用“收到、记住了、已记录、明白、为你”等助理式确认。"
                 +"消除 AI 味：不要总结、复述、列点、解释或给出完整方案，不要像客服一样端着说话。"
                 +"像真人 QQ 聊天一样直接接话，可以省略主语，偶尔短促、吐槽、反问或只接半句。"
+                +"如果话题涉及今天、现在、日期、周末、早晚或时间安排，必须以“当前时间”为准，不要自行猜测日期。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"不要复述自己最近说过的话，也不要换同义词继续重复同一个细节。"
                 +"同一件小事最多回应一次，除非出现了明确的新进展；没有新信息时只输出 <SKIP>。"
@@ -700,6 +703,23 @@ public class RoleplayService {
         String name = sender == null ? "" : sender.getString("card");
         if (name == null || name.trim().isEmpty()) name = sender == null ? "" : sender.getString("nickname");
         return name == null || name.trim().isEmpty() ? String.valueOf(event.getUserID()) : name;
+    }
+
+    private String currentTimeText() {
+        try {
+            String zoneName = config.timeZone == null || config.timeZone.trim().isEmpty()
+                    ? "Asia/Shanghai" : config.timeZone.trim();
+            TimeZone zone = TimeZone.getTimeZone(zoneName);
+            if ("GMT".equals(zone.getID()) && !"GMT".equalsIgnoreCase(zoneName)) {
+                zoneName = "Asia/Shanghai";
+                zone = TimeZone.getTimeZone(zoneName);
+            }
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss EEEE",Locale.CHINA);
+            format.setTimeZone(zone);
+            return format.format(new Date())+"（"+zoneName+"）";
+        } catch (Exception e) {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss EEEE",Locale.CHINA).format(new Date());
+        }
     }
 
     private String relationshipLabel(GroupMessageEvent event,boolean otherRoleBot) {

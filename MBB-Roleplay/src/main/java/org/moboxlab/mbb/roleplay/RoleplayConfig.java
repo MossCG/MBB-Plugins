@@ -14,6 +14,7 @@ public class RoleplayConfig {
     public boolean enable = true;
     public String aiProfile = "default";
     public String memoryProfile = "";
+    public String timeZone = "Asia/Shanghai";
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
     public int initialAffinity = 70;
@@ -50,6 +51,7 @@ public class RoleplayConfig {
         config.enable = plugin.getConfig().getBoolean("enable",true);
         config.aiProfile = plugin.getConfig().getString("aiProfile","default");
         config.memoryProfile = plugin.getConfig().getString("memoryProfile","");
+        config.timeZone = plugin.getConfig().getString("timeZone","Asia/Shanghai");
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
         config.initialAffinity = plugin.getConfig().getInt("initialAffinity",70);
@@ -104,6 +106,7 @@ public class RoleplayConfig {
         config.commandPrefixes = plugin.getConfig().getString("commandPrefixes","/,!,＃,#");
         if (config.aiProfile == null || config.aiProfile.trim().isEmpty()) config.aiProfile = "default";
         if (config.memoryProfile == null) config.memoryProfile = "";
+        if (config.timeZone == null || config.timeZone.trim().isEmpty()) config.timeZone = "Asia/Shanghai";
         if (config.replyCooldownSecond < 0) config.replyCooldownSecond = 0;
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
         if (config.initialAffinity < 0) config.initialAffinity = 0;

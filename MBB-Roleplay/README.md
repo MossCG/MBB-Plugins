@@ -17,6 +17,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 机器人互聊概率默认调整为 `0.50`，两轮内至少接话一次的概率约为 75%
 - 回复前后会对照最近的角色发言，对高度重复的语义和固定开头进行拦截
 - 小绿不再把“嗯”当作固定开场，连续使用会被重复检测拦截
+- 每轮回复动态注入当前日期、时间、星期和时区，角色不会自行猜日期
 - 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
 - 群主和管理员视为老师，其他真人成员视为朋友，另一个角色机器人不按群权限归类
 - 所有真人成员使用可配置的初始好感度，默认 `70/100`
@@ -120,6 +121,7 @@ memoryExtractMessages: 300
 memoryExtractMaxChars: 16000
 memoryExtractBatches: 3
 memoryProfile: ""
+timeZone: "Asia/Shanghai"
 memoryMaxTokens: 12000
 activeMemory: true
 maxLongMemories: 150
@@ -133,6 +135,8 @@ minMessageLength: 2
 非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求尽量只输出一句话，不要反复纠缠同一个生活细节，也不要连续使用同一种开头或口癖。
 
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。
+
+`timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
 
 ## 多角色部署
 

@@ -34,6 +34,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("enable","true","是否启用角色扮演"),
             new ConfigEntry("aiProfile","default","AI 使用的模型配置名，对应 MBB-AI 的 profiles.json"),
             new ConfigEntry("memoryProfile","","记忆整理使用的模型配置名，留空则使用 aiProfile；可换成非 reasoning 模型"),
+            new ConfigEntry("timeZone","Asia/Shanghai","角色理解当前时间使用的时区"),
             new ConfigEntry("replyCooldownSecond","5","同一群两次回复的最小间隔秒数"),
             new ConfigEntry("maxRepliesPerHour","180","同一群每小时最多回复次数"),
             new ConfigEntry("initialAffinity","70","角色对所有真人成员的初始好感度，0 到 100"),

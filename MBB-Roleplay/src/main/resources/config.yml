@@ -8,6 +8,8 @@ enable: true
 aiProfile: "default"
 #记忆整理使用的模型配置名，留空则使用 aiProfile；可换成非 reasoning 模型
 memoryProfile: ""
+#角色理解当前时间使用的时区
+timeZone: "Asia/Shanghai"
 #同一群两次回复的最小间隔秒数
 replyCooldownSecond: 5
 #同一群每小时最多回复次数
