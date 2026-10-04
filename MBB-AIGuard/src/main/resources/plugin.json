@@ -1,6 +1,6 @@
 {
   "name": "MBB-AIGuard",
-  "version": "V0.3.1.0.1952",
+  "version": "V0.3.1.1.1731",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.aiguard.GuardPlugin",
   "author": "MoBoxLab",

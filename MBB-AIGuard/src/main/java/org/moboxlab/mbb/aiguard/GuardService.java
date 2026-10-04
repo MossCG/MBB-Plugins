@@ -164,6 +164,7 @@ public class GuardService {
         String action = result.getString("action");
         boolean safety = result.getBooleanValue("safety") || hasSafety(matches);
         logReview(groupID,userID,score,categories,action,safety,mergedCount,result.getString("reason"));
+        if (!result.getBooleanValue("risk") || "ignore".equalsIgnoreCase(safe(action))) return;
         if (score < config.candidateRiskScore && !safety) return;
         recordEvent(groupID,userID,messageID,score,categories,result.getString("reason"),result.getString("evidence"),action,safety);
         recordDaily(groupID,userID,categories,score);
@@ -215,6 +216,8 @@ public class GuardService {
             JSONObject result = new JSONObject(true);
             result.put("status",true);
             result.put("score",0);
+            result.put("risk",false);
+            result.put("falsePositive",true);
             result.put("categories","无");
             result.put("reason","未命中任何规则");
             result.put("evidence","");
@@ -389,9 +392,12 @@ public class GuardService {
         JSONArray messages = new JSONArray();
         messages.add(message("system","你是群聊内容风险审查器。只根据给出的当前消息、上下文、历史摘要和规则命中结果判断，"
                 +"区分真实困难、玩梗、卖惨式求助和诈骗。不要编造证据。必须只返回 JSON："
-                +"{\"risk\":true/false,\"score\":0-100,\"categories\":[\"分类\"],\"confidence\":0-1,"
+                +"{\"risk\":true/false,\"falsePositive\":true/false,\"score\":0-100,\"categories\":[\"分类\"],\"confidence\":0-1,"
                 +"\"reason\":\"原因\",\"evidence\":[\"证据\"],\"action\":\"ignore|log|alert|warn\",\"safety\":false}。"
-                +"不要使用 Markdown 代码块包裹 JSON。自残、自杀等内容 safety=true，不得当作普通诈骗。"));
+                +"如果只是关键词相似、真实困难、玩梗、引用、否定、讨论防范知识，或没有发现诈骗、卖惨引流、违规交易等明确企图，"
+                +"必须返回 falsePositive=true、risk=false、action=ignore，并给出较低分数；不要因为规则命中就强行维持高分。"
+                +"只有证据足以支持风险时才返回 risk=true。自残、自杀等内容 safety=true，不得当作普通诈骗。"
+                +"不要使用 Markdown 代码块包裹 JSON。"));
         StringBuilder source = new StringBuilder();
         source.append("群：").append(groupName == null ? "" : groupName).append("(").append(groupID).append(")\n");
         source.append("用户：").append(userID).append("\n");
@@ -412,7 +418,26 @@ public class GuardService {
         JSONObject parsed = parseJson(response.getString("content"));
         if (parsed == null) return null;
         int ruleScore = maxScore(matches);
-        int score = Math.max(ruleScore,parsed.getIntValue("score"));
+        int aiScore = Math.max(0,Math.min(100,parsed.getIntValue("score")));
+        boolean aiRisk = parsed.getBooleanValue("risk");
+        boolean falsePositive = parsed.getBooleanValue("falsePositive");
+        boolean safety = parsed.getBooleanValue("safety") || hasSafety(matches);
+        int score;
+        boolean risk;
+        String action;
+        if (safety) {
+            score = Math.max(ruleScore,aiScore);
+            risk = true;
+            action = score >= config.riskThreshold ? "alert" : "log";
+        } else if (falsePositive || !aiRisk) {
+            score = aiScore;
+            risk = false;
+            action = "ignore";
+        } else {
+            score = Math.max(ruleScore,aiScore);
+            risk = true;
+            action = score >= config.riskThreshold ? "alert" : "log";
+        }
         Set<String> categories = new LinkedHashSet<>();
         JSONArray aiCategories = parsed.getJSONArray("categories");
         if (aiCategories != null) {
@@ -423,13 +448,14 @@ public class GuardService {
         for (GuardMatch match : matches) categories.add(match.category);
         JSONObject result = new JSONObject(true);
         result.put("status",true);
-        result.put("risk",parsed.getBooleanValue("risk") || score >= config.riskThreshold);
+        result.put("risk",risk);
+        result.put("falsePositive",falsePositive || !aiRisk);
         result.put("score",Math.min(100,score));
         result.put("categories",join(categories));
         result.put("reason",safe(parsed.getString("reason")));
         result.put("evidence",joinArray(parsed.getJSONArray("evidence")));
-        result.put("action",score >= config.riskThreshold ? "alert" : "log");
-        result.put("safety",parsed.getBooleanValue("safety") || hasSafety(matches));
+        result.put("action",action);
+        result.put("safety",safety);
         return result;
     }
 
@@ -443,7 +469,8 @@ public class GuardService {
         }
         JSONObject result = new JSONObject(true);
         result.put("status",true);
-        result.put("risk",score >= config.riskThreshold || hasSafety(matches));
+        result.put("risk",score >= config.candidateRiskScore || hasSafety(matches));
+        result.put("falsePositive",false);
         result.put("score",score);
         result.put("categories",join(categories));
         result.put("reason","规则引擎命中："+join(categories));

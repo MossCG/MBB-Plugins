@@ -26,7 +26,7 @@ public class GuardLogImageRenderer {
     public static byte[] render(JSONArray events,int page,int pageSize) {
         if (events == null) events = new JSONArray();
         int count = events.size();
-        int listTop = PADDING + 154;
+        int listTop = PADDING + 200;
         int cardHeight = 112;
         int listHeight = 74 + Math.max(1,count) * cardHeight;
         int height = listTop + listHeight + PADDING;
