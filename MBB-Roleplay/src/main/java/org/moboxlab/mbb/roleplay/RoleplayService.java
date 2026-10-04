@@ -1675,8 +1675,6 @@ public class RoleplayService {
         pending.stickerEmotion = recentStickerEmotion(groupID,event.getUserID());
         pending.hardDeadline = System.currentTimeMillis() + config.stickerAttachMaxWaitSecond * 1000L;
         pendingTurnMap.put(key,pending);
-        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+event.getUserID()
-                +" 等待 "+config.stickerAttachWindowSecond+" 秒合并表情包语气。");
         plugin.getServer().getPluginManager().runTaskLater(plugin,
                 () -> executePendingTurn(key,generation),config.stickerAttachWindowSecond);
     }
@@ -1709,8 +1707,6 @@ public class RoleplayService {
         PendingTurn pending = pendingTurnMap.get(recentImageKey(groupID,userID));
         if (pending == null) return;
         pending.stickerPending = true;
-        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+userID
-                +" 表情包正在识别，暂缓本回合。");
     }
 
     private void finishStickerRecognition(long groupID,long userID,String emotion) {
@@ -1722,8 +1718,6 @@ public class RoleplayService {
             pending.stickerEmotion = emotion.trim();
         }
         pending.stickerPending = false;
-        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+userID
-                +" 表情包识别完成，立即合并回复。");
         executePendingTurn(key,pending.generation);
     }
 

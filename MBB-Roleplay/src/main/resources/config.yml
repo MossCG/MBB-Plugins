@@ -92,7 +92,7 @@ imageContextTimeoutSecond: 300
 #是否等待用户补发表情包后再生成一次回复
 stickerAttachEnable: true
 #文字回合等待同用户补发表情包的秒数
-stickerAttachWindowSecond: 3
+stickerAttachWindowSecond: 7
 #表情包已开始识别时，最多额外等待多少秒
 stickerAttachMaxWaitSecond: 15
 #最多加载多少条长期记忆

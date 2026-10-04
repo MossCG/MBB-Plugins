@@ -77,7 +77,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("imageUnderstandingMaxChars","600","图片理解结果注入角色的最大字符数"),
             new ConfigEntry("imageContextTimeoutSecond","300","用户发送图片后，后续提问可复用原图作为上下文的时间窗口秒数"),
             new ConfigEntry("stickerAttachEnable","true","是否等待用户补发表情包后再生成一次回复"),
-            new ConfigEntry("stickerAttachWindowSecond","3","文字回合等待同用户补发表情包的秒数"),
+            new ConfigEntry("stickerAttachWindowSecond","7","文字回合等待同用户补发表情包的秒数"),
             new ConfigEntry("stickerAttachMaxWaitSecond","15","表情包已开始识别时，最多额外等待多少秒"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
