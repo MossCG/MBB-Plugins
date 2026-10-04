@@ -28,6 +28,7 @@ public class RoleplayConfig {
     public int shortTermDays = 3;
     public int memoryUpdateMessages = 50;
     public int memoryExtractMessages = 300;
+    public int memoryExtractMaxChars = 16000;
     public int memoryExtractBatches = 3;
     public boolean activeMemory = true;
     public int maxLongMemories = 150;
@@ -79,6 +80,7 @@ public class RoleplayConfig {
         config.shortTermDays = plugin.getConfig().getInt("shortTermDays",3);
         config.memoryUpdateMessages = plugin.getConfig().getInt("memoryUpdateMessages",50);
         config.memoryExtractMessages = plugin.getConfig().getInt("memoryExtractMessages",300);
+        config.memoryExtractMaxChars = plugin.getConfig().getInt("memoryExtractMaxChars",16000);
         config.memoryExtractBatches = plugin.getConfig().getInt("memoryExtractBatches",3);
         config.activeMemory = plugin.getConfig().getBoolean("activeMemory",true);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
@@ -119,6 +121,8 @@ public class RoleplayConfig {
         if (config.memoryUpdateMessages < 5) config.memoryUpdateMessages = 5;
         if (config.memoryExtractMessages < 50) config.memoryExtractMessages = 50;
         if (config.memoryExtractMessages > 1000) config.memoryExtractMessages = 1000;
+        if (config.memoryExtractMaxChars < 2000) config.memoryExtractMaxChars = 2000;
+        if (config.memoryExtractMaxChars > 50000) config.memoryExtractMaxChars = 50000;
         if (config.memoryExtractBatches < 1) config.memoryExtractBatches = 1;
         if (config.memoryExtractBatches > 10) config.memoryExtractBatches = 10;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;

@@ -10,6 +10,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 短期记忆：近几天事件、群友日常、角色当前正在做的事
 - 记忆游标按消息 ID 精确定位，AI 返回空短期记忆时也会正常推进，不会反复整理同一批消息
 - 记忆整理 JSON 支持代码块、前后说明、尾逗号、注释和字符串换行容错，首次失败会自动严格重试
+- 记忆整理按字符数限制单批输入，避免 300 条长消息一次性撑爆模型上下文
 - 角色认为内容值得长期记住时，可以在回复末尾输出 `<remember>`，插件会剥离标记并单独触发一次记忆整理
 - 不逐条回复，只回复角色感兴趣或被直接提及的消息
 - 检测到另一个角色机器人时会显著降低接话概率，并限制双方无人插话时的连续往返次数
@@ -116,6 +117,7 @@ maxConsecutiveOtherRoleMessages: 2
 shortContextMessages: 80
 memoryUpdateMessages: 50
 memoryExtractMessages: 300
+memoryExtractMaxChars: 16000
 memoryExtractBatches: 3
 activeMemory: true
 maxLongMemories: 150

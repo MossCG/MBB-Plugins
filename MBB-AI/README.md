@@ -108,6 +108,8 @@ logRequestContent: false
   "profile": "default",
   "model": "gpt-4o-mini",
   "content": "你好，很高兴见到你！",
+  "reasoningContent": "",
+  "finishReason": "stop",
   "cached": false,
   "usage": {
     "promptTokens": 10,
@@ -118,6 +120,8 @@ logRequestContent: false
 ```
 
 `content` 返回前会统一转换为纯文本，自动移除 Markdown 代码块、粗体、斜体、标题、引用和链接语法，避免 QQ 中出现大量星号。
+
+`reasoningContent` 保留模型返回的思考内容字段，`finishReason` 用于判断是否因为 `length` 等原因提前结束。普通聊天仍只使用 `content`。
 
 失败返回：
 

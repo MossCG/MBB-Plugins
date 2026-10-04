@@ -103,9 +103,12 @@ public class OpenAIProvider {
         JSONObject choice = choices.getJSONObject(0);
         JSONObject message = choice == null ? null : choice.getJSONObject("message");
         String content = readContent(message == null ? null : message.get("content"));
+        String reasoningContent = readContent(message == null ? null : message.get("reasoning_content"));
         JSONObject result = new JSONObject(true);
         result.put("status",true);
         result.put("content",content);
+        result.put("reasoningContent",reasoningContent);
+        result.put("finishReason",choice == null ? "" : choice.getString("finish_reason"));
         result.put("model",json.getString("model") == null ? profile.model : json.getString("model"));
         result.put("usage",readUsage(json.getJSONObject("usage")));
         return result;

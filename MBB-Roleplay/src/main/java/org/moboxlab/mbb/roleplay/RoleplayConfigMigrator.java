@@ -49,6 +49,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("shortTermDays","3","短期记忆覆盖天数"),
             new ConfigEntry("memoryUpdateMessages","50","每累计多少条消息更新一次记忆"),
             new ConfigEntry("memoryExtractMessages","300","每次记忆整理最多读取的消息条数"),
+            new ConfigEntry("memoryExtractMaxChars","16000","每次记忆整理最多送入模型的字符数，避免上下文过长"),
             new ConfigEntry("memoryExtractBatches","3","单次自动整理最多连续处理的批次，避免积压消息一次消耗过多"),
             new ConfigEntry("activeMemory","true","是否允许角色通过回复末尾的 <remember> 主动触发记忆整理"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),

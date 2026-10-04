@@ -360,6 +360,12 @@ public class RoleplayService {
                                 + "ORDER BY `ID` ASC LIMIT ?",
                         groupID,cursor.time,cursor.time,cursor.id,config.memoryExtractMessages);
                 if (rows == null) rows = new ArrayList<>();
+                int queriedRows = rows.size();
+                rows = limitMemoryRows(rows,config.memoryExtractMaxChars);
+                if (rows.size() < queriedRows) {
+                    plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 本批输入按字符限制裁剪为 "
+                            +rows.size()+" 条，原读取 "+queriedRows+" 条");
+                }
                 String batchMemory = batch == 0 ? directMemory : "";
                 if (rows.isEmpty()) {
                     if (!directMemoryUsed && !batchMemory.isEmpty()) {
@@ -397,7 +403,7 @@ public class RoleplayService {
         messages.add(message("user",source));
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
-        params.put("maxTokens",retry ? 2600 : 2200);
+        params.put("maxTokens",retry ? 6000 : 3600);
         params.put("temperature",retry ? 0.0 : 0.2);
         params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken+(retry ? "-retry" : ""));
         params.put("messages",messages);
@@ -408,11 +414,16 @@ public class RoleplayService {
             return null;
         }
         String content = safe(result.getString("content"));
+        String reasoning = safe(result.getString("reasoningContent"));
+        String finishReason = safe(result.getString("finishReason"));
         JSONObject parsed = parseJson(content);
+        if (parsed == null && !reasoning.isEmpty()) parsed = parseJson(reasoning);
         if (parsed == null) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" "
                     +(retry ? "重试" : "模型")+"没有返回合法 JSON，原始输出："
-                    +shortText(content,240));
+                    +shortText(content,240)
+                    +(finishReason.isEmpty() ? "" : "，finishReason="+finishReason)
+                    +(reasoning.isEmpty() ? "" : "，reasoning长度="+reasoning.length()));
         }
         return parsed;
     }
@@ -904,6 +915,29 @@ public class RoleplayService {
         if (left.isEmpty()) return right;
         if (right.isEmpty()) return left;
         return left+"\n"+right;
+    }
+
+    private List<JSONObject> limitMemoryRows(List<JSONObject> rows,int maxChars) {
+        List<JSONObject> result = new ArrayList<>();
+        if (rows == null || rows.isEmpty()) return result;
+        int total = 0;
+        for (JSONObject row : rows) {
+            String userName = safe(row.getString("userName"));
+            String content = safe(row.getString("content"));
+            int length = userName.length() + content.length() + 8;
+            if (result.isEmpty() && length > maxChars) {
+                JSONObject copy = new JSONObject(true);
+                copy.putAll(row);
+                copy.put("content",content.length() > maxChars
+                        ? content.substring(0,maxChars) : content);
+                result.add(copy);
+                break;
+            }
+            if (!result.isEmpty() && total + length > maxChars) break;
+            result.add(row);
+            total += length;
+        }
+        return result;
     }
 
     private String shortText(String text,int maxChars) {
