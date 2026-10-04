@@ -9,6 +9,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 表情包识图打标签
@@ -20,6 +21,10 @@ public class StickerTagger {
     public StickerTagger(Plugin plugin,StickerLibrary library) {
         this.plugin = plugin;
         this.library = library;
+    }
+
+    public JSONObject tag(File file) {
+        return tag(file,mime(file));
     }
 
     public JSONObject tag(File file,String mime) {
@@ -88,12 +93,15 @@ public class StickerTagger {
 
     private String buildPrompt() {
         StringBuilder builder = new StringBuilder();
-        builder.append("请根据图片内容生成 2 到 8 个适用标签。\n")
+        builder.append("请判断这张表情包最适合在什么情绪或聊天场景发送。\n")
+                .append("生成 3 到 6 个情绪/用途标签，标签必须能代表发送这张图时想表达的情绪、态度或使用场景。\n")
+                .append("不要生成外貌、发色、眼睛、服装、角色身份、画风、物体、构图、性别、年龄等视觉描述标签。\n")
                 .append("标签命名规则：\n")
                 .append("- 小写英文 snake_case\n")
                 .append("- 只能使用 a-z、0-9、下划线\n")
                 .append("- 必须以字母开头，长度 2 到 32\n")
                 .append("- 不要使用空格、中文或特殊符号\n")
+                .append("可以参考这类方向：happy、sad、angry、surprised、shy、smug、confused、tired、crying、laughing、agree、refuse、greeting、goodnight、urging、comfort、teasing、celebrate、waiting、working、eating。\n")
                 .append("优先复用这些已有标签：\n");
         int count = 0;
         for (String tag : library.availableTags()) {
@@ -103,9 +111,18 @@ public class StickerTagger {
             if (count >= 120) break;
         }
         if (count == 0) builder.append("暂无");
-        builder.append("\n如果已有标签都不合适，可以创建符合规则的新标签。")
+        builder.append("\n如果已有标签属于情绪/用途且合适，可以复用；如果是外貌、服装、画风或物体描述，不要复用。")
+                .append("description 可以描述画面内容，但 tags 只能放情绪/用途标签。")
                 .append("只返回 JSON：{\"tags\":[\"tag1\",\"tag2\"],\"description\":\"简短描述\"}");
         return builder.toString();
+    }
+
+    private String mime(File file) {
+        String name = file == null ? "" : file.getName().toLowerCase(Locale.ROOT);
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".gif")) return "image/gif";
+        if (name.endsWith(".webp")) return "image/webp";
+        return "image/png";
     }
 
     private JSONObject parseJson(String content) {

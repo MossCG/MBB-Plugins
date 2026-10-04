@@ -29,7 +29,7 @@ public class StickerPlugin extends Plugin {
         receiveService = new StickerReceiveService(this,library,tagger);
         getServer().getPluginManager().registerListener(this,new StickerListener(receiveService));
         getServer().getPluginManager().registerCommand(this,
-                new StickerCommand(this,library,service,receiveService));
+                new StickerCommand(this,library,service,receiveService,tagger));
         getServer().getPluginManager().registerService(this,service);
         getLogger().sendInfo("MBB-Sticker 已启用，表情包数量："+library.size());
     }

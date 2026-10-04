@@ -1,11 +1,13 @@
 package org.moboxlab.mbb.sticker;
 
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Command.BotCommand;
 import org.moboxlab.moboxbot.API.Command.CommandPermission;
 import org.moboxlab.moboxbot.API.Command.CommandSender;
 import org.moboxlab.moboxbot.API.OneBot.MessageUtil;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -18,13 +20,15 @@ public class StickerCommand extends BotCommand {
     private final StickerLibrary library;
     private final StickerService service;
     private final StickerReceiveService receiveService;
+    private final StickerTagger tagger;
 
     public StickerCommand(StickerPlugin plugin,StickerLibrary library,StickerService service,
-                          StickerReceiveService receiveService) {
+                          StickerReceiveService receiveService,StickerTagger tagger) {
         this.plugin = plugin;
         this.library = library;
         this.service = service;
         this.receiveService = receiveService;
+        this.tagger = tagger;
     }
 
     @Override
@@ -60,6 +64,7 @@ public class StickerCommand extends BotCommand {
                 "/sticker list",
                 "/sticker stats",
                 "/sticker tag <ID> <标签...>",
+                "/sticker retag <ID>",
                 "/sticker remove <ID>",
                 "/sticker reload");
     }
@@ -98,6 +103,11 @@ public class StickerCommand extends BotCommand {
         if ("tag".equals(action)) {
             if (!admin(sender)) return true;
             updateTags(sender,args);
+            return true;
+        }
+        if ("retag".equals(action)) {
+            if (!admin(sender)) return true;
+            retag(sender,args);
             return true;
         }
         if ("remove".equals(action) || "delete".equals(action)) {
@@ -152,6 +162,35 @@ public class StickerCommand extends BotCommand {
         sender.sendMessage(changed ? "标签已更新。" : "没有找到表情包 ID："+args[2]);
     }
 
+    private void retag(CommandSender sender,String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("用法：/sticker retag <ID>");
+            return;
+        }
+        StickerEntry entry = library.get(args[2]);
+        if (entry == null) {
+            sender.sendMessage("没有找到表情包 ID："+args[2]);
+            return;
+        }
+        File file = StickerLibrary.fromFileUri(entry.file);
+        if (file == null || !file.exists()) {
+            sender.sendMessage("表情包文件不存在，无法重新识别。");
+            return;
+        }
+        sender.sendMessage("正在重新识别情绪标签，请稍候...");
+        plugin.getServer().getPluginManager().runTask(plugin,() -> {
+            JSONObject tagged = tagger.tag(file);
+            List<String> tags = tagList(tagged.getJSONArray("tags"));
+            if (tags.isEmpty() || (tags.size() == 1 && "unlabeled".equals(tags.get(0)))) {
+                sender.sendMessage("AI 没有返回有效情绪标签，已保留原标签。");
+                return;
+            }
+            boolean changed = library.updateTags(entry.id,tags);
+            sender.sendMessage(changed ? "标签已重新生成："+String.join(", ",tags)
+                    : "没有找到表情包 ID："+entry.id);
+        });
+    }
+
     private void remove(CommandSender sender,String[] args) {
         if (args.length < 3) {
             sender.sendMessage("用法：/sticker remove <ID>");
@@ -163,11 +202,11 @@ public class StickerCommand extends BotCommand {
     private void sendRandom(CommandSender sender,List<String> tags) {
         JSONArray tagArray = new JSONArray();
         tagArray.addAll(tags);
-        com.alibaba.fastjson.JSONObject params = new com.alibaba.fastjson.JSONObject(true);
+        JSONObject params = new JSONObject(true);
         params.put("tags",tagArray);
         params.put("groupID",sender.getGroupID());
         params.put("userID",sender.getUserID());
-        com.alibaba.fastjson.JSONObject result = service.call("random",params);
+        JSONObject result = service.call("random",params);
         if (result == null || !result.getBooleanValue("status")) {
             sender.sendMessage("没有找到匹配的表情包。");
             return;
@@ -179,6 +218,17 @@ public class StickerCommand extends BotCommand {
             plugin.getServer().getOneBotClient().sendPrivateMessage(sender.getUserID(),
                     MessageUtil.message(MessageUtil.image(result.getString("file"))));
         }
+    }
+
+    private List<String> tagList(JSONArray array) {
+        List<String> result = new ArrayList<>();
+        if (array == null) return result;
+        for (Object item : array) {
+            if (item != null && !String.valueOf(item).trim().isEmpty()) {
+                result.add(String.valueOf(item).trim());
+            }
+        }
+        return result;
     }
 
     private boolean admin(CommandSender sender) {
