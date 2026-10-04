@@ -11,7 +11,7 @@ import java.nio.file.Paths;
  */
 public class RoleplayPlugin extends Plugin {
     private static final String[] PERSONA_FILES =
-            new String[]{"persona.json","persona-momoi.json","persona-midori.json"};
+            new String[]{"persona-aris.json","persona-momoi.json","persona-midori.json"};
 
     private RoleplayConfig roleplayConfig;
     private RoleplayPersona persona;

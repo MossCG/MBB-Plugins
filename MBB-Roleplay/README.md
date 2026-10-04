@@ -1,6 +1,6 @@
 # MBB-Roleplay
 
-MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维护长期与短期记忆。
+MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并维护长期与短期记忆。
 
 ## 特性
 
@@ -60,7 +60,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 首次运行释放：
 
 ```text
-./MoBoxBot/plugins/MBB-Roleplay/persona.json
+./MoBoxBot/plugins/MBB-Roleplay/persona-aris.json
 ```
 
 默认设定为《蔚蓝档案》的天童爱丽丝：游戏开发部、勇者见习生、RPG 爱好者，重视老师和伙伴，说话偶尔带游戏化表达。
@@ -77,10 +77,12 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 ```text
 /role persona persona-momoi.json
 /role persona persona-midori.json
-/role persona persona.json
+/role persona persona-aris.json
 ```
 
 桃井设定会识别“小桃”“王小兆”“优香大魔王”“给木给木”“苦呀西”等社区梗，但默认不会主动频繁使用。
+
+三份角色设定都补充了世界观、所属学园、社团、其他学生、专有名词和剧情记忆字段。旧版 `persona.json` 会在配置迁移时切换到 `persona-aris.json`。
 
 默认口癖包括“邦邦咔邦！”、“爱丽丝，了解！”、“光呀！”等，要求低频自然使用，不会每句话都变成游戏台词。
 

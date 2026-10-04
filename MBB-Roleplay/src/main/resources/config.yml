@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 2
+configVersion: 3
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -71,7 +71,7 @@ repeatCheckMinChars: 6
 repeatOpeningLimit: 2
 #忽略以这些前缀开头的指令消息，英文逗号分隔
 commandPrefixes: "/,!,＃,#"
-#角色设定文件：persona.json（爱丽丝）/ persona-momoi.json（桃井）/ persona-midori.json（绿）
-personaFile: "persona.json"
+#角色设定文件：persona-aris.json（爱丽丝/Aris）/ persona-momoi.json（桃井）/ persona-midori.json（绿）
+personaFile: "persona-aris.json"
 #忽略少于多少字的纯文本消息
 minMessageLength: 2

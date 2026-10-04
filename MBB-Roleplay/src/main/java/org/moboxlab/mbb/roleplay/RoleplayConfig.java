@@ -45,7 +45,7 @@ public class RoleplayConfig {
     public double repeatSimilarityThreshold = 0.72;
     public int repeatCheckMinChars = 6;
     public int repeatOpeningLimit = 2;
-    public String personaFile = "persona.json";
+    public String personaFile = "persona-aris.json";
     public int minMessageLength = 2;
     public String commandPrefixes = "/,!,＃,#";
 
@@ -107,7 +107,7 @@ public class RoleplayConfig {
         }
         config.repeatCheckMinChars = plugin.getConfig().getInt("repeatCheckMinChars",6);
         config.repeatOpeningLimit = plugin.getConfig().getInt("repeatOpeningLimit",2);
-        config.personaFile = plugin.getConfig().getString("personaFile","persona.json");
+        config.personaFile = plugin.getConfig().getString("personaFile","persona-aris.json");
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
         config.commandPrefixes = plugin.getConfig().getString("commandPrefixes","/,!,＃,#");
         if (config.aiProfile == null || config.aiProfile.trim().isEmpty()) config.aiProfile = "default";

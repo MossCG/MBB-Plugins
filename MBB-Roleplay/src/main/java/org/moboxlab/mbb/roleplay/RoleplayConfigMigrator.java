@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "2";
+    private static final String CURRENT_VERSION = "3";
 
     private static class ConfigEntry {
         private final String key;
@@ -67,7 +67,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("repeatCheckMinChars","6","少于多少字的回复不进行重复检测"),
             new ConfigEntry("repeatOpeningLimit","2","同一开头在最近角色回复中出现多少次后禁止再次使用"),
             new ConfigEntry("commandPrefixes","/,!,＃,#","忽略以这些前缀开头的指令消息，英文逗号分隔"),
-            new ConfigEntry("personaFile","persona.json","角色设定文件：persona.json（爱丽丝）/ persona-momoi.json（桃井）/ persona-midori.json（绿）"),
+            new ConfigEntry("personaFile","persona-aris.json","角色设定文件：persona-aris.json（爱丽丝/Aris）/ persona-momoi.json（桃井）/ persona-midori.json（绿）"),
             new ConfigEntry("minMessageLength","2","忽略少于多少字的纯文本消息"));
 
     public static int ensure(Plugin plugin) {
@@ -80,6 +80,8 @@ public class RoleplayConfigMigrator {
         boolean versionMissing = !config.contains("configVersion");
         boolean legacyRoleBotChance = version < 2 && isLegacyRoleBotChance(
                 config.getString("otherRoleBotReplyChance",""));
+        boolean legacyPersonaFile = version < 3 && "persona.json".equals(
+                config.getString("personaFile",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -93,7 +95,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 2) {
+        if (version < 3) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -102,7 +104,11 @@ public class RoleplayConfigMigrator {
                     String.valueOf(RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE));
             changed++;
         }
-        if (version < 2 || legacyRoleBotChance) {
+        if (legacyPersonaFile) {
+            config.set("personaFile","persona-aris.json");
+            changed++;
+        }
+        if (version < 3 || legacyRoleBotChance || legacyPersonaFile) {
             if (config.save()) {
                 config.load();
             } else {

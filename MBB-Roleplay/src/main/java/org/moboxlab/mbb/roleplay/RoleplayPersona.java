@@ -16,6 +16,9 @@ import java.util.List;
 public class RoleplayPersona {
     public String name = "角色";
     public String identity = "";
+    public String worldview = "";
+    public String school = "";
+    public String club = "";
     public String personality = "";
     public String speechStyle = "";
     public String behavior = "";
@@ -24,6 +27,10 @@ public class RoleplayPersona {
     public List<String> memes = new ArrayList<>();
     public List<String> interests = new ArrayList<>();
     public List<String> dislikes = new ArrayList<>();
+    public List<String> relationships = new ArrayList<>();
+    public List<String> otherStudents = new ArrayList<>();
+    public List<String> terminology = new ArrayList<>();
+    public List<String> storyMemory = new ArrayList<>();
 
     public static RoleplayPersona load(Plugin plugin,String fileName) {
         RoleplayPersona persona = new RoleplayPersona();
@@ -33,6 +40,9 @@ public class RoleplayPersona {
             if (json == null) throw new IllegalArgumentException("角色设定不是合法 JSON");
             persona.name = safe(json.getString("name"),"角色");
             persona.identity = safe(json.getString("identity"),"");
+            persona.worldview = safe(json.getString("worldview"),"");
+            persona.school = safe(json.getString("school"),"");
+            persona.club = safe(json.getString("club"),"");
             persona.personality = safe(json.getString("personality"),"");
             persona.speechStyle = safe(json.getString("speechStyle"),"");
             persona.behavior = safe(json.getString("behavior"),"");
@@ -45,6 +55,10 @@ public class RoleplayPersona {
             }
             persona.interests = readList(json.getJSONArray("interests"));
             persona.dislikes = readList(json.getJSONArray("dislikes"));
+            persona.relationships = readList(json.getJSONArray("relationships"));
+            persona.otherStudents = readList(json.getJSONArray("otherStudents"));
+            persona.terminology = readList(json.getJSONArray("terminology"));
+            persona.storyMemory = readList(json.getJSONArray("storyMemory"));
         } catch (Exception e) {
             plugin.getLogger().sendWarn("读取角色设定失败："+e.getMessage());
         }
@@ -64,11 +78,18 @@ public class RoleplayPersona {
     public String description() {
         return "角色名："+name+"\n"
                 +"身份："+identity+"\n"
+                +(worldview.isEmpty() ? "" : "世界观："+worldview+"\n")
+                +(school.isEmpty() ? "" : "学园："+school+"\n")
+                +(club.isEmpty() ? "" : "社团："+club+"\n")
                 +"性格："+personality+"\n"
                 +"说话方式："+speechStyle+"\n"
                 +(catchphrases.isEmpty() ? "" : "口癖："+String.join("、",catchphrases)+"\n")
                 +(aliases.isEmpty() ? "" : "称呼："+String.join("、",aliases)+"\n")
                 +(memes.isEmpty() ? "" : "了解的梗："+String.join("；",memes)+"\n")
+                +(relationships.isEmpty() ? "" : "关系："+String.join("；",relationships)+"\n")
+                +(otherStudents.isEmpty() ? "" : "了解的学生："+String.join("；",otherStudents)+"\n")
+                +(terminology.isEmpty() ? "" : "专有名词："+String.join("；",terminology)+"\n")
+                +(storyMemory.isEmpty() ? "" : "剧情记忆："+String.join("；",storyMemory)+"\n")
                 +"行为规则："+behavior;
     }
 

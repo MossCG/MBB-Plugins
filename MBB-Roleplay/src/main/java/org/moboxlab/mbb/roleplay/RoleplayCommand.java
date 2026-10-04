@@ -137,7 +137,7 @@ public class RoleplayCommand extends BotCommand {
         if ("persona".equals(action)) {
             if (args.length < 3) {
                 sender.sendMessage("当前角色设定文件："+plugin.getPersonaFileName()
-                        +"\n可用：persona.json、persona-momoi.json、persona-midori.json");
+                        +"\n可用：persona-aris.json、persona-momoi.json、persona-midori.json");
                 return true;
             }
             if ("reset".equalsIgnoreCase(args[2])) {
