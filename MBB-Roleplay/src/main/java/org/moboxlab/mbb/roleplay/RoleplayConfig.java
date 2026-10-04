@@ -13,6 +13,7 @@ public class RoleplayConfig {
 
     public boolean enable = true;
     public String aiProfile = "default";
+    public String memoryProfile = "";
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
     public int initialAffinity = 70;
@@ -30,6 +31,7 @@ public class RoleplayConfig {
     public int memoryExtractMessages = 300;
     public int memoryExtractMaxChars = 16000;
     public int memoryExtractBatches = 3;
+    public int memoryMaxTokens = 12000;
     public boolean activeMemory = true;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
@@ -47,6 +49,7 @@ public class RoleplayConfig {
         RoleplayConfig config = new RoleplayConfig();
         config.enable = plugin.getConfig().getBoolean("enable",true);
         config.aiProfile = plugin.getConfig().getString("aiProfile","default");
+        config.memoryProfile = plugin.getConfig().getString("memoryProfile","");
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
         config.initialAffinity = plugin.getConfig().getInt("initialAffinity",70);
@@ -82,6 +85,7 @@ public class RoleplayConfig {
         config.memoryExtractMessages = plugin.getConfig().getInt("memoryExtractMessages",300);
         config.memoryExtractMaxChars = plugin.getConfig().getInt("memoryExtractMaxChars",16000);
         config.memoryExtractBatches = plugin.getConfig().getInt("memoryExtractBatches",3);
+        config.memoryMaxTokens = plugin.getConfig().getInt("memoryMaxTokens",12000);
         config.activeMemory = plugin.getConfig().getBoolean("activeMemory",true);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
@@ -99,6 +103,7 @@ public class RoleplayConfig {
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
         config.commandPrefixes = plugin.getConfig().getString("commandPrefixes","/,!,＃,#");
         if (config.aiProfile == null || config.aiProfile.trim().isEmpty()) config.aiProfile = "default";
+        if (config.memoryProfile == null) config.memoryProfile = "";
         if (config.replyCooldownSecond < 0) config.replyCooldownSecond = 0;
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
         if (config.initialAffinity < 0) config.initialAffinity = 0;
@@ -125,6 +130,8 @@ public class RoleplayConfig {
         if (config.memoryExtractMaxChars > 50000) config.memoryExtractMaxChars = 50000;
         if (config.memoryExtractBatches < 1) config.memoryExtractBatches = 1;
         if (config.memoryExtractBatches > 10) config.memoryExtractBatches = 10;
+        if (config.memoryMaxTokens < 2000) config.memoryMaxTokens = 2000;
+        if (config.memoryMaxTokens > 32000) config.memoryMaxTokens = 32000;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;

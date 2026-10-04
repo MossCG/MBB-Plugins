@@ -402,8 +402,13 @@ public class RoleplayService {
         messages.add(message("system",memorySystemPrompt(groupID,retry)));
         messages.add(message("user",source));
         JSONObject params = new JSONObject(true);
-        params.put("profile",config.aiProfile);
-        params.put("maxTokens",retry ? 6000 : 3600);
+        String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
+                ? config.aiProfile : config.memoryProfile.trim();
+        int maxTokens = retry
+                ? Math.min(32000,config.memoryMaxTokens * 2)
+                : config.memoryMaxTokens;
+        params.put("profile",profile);
+        params.put("maxTokens",maxTokens);
         params.put("temperature",retry ? 0.0 : 0.2);
         params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken+(retry ? "-retry" : ""));
         params.put("messages",messages);
@@ -423,7 +428,8 @@ public class RoleplayService {
                     +(retry ? "重试" : "模型")+"没有返回合法 JSON，原始输出："
                     +shortText(content,240)
                     +(finishReason.isEmpty() ? "" : "，finishReason="+finishReason)
-                    +(reasoning.isEmpty() ? "" : "，reasoning长度="+reasoning.length()));
+                    +(reasoning.isEmpty() ? "" : "，reasoning长度="+reasoning.length())
+                    +"，profile="+profile+", maxTokens="+maxTokens);
         }
         return parsed;
     }

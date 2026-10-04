@@ -119,6 +119,8 @@ memoryUpdateMessages: 50
 memoryExtractMessages: 300
 memoryExtractMaxChars: 16000
 memoryExtractBatches: 3
+memoryProfile: ""
+memoryMaxTokens: 12000
 activeMemory: true
 maxLongMemories: 150
 recentReplyCheckCount: 8
@@ -129,6 +131,8 @@ minMessageLength: 2
 ```
 
 非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求尽量只输出一句话，不要反复纠缠同一个生活细节，也不要连续使用同一种开头或口癖。
+
+`memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。
 
 ## 多角色部署
 
