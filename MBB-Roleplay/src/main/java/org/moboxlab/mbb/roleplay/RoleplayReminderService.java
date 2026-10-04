@@ -82,10 +82,11 @@ public class RoleplayReminderService {
                         + "VALUES (?,?,?,?,?,?,?,?)",
                 groupID,userID,userName,relation,result.task,result.remindTime,now,"pending");
         schedule(id,groupID,userID,result.task,relation,result.remindTime);
+        String confirmation = generateCreationText(id,groupID,userID,result.task,relation,result.remindTime);
         plugin.getLogger().sendInfo("[提醒] 创建 #"+id+" 群"+groupID+" 用户"+userID
                 +" 时间="+formatTime(result.remindTime)+" 内容="+result.task
                 +" 识别="+result.source);
-        sendAt(groupID,userID,formatTime(result.remindTime)+" 提醒你："+result.task);
+        sendAt(groupID,userID,"提醒已设置："+confirmation);
         return true;
     }
 
@@ -216,7 +217,7 @@ public class RoleplayReminderService {
         OneBotClient client = plugin.getServer().getOneBotClient();
         JSONObject response = client == null ? null
                 : client.sendGroupMessage(groupID,MessageUtil.message(
-                MessageUtil.at(userID),MessageUtil.text(" "+text)));
+                MessageUtil.at(userID),MessageUtil.text(" 提醒："+text)));
         if (response != null && response.getIntValue("retcode") == 0) {
             storage().update("UPDATE `"+TABLE+"` SET `status`='done' WHERE `ID`=?",id);
             plugin.getLogger().sendInfo("[提醒] 发送成功 #"+id+" 群"+groupID+" 用户"+userID);
@@ -224,6 +225,45 @@ public class RoleplayReminderService {
             plugin.getLogger().sendWarn("[提醒] 发送失败 #"+id+" 群"+groupID
                     +" 用户"+userID+"，60 秒后重试");
             schedule(id,groupID,userID,task,relation,System.currentTimeMillis() + 60000L);
+        }
+    }
+
+    private String generateCreationText(long id,long groupID,long userID,String task,
+                                        String relation,long remindTime) {
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) return formatTime(remindTime)+" 提醒你："+task;
+        String relationship = safe(relation).trim().isEmpty() ? "朋友" : safe(relation).trim();
+        try {
+            JSONArray messages = new JSONArray();
+            messages.add(message("system",persona.description()+"\n\n"
+                    +"用户刚刚创建了一个提醒。请用角色平时的自然聊天语气，生成一句确认回复，"
+                    +"自然告知会在什么时间提醒对方做什么。只输出确认正文，不要输出艾特、Markdown、旁白、"
+                    +"思考过程或解释，不要提及 AI 和系统。当前时间："+formatTime(System.currentTimeMillis())+"\n"
+                    +"提醒时间："+formatTime(remindTime)+"\n"
+                    +"关系："+relationship+"\n"
+                    +"提醒任务："+safe(task)));
+            messages.add(message("user","请生成提醒创建成功的确认。"));
+            JSONObject params = new JSONObject(true);
+            params.put("profile",config.aiProfile);
+            params.put("maxTokens",300);
+            params.put("temperature",0.7);
+            params.put("sessionId","roleplay-reminder-create-"+id+"-"+groupID);
+            params.put("messages",messages);
+            JSONObject result = ai.call("chat",params);
+            if (result == null || !result.getBooleanValue("status")) {
+                return formatTime(remindTime)+" 提醒你："+task;
+            }
+            String text = cleanAiText(result.getString("content"));
+            if (text.isEmpty() || "<SKIP>".equalsIgnoreCase(text)) {
+                return formatTime(remindTime)+" 提醒你："+task;
+            }
+            plugin.getLogger().sendInfo("[提醒] AI确认生成 #"+id+" 群"+groupID
+                    +" 用户"+userID+" 内容="+text);
+            return text;
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[提醒] AI确认生成失败 #"+id+"，使用模板兜底："
+                    +safe(e.getMessage()));
+            return formatTime(remindTime)+" 提醒你："+task;
         }
     }
 
@@ -248,8 +288,7 @@ public class RoleplayReminderService {
             params.put("messages",messages);
             JSONObject result = ai.call("chat",params);
             if (result == null || !result.getBooleanValue("status")) return triggerText(task);
-            String text = safe(result.getString("content")).trim();
-            text = text.replaceAll("^[@＠]\\S+\\s*","").replaceAll("\\s+"," ").trim();
+            String text = cleanAiText(result.getString("content"));
             if (text.isEmpty() || "<SKIP>".equalsIgnoreCase(text)) return triggerText(task);
             plugin.getLogger().sendInfo("[提醒] AI生成 #"+id+" 群"+groupID
                     +" 用户"+userID+" 内容="+text);
@@ -259,6 +298,12 @@ public class RoleplayReminderService {
                     +safe(e.getMessage()));
             return triggerText(task);
         }
+    }
+
+    private String cleanAiText(String content) {
+        String text = safe(content).trim();
+        text = text.replaceAll("^[@＠]\\S+\\s*","").replaceAll("\\s+"," ").trim();
+        return text;
     }
 
     private void sendAt(long groupID,long userID,String text) {

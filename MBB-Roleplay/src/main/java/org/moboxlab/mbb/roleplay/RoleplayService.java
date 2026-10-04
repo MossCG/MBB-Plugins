@@ -147,6 +147,8 @@ public class RoleplayService {
             messageCountMap.put(groupID,0);
             triggerMemory(groupID,"定时整理");
         }
+        if (isAddressedToOtherRole(event,content,selfID)) return;
+        if (otherRoleBot && isReminderNotification(content)) return;
         if (!otherRoleBot && reminderService.handle(event,content)) return;
         if (otherRoleBot && otherRoleStreak > config.maxConsecutiveOtherRoleMessages) return;
 
@@ -734,6 +736,43 @@ public class RoleplayService {
         String role = sender == null ? "" : safe(sender.getString("role")).trim().toLowerCase(Locale.CHINA);
         if ("owner".equals(role) || "admin".equals(role)) return "老师";
         return "朋友";
+    }
+
+    private boolean isAddressedToOtherRole(GroupMessageEvent event,String content,long selfID) {
+        if (event != null && event.getMessage() != null) {
+            JSONArray message = event.getMessage();
+            for (int i = 0; i < message.size(); i++) {
+                JSONObject segment = message.getJSONObject(i);
+                if (segment == null || !"at".equals(segment.getString("type"))) continue;
+                JSONObject data = segment.getJSONObject("data");
+                long atID = data == null ? 0L : data.getLongValue("qq");
+                if (atID > 0 && atID != selfID) return true;
+            }
+        }
+        String text = content == null ? "" : content.trim();
+        if (text.startsWith("@")) {
+            text = text.replaceFirst("^@[0-9]+\\s*","").trim();
+        }
+        for (String item : config.otherRoleBotNames.split(",")) {
+            String name = item.trim();
+            if (name.isEmpty() || isOwnRoleName(name)) continue;
+            if (startsWithAlias(text,name)) return true;
+        }
+        return false;
+    }
+
+    private boolean isOwnRoleName(String name) {
+        if (name == null || name.trim().isEmpty()) return false;
+        if (name.equalsIgnoreCase(persona.name)) return true;
+        for (String alias : persona.aliases) {
+            if (name.equalsIgnoreCase(alias)) return true;
+        }
+        return false;
+    }
+
+    private boolean isReminderNotification(String content) {
+        String text = content == null ? "" : content;
+        return text.contains("提醒已设置：") || text.contains("提醒：");
     }
 
     private int countMessage(long groupID) {
