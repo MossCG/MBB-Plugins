@@ -322,6 +322,7 @@ public class RoleplayService {
                 +"同一件小事最多回应一次，除非出现了明确的新进展；没有新信息时只输出 <SKIP>。"
                 +"不要固定使用同一句式或同一开头。像“姐姐……”“哼哼！”这类口癖在最近几条回复里出现过时，"
                 +"必须换一种自然说法；最近 5 条回复中，同一种开头最多出现一次。"
+                +"不要把“嗯”“嗯……”当作固定开场；最近 3 条回复里已经出现过“嗯”开头时，必须换一种直接的说法。"
                 +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
                 +(config.activeMemory ? "如果当前内容出现了值得长期记忆的新人物信息、稳定偏好、重要事件、群梗，"
@@ -819,13 +820,17 @@ public class RoleplayService {
         if (candidate.length() < config.repeatCheckMinChars) return false;
         String opening = openingOf(candidate);
         int openingCount = 0;
+        int fillerCount = 0;
+        boolean fillerOpening = candidate.startsWith("嗯");
         for (int i = 0; i < recent.size(); i++) {
             String old = normalizeForSimilarity(recent.getJSONObject(i).getString("content"));
             if (old.isEmpty()) continue;
             if (opening.length() >= 2 && old.startsWith(opening)) openingCount++;
+            if (fillerOpening && old.startsWith("嗯")) fillerCount++;
             if (similarity(candidate,old) >= config.repeatSimilarityThreshold) return true;
         }
-        return opening.length() >= 2 && openingCount >= config.repeatOpeningLimit;
+        return (opening.length() >= 2 && openingCount >= config.repeatOpeningLimit)
+                || (fillerOpening && fillerCount >= Math.max(1,config.repeatOpeningLimit - 1));
     }
 
     private String openingOf(String text) {
