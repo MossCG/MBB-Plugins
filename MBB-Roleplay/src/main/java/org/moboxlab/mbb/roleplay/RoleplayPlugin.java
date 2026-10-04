@@ -1,8 +1,10 @@
 package org.moboxlab.mbb.roleplay;
 
+import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Plugin;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -156,7 +158,32 @@ public class RoleplayPlugin extends Plugin {
                 getLogger().sendException(e);
             }
         }
-        saveDefaultResource("students.json");
+        saveDefaultStudents();
+    }
+
+    private void saveDefaultStudents() {
+        try {
+            File file = new File(getDataFolder(),"students.json");
+            byte[] bytes = readResource("students.json");
+            if (bytes == null) {
+                getLogger().sendWarn("插件 JAR 里没有 students.json！");
+                return;
+            }
+            if (!file.exists()) {
+                Files.write(Paths.get(file.getAbsolutePath()),bytes);
+                return;
+            }
+            String text = new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8);
+            JSONObject json = JSONObject.parseObject(text);
+            int version = json == null ? 0 : json.getIntValue("version");
+            if (version >= 2) return;
+            File backup = new File(getDataFolder(),"students.json.bak-"+System.currentTimeMillis());
+            Files.copy(file.toPath(),backup.toPath());
+            Files.write(Paths.get(file.getAbsolutePath()),bytes);
+            getLogger().sendInfo("共享学生图鉴已升级到结构化外貌版本，旧文件已备份："+backup.getName());
+        } catch (Exception e) {
+            getLogger().sendException(e);
+        }
     }
 
     private void saveDefaultResource(String name) {

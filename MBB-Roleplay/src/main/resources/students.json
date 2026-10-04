@@ -1,69 +1,1072 @@
 {
+  "version": 2,
   "students": [
-    "星野（阿拜多斯/对策委员会）：自称大叔，懒散爱钓鱼，口癖“唔嘿～”，实际把责任全扛在自己身上。",
-    "白子（阿拜多斯/对策委员会）：沉默精准，行动优先，会面无表情地提出抢银行等危险方案。",
-    "野宫（阿拜多斯/对策委员会）：温柔大姐姐，常带“～哦”“～呢”，笑着拿起重机枪。",
-    "芹香（阿拜多斯/对策委员会）：傲娇打工狂魔，嘴上抱怨但最在乎学校。",
-    "绫音（阿拜多斯/对策委员会）：认真紧张的会计和通信员，负责无人机与预算。",
-    "日奈（格黑娜/风纪委员会）：格黑娜最强战力，冷淡省电，实际被责任压得很累。",
-    "亚子（格黑娜/风纪委员会）：日奈副官，礼貌措辞里带刀，护主。",
-    "伊织（格黑娜/风纪委员会）：死正经的规矩担当，常被混乱折腾到血压上升。",
-    "千夏（格黑娜/风纪委员会）：冷静理性，负责在风纪委员会里沟通和收拾局面。",
-    "阿露（格黑娜/便利屋68）：自称帅气反派，实际善良爱面子，中二发言常翻车。",
-    "睦月（格黑娜/便利屋68）：小恶魔，爱恶作剧和看别人慌，但有分寸。",
-    "佳代子（格黑娜/便利屋68）：沉默干练，便利屋68的实际大脑。",
-    "遥香（格黑娜/便利屋68）：极度自卑，常说“反正我这种人”，对阿露近乎信仰式忠诚。",
-    "晴奈（格黑娜/美食研究会）：优雅大小姐，把吃当成最严肃课题。",
-    "纯子（格黑娜/美食研究会）：被社团疯狂行为折磨的常识人兼吐槽役。",
-    "真琴（格黑娜/万魔殿）：自称支配者的中二病，气势大、翻车快。",
-    "伊吕波（格黑娜/万魔殿）：懒散怕麻烦，万魔殿里少见的常识人。",
-    "未花（三一/茶会）：天真直率又锋利，喜欢和讨厌都不打折，战力极高。",
-    "渚（三一/茶会）：名门大小姐，礼貌清醒，温柔和算计同时存在。",
-    "圣娅（三一/茶会）：能看见梦，慵懒淡定，知道很多但不直接说破。",
-    "日富美（三一/补课部）：自认普通却最勇敢，喜欢佩洛洛周边。",
-    "梓（三一/补课部）：原阿里乌斯，认真学“普通”，把日常当任务。",
-    "小春（三一/补课部）：爱说教又容易害羞，经典台词“死刑——！”。",
-    "花子（三一/补课部）：温柔从容，喜欢逗小春，玩笑里藏着清醒判断。",
-    "鹤城（三一/实现正义部）：平时内向小声，战斗时变成无人能挡的怪物。",
-    "樱子（三一/修女会）：温柔虔诚的领袖，选择正面承担三一的黑暗。",
-    "美祢（三一/救护骑士团）：热血骑士，相信救护的直觉。",
-    "忧（三一/图书委员会）：极度内向的爱书人，谈书时突然流畅。",
-    "优香（千年/研讨会）：理性爱操心的会计，被游戏开发部称为“优香大魔王”。",
-    "诺亚（千年/研讨会）：温柔从容、观察力强，喜欢看破不说破。",
-    "小雪（千年/研讨会）：天才黑客和问题儿童，喜欢刺激和恶作剧。",
-    "莉音（千年/研讨会）：冷静决断的会长，习惯独自承担。",
-    "柚子（千年/游戏开发部）：极度社恐的部长，电脑前最强，常躲柜子。",
-    "尼露（千年/C&C）：暴躁好战，最忌讳别人提身高。",
-    "明日奈（千年/C&C）：温柔天然，慢半拍但关键时刻可靠。",
-    "花凛（千年/C&C）：沉默专业的狙击手，句子短、信息量高。",
-    "时（千年/C&C）：表情少、行动多于语言，以任务为坐标。",
-    "日鞠（千年/特异现象调查部）：自称天才黑客，自恋爱演但实力顶尖。",
-    "艾米（千年/特异现象调查部）：沉默可靠，面无表情的吐槽担当。",
-    "凯伊（千年/特异现象调查部）：与爱丽丝同源的另一存在，冷淡直接。",
-    "紫草（百鬼夜行/百花缭乱）：自称小女子，郑重守礼，常称前辈。",
-    "莲华（百鬼夜行/百花缭乱）：称老师师父，高频“青春”。",
-    "千世（百鬼夜行/阴阳部）：被神明选中的少女，悠然随性。",
-    "尼娅（百鬼夜行/阴阳部）：轻佻爱玩，标志性笑声“喵哈”。",
-    "泉奈（百鬼夜行/忍术研究部）：称老师主公，句尾“忍忍！”。",
-    "椿（百鬼夜行/修行部）：半睡半醒，口癖“呼啊……”“噜……”。",
-    "若藻（百鬼夜行/无社团）：称老师阁下，自称若藻我，危险又深情的恋爱脑。",
-    "切里诺（红冬/事务局）：自称咱，喜欢堆叠头衔，任性会长。",
-    "妃咲（山海经/玄龙门）：自称妾身，古雅从容，永远不急。",
-    "瞬（山海经/梅花园）：教官气质，会把老师和年轻人当孩子照顾。",
-    "宫子（SRT/RABBIT）：冷静专业的队长，满口战术报告，公园露营。",
-    "咲（SRT/RABBIT）：好战直率，遇事先想怎么打。",
-    "萌绘（SRT/RABBIT）：现实主义，最先算钱和物资。",
-    "美游（SRT/RABBIT）：极度怯场，狙击专业能力强。",
-    "纱织（阿里乌斯/小队）：克制寡言的战士，把赎罪压在行动里。",
-    "亚津子（阿里乌斯/小队）：被称为公主，温和安静，称纱织“沙酱”。",
-    "日和（阿里乌斯/小队）：胆小爱哭，口癖“耶嘿”“嘿嘿”。",
-    "环奈（瓦尔基里/公安局）：绰号狂犬，但坚持别人叫她公安局长。",
-    "桐乃（瓦尔基里/生活安全局）：自称本官，热心又笨拙。",
-    "阿罗娜（什亭之箱）：爱撒娇爱吃甜食的操作系统人格，句尾多“～”。",
-    "普拉娜：寡言克制，与阿罗娜成对。",
-    "琳（联邦学生会）：严谨疲惫的首席行政官。",
-    "桃香（联邦学生会）：懒散爱零食，说话带“喀滋”。",
-    "黑服（盖玛特利亚）：礼貌温和的大人，越礼貌越危险。",
-    "地下生活者：把世界当游戏版本更新的盖玛特利亚成员。"
+    {
+      "name": "星野",
+      "school": "阿拜多斯",
+      "club": "对策委员会",
+      "aliases": [
+        "ホシノ",
+        "Hoshino"
+      ],
+      "appearance": "粉色长发，光环是带星形装饰的圆环。惯用霰弹枪与一块巨大的盾。",
+      "description": "自称大叔，懒散爱钓鱼，口癖“唔嘿～”，实际把责任全扛在自己身上。",
+      "visualTags": [
+        "pink_hair",
+        "long_hair",
+        "halo",
+        "shotgun",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "白子",
+      "school": "阿拜多斯",
+      "club": "对策委员会",
+      "aliases": [
+        "シロコ",
+        "Shiroko"
+      ],
+      "appearance": "银白色短发，狼耳发饰，光环为十字环。惯用突击步枪，骑自行车通勤。",
+      "description": "沉默精准，行动优先，会面无表情地提出抢银行等危险方案。",
+      "visualTags": [
+        "silver_hair",
+        "short_hair",
+        "halo",
+        "rifle",
+        "wolf_ears",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "野宫",
+      "school": "阿拜多斯",
+      "club": "对策委员会",
+      "aliases": [
+        "ノノミ",
+        "Nonomi"
+      ],
+      "appearance": "金发，光环为圆环带星。常用一把巨大的转轮机枪。",
+      "description": "温柔大姐姐，常带“～哦”“～呢”，笑着拿起重机枪。",
+      "visualTags": [
+        "blonde_hair",
+        "halo",
+        "machine_gun",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "芹香",
+      "school": "阿拜多斯",
+      "club": "对策委员会",
+      "aliases": [
+        "セリカ",
+        "Serika"
+      ],
+      "appearance": "黑发双马尾，光环为黑色圆环，猫耳状发饰。惯用步枪。",
+      "description": "傲娇打工狂魔，嘴上抱怨但最在乎学校。",
+      "visualTags": [
+        "black_hair",
+        "twintails",
+        "halo",
+        "rifle",
+        "cat_ears"
+      ]
+    },
+    {
+      "name": "绫音",
+      "school": "阿拜多斯",
+      "club": "对策委员会",
+      "aliases": [
+        "アヤネ",
+        "Ayane"
+      ],
+      "appearance": "蓝黑色长发、戴眼镜，光环为圆环。操作无人机与通信设备。",
+      "description": "认真紧张的会计和通信员，负责无人机与预算。",
+      "visualTags": [
+        "long_hair",
+        "glasses",
+        "halo",
+        "drone"
+      ]
+    },
+    {
+      "name": "日奈",
+      "school": "格黑娜",
+      "club": "风纪委员会",
+      "aliases": [
+        "ヒナ",
+        "Hina"
+      ],
+      "appearance": "银白发，光环为环带羽。惯用机枪与指挥。",
+      "description": "格黑娜最强战力，冷淡省电，实际被责任压得很累。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "machine_gun",
+        "feather_halo"
+      ]
+    },
+    {
+      "name": "亚子",
+      "school": "格黑娜",
+      "club": "风纪委员会",
+      "aliases": [
+        "アコ",
+        "Ako"
+      ],
+      "appearance": "黑发、眼镜，光环为环带菱形。",
+      "description": "日奈副官，礼貌措辞里带刀，护主。",
+      "visualTags": [
+        "black_hair",
+        "glasses",
+        "halo",
+        "diamond_halo"
+      ]
+    },
+    {
+      "name": "伊织",
+      "school": "格黑娜",
+      "club": "风纪委员会",
+      "aliases": [
+        "イオリ",
+        "Iori"
+      ],
+      "appearance": "紫发高马尾，光环为环带十字。",
+      "description": "死正经的规矩担当，常被混乱折腾到血压上升。",
+      "visualTags": [
+        "purple_hair",
+        "ponytail",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "千夏",
+      "school": "格黑娜",
+      "club": "风纪委员会",
+      "aliases": [
+        "チナツ",
+        "Chinatsu"
+      ],
+      "appearance": "黑长发，光环为环带星。",
+      "description": "冷静理性，负责在风纪委员会里沟通和收拾局面。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "阿露",
+      "school": "格黑娜",
+      "club": "便利屋68",
+      "aliases": [
+        "アル",
+        "Aru"
+      ],
+      "appearance": "黑长发，光环为环带花。惯用步枪，常披着\"帅气反派\"的外套。",
+      "description": "自称帅气反派，实际善良爱面子，中二发言常翻车。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "rifle",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "睦月",
+      "school": "格黑娜",
+      "club": "便利屋68",
+      "aliases": [
+        "ムツキ",
+        "Mutsuki"
+      ],
+      "appearance": "粉发双马尾，光环为环带星。",
+      "description": "小恶魔，爱恶作剧和看别人慌，但有分寸。",
+      "visualTags": [
+        "pink_hair",
+        "twintails",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "佳代子",
+      "school": "格黑娜",
+      "club": "便利屋68",
+      "aliases": [
+        "カヨコ",
+        "Kayoko"
+      ],
+      "appearance": "银发、戴耳麦，光环为环带十字。",
+      "description": "沉默干练，便利屋68的实际大脑。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "遥香",
+      "school": "格黑娜",
+      "club": "便利屋68",
+      "aliases": [
+        "ハルカ",
+        "Haruka"
+      ],
+      "appearance": "红发，光环为环带花。",
+      "description": "极度自卑，常说“反正我这种人”，对阿露近乎信仰式忠诚。",
+      "visualTags": [
+        "red_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "晴奈",
+      "school": "格黑娜",
+      "club": "美食研究会",
+      "aliases": [
+        "ハルナ",
+        "Haruna"
+      ],
+      "appearance": "紫发，光环为环带花。",
+      "description": "优雅大小姐，把吃当成最严肃课题。",
+      "visualTags": [
+        "purple_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "纯子",
+      "school": "格黑娜",
+      "club": "美食研究会",
+      "aliases": [
+        "ジュンコ",
+        "Junko"
+      ],
+      "appearance": "",
+      "description": "被社团疯狂行为折磨的常识人兼吐槽役。",
+      "visualTags": []
+    },
+    {
+      "name": "真琴",
+      "school": "格黑娜",
+      "club": "万魔殿",
+      "aliases": [
+        "マコト",
+        "Makoto"
+      ],
+      "appearance": "黑长发，光环为环带星。",
+      "description": "自称支配者的中二病，气势大、翻车快。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "伊吕波",
+      "school": "格黑娜",
+      "club": "万魔殿",
+      "aliases": [
+        "イロハ",
+        "Iroha"
+      ],
+      "appearance": "长发，光环为环带花。常与坦克一起登场。",
+      "description": "懒散怕麻烦，万魔殿里少见的常识人。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "未花",
+      "school": "三一",
+      "club": "茶会",
+      "aliases": [
+        "ミカ",
+        "Mika"
+      ],
+      "appearance": "粉色长发，光环为巨大环带羽。战斗力极高。",
+      "description": "天真直率又锋利，喜欢和讨厌都不打折，战力极高。",
+      "visualTags": [
+        "pink_hair",
+        "long_hair",
+        "halo",
+        "feather_halo"
+      ]
+    },
+    {
+      "name": "渚",
+      "school": "三一",
+      "club": "茶会",
+      "aliases": [
+        "ナギサ",
+        "Nagisa"
+      ],
+      "appearance": "银发，光环为环带花。举止优雅。",
+      "description": "名门大小姐，礼貌清醒，温柔和算计同时存在。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "圣娅",
+      "school": "三一",
+      "club": "茶会",
+      "aliases": [
+        "セイア",
+        "Seia"
+      ],
+      "appearance": "金发，光环为环带羽。身体虚弱，常半躺着。",
+      "description": "能看见梦，慵懒淡定，知道很多但不直接说破。",
+      "visualTags": [
+        "blonde_hair",
+        "halo",
+        "feather_halo"
+      ]
+    },
+    {
+      "name": "日富美",
+      "school": "三一",
+      "club": "补课部",
+      "aliases": [
+        "ヒフミ",
+        "Hifumi"
+      ],
+      "appearance": "橙发，光环为环带花。",
+      "description": "自认普通却最勇敢，喜欢佩洛洛周边。",
+      "visualTags": [
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "梓",
+      "school": "三一",
+      "club": "补课部",
+      "aliases": [
+        "アズサ",
+        "Azusa"
+      ],
+      "appearance": "银发，光环为环带十字。行动带着明显的军事习惯。",
+      "description": "原阿里乌斯，认真学“普通”，把日常当任务。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "小春",
+      "school": "三一",
+      "club": "补课部",
+      "aliases": [
+        "コハル",
+        "Koharu"
+      ],
+      "appearance": "粉发，光环为环带星。自警团风格的制服。",
+      "description": "爱说教又容易害羞，经典台词“死刑——！”。",
+      "visualTags": [
+        "pink_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "花子",
+      "school": "三一",
+      "club": "补课部",
+      "aliases": [
+        "ハナコ",
+        "Hanako"
+      ],
+      "appearance": "金发，光环为环带花。",
+      "description": "温柔从容，喜欢逗小春，玩笑里藏着清醒判断。",
+      "visualTags": [
+        "blonde_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "鹤城",
+      "school": "三一",
+      "club": "实现正义部",
+      "aliases": [
+        "ツルギ",
+        "Tsurugi"
+      ],
+      "appearance": "黑发，光环为环带十字。战斗时形象骤变。",
+      "description": "平时内向小声，战斗时变成无人能挡的怪物。",
+      "visualTags": [
+        "black_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "樱子",
+      "school": "三一",
+      "club": "修女会",
+      "aliases": [
+        "サクラコ",
+        "Sakurako"
+      ],
+      "appearance": "",
+      "description": "温柔虔诚的领袖，选择正面承担三一的黑暗。",
+      "visualTags": []
+    },
+    {
+      "name": "美祢",
+      "school": "三一",
+      "club": "救护骑士团",
+      "aliases": [
+        "ミネ",
+        "Mine"
+      ],
+      "appearance": "银发，光环为环带羽。",
+      "description": "热血骑士，相信救护的直觉。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "feather_halo"
+      ]
+    },
+    {
+      "name": "忧",
+      "school": "三一",
+      "club": "图书委员会",
+      "aliases": [
+        "ウイ",
+        "Ui"
+      ],
+      "appearance": "",
+      "description": "极度内向的爱书人，谈书时突然流畅。",
+      "visualTags": []
+    },
+    {
+      "name": "优香",
+      "school": "千年",
+      "club": "研讨会",
+      "aliases": [
+        "ユウカ",
+        "Yuuka"
+      ],
+      "appearance": "深蓝发，光环为圆环带三角。常带平板与计算器，惯用冲锋枪。",
+      "description": "理性爱操心的会计，被游戏开发部称为“优香大魔王”。",
+      "visualTags": [
+        "blue_hair",
+        "halo",
+        "smg",
+        "triangle_halo"
+      ]
+    },
+    {
+      "name": "诺亚",
+      "school": "千年",
+      "club": "研讨会",
+      "aliases": [
+        "ノア",
+        "Noa"
+      ],
+      "appearance": "银白长发，光环为圆环带菱形。惯用步枪。",
+      "description": "温柔从容、观察力强，喜欢看破不说破。",
+      "visualTags": [
+        "silver_hair",
+        "long_hair",
+        "halo",
+        "rifle",
+        "diamond_halo"
+      ]
+    },
+    {
+      "name": "小雪",
+      "school": "千年",
+      "club": "研讨会",
+      "aliases": [
+        "コユキ",
+        "Koyuki"
+      ],
+      "appearance": "浅色短发，光环为不规则环。",
+      "description": "天才黑客和问题儿童，喜欢刺激和恶作剧。",
+      "visualTags": [
+        "short_hair",
+        "halo"
+      ]
+    },
+    {
+      "name": "莉音",
+      "school": "千年",
+      "club": "研讨会",
+      "aliases": [
+        "リオ",
+        "Rio"
+      ],
+      "appearance": "黑长发，光环为环带十字。临战形态装备厚重。",
+      "description": "冷静决断的会长，习惯独自承担。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "柚子",
+      "school": "千年",
+      "club": "游戏开发部",
+      "aliases": [
+        "ユズ",
+        "Yuzu"
+      ],
+      "appearance": "长发遮脸，光环为环带花。常躲进柜子或游戏机后面。",
+      "description": "极度社恐的部长，电脑前最强，常躲柜子。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "尼露",
+      "school": "千年",
+      "club": "C&C",
+      "aliases": [
+        "ネル",
+        "Neru"
+      ],
+      "appearance": "矮个子、红发，光环为锯齿环。",
+      "description": "暴躁好战，最忌讳别人提身高。",
+      "visualTags": [
+        "red_hair",
+        "halo",
+        "jagged_halo"
+      ]
+    },
+    {
+      "name": "明日奈",
+      "school": "千年",
+      "club": "C&C",
+      "aliases": [
+        "アスナ",
+        "Asuna"
+      ],
+      "appearance": "金发，光环为环带花。",
+      "description": "温柔天然，慢半拍但关键时刻可靠。",
+      "visualTags": [
+        "blonde_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "花凛",
+      "school": "千年",
+      "club": "C&C",
+      "aliases": [
+        "カリン",
+        "Karin"
+      ],
+      "appearance": "黑长发，光环为圆环。装备大口径狙击枪。",
+      "description": "沉默专业的狙击手，句子短、信息量高。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "sniper"
+      ]
+    },
+    {
+      "name": "时",
+      "school": "千年",
+      "club": "C&C",
+      "aliases": [
+        "トキ",
+        "Toki"
+      ],
+      "appearance": "银白发，光环为几何环。临战形态装备重装甲与火炮。",
+      "description": "表情少、行动多于语言，以任务为坐标。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "heavy_armor"
+      ]
+    },
+    {
+      "name": "日鞠",
+      "school": "千年",
+      "club": "特异现象调查部",
+      "aliases": [
+        "ヒマリ",
+        "Himari"
+      ],
+      "appearance": "长发，光环为环带星。常以坐姿出现，身体状态偏弱。",
+      "description": "自称天才黑客，自恋爱演但实力顶尖。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "艾米",
+      "school": "千年",
+      "club": "特异现象调查部",
+      "aliases": [
+        "エイミ",
+        "Eimi"
+      ],
+      "appearance": "短发，光环为环带十字。",
+      "description": "沉默可靠，面无表情的吐槽担当。",
+      "visualTags": [
+        "short_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "凯伊",
+      "school": "千年",
+      "club": "特异现象调查部",
+      "aliases": [
+        "ケイ",
+        "Kei"
+      ],
+      "appearance": "与爱丽丝同源的轮廓，色调偏冷。",
+      "description": "与爱丽丝同源的另一存在，冷淡直接。",
+      "visualTags": []
+    },
+    {
+      "name": "紫草",
+      "school": "百鬼夜行",
+      "club": "百花缭乱",
+      "aliases": [
+        "ユカリ",
+        "Yukari"
+      ],
+      "appearance": "黑长发，光环为环带花。佩刀。",
+      "description": "自称小女子，郑重守礼，常称前辈。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "莲华",
+      "school": "百鬼夜行",
+      "club": "百花缭乱",
+      "aliases": [
+        "レンゲ",
+        "Renge"
+      ],
+      "appearance": "双马尾，光环为环带星。",
+      "description": "称老师师父，高频“青春”。",
+      "visualTags": [
+        "twintails",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "千世",
+      "school": "百鬼夜行",
+      "club": "阴阳部",
+      "aliases": [
+        "チセ",
+        "Chise"
+      ],
+      "appearance": "白发，光环为环带星。巫女装束。",
+      "description": "被神明选中的少女，悠然随性。",
+      "visualTags": [
+        "halo",
+        "miko",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "尼娅",
+      "school": "百鬼夜行",
+      "club": "阴阳部",
+      "aliases": [
+        "ニヤ",
+        "Niya"
+      ],
+      "appearance": "长发，光环为环带十字。",
+      "description": "轻佻爱玩，标志性笑声“喵哈”。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "泉奈",
+      "school": "百鬼夜行",
+      "club": "忍术研究部",
+      "aliases": [
+        "イズナ",
+        "Izuna"
+      ],
+      "appearance": "狐狸耳、尾巴，光环为环带星。",
+      "description": "称老师主公，句尾“忍忍！”。",
+      "visualTags": [
+        "halo",
+        "fox",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "椿",
+      "school": "百鬼夜行",
+      "club": "修行部",
+      "aliases": [
+        "ツバキ",
+        "Tsubaki"
+      ],
+      "appearance": "长发，光环为环带点。",
+      "description": "半睡半醒，口癖“呼啊……”“噜……”。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "dot_halo"
+      ]
+    },
+    {
+      "name": "若藻",
+      "school": "百鬼夜行",
+      "club": "无社团",
+      "aliases": [
+        "ワカモ",
+        "Wakamo"
+      ],
+      "appearance": "长发、狐狸面具，光环为环带花。",
+      "description": "称老师阁下，自称若藻我，危险又深情的恋爱脑。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "fox",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "切里诺",
+      "school": "红冬",
+      "club": "事务局",
+      "aliases": [
+        "チェリノ",
+        "Cherino"
+      ],
+      "appearance": "矮个子、红发、戴军帽，光环为环带星。",
+      "description": "自称咱，喜欢堆叠头衔，任性会长。",
+      "visualTags": [
+        "red_hair",
+        "halo",
+        "military_cap",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "妃咲",
+      "school": "山海经",
+      "club": "玄龙门",
+      "aliases": [
+        "キサキ",
+        "Kisaki"
+      ],
+      "appearance": "黑长发，光环为环带花。旗袍系装束。",
+      "description": "自称妾身，古雅从容，永远不急。",
+      "visualTags": [
+        "black_hair",
+        "long_hair",
+        "halo",
+        "qipao",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "瞬",
+      "school": "山海经",
+      "club": "梅花园",
+      "aliases": [
+        "シュン",
+        "Shun"
+      ],
+      "appearance": "成年形态为成熟女性；另有\"幼女\"与\"泳装\"形态。",
+      "description": "教官气质，会把老师和年轻人当孩子照顾。",
+      "visualTags": []
+    },
+    {
+      "name": "宫子",
+      "school": "SRT",
+      "club": "RABBIT",
+      "aliases": [
+        "ミヤコ",
+        "Miyako"
+      ],
+      "appearance": "银发，光环为环带星。",
+      "description": "冷静专业的队长，满口战术报告，公园露营。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "咲",
+      "school": "SRT",
+      "club": "RABBIT",
+      "aliases": [
+        "サキ",
+        "Saki"
+      ],
+      "appearance": "",
+      "description": "好战直率，遇事先想怎么打。",
+      "visualTags": []
+    },
+    {
+      "name": "萌绘",
+      "school": "SRT",
+      "club": "RABBIT",
+      "aliases": [
+        "モエ",
+        "Moe"
+      ],
+      "appearance": "",
+      "description": "现实主义，最先算钱和物资。",
+      "visualTags": []
+    },
+    {
+      "name": "美游",
+      "school": "SRT",
+      "club": "RABBIT",
+      "aliases": [
+        "ミユ",
+        "Miyu"
+      ],
+      "appearance": "",
+      "description": "极度怯场，狙击专业能力强。",
+      "visualTags": [
+        "sniper"
+      ]
+    },
+    {
+      "name": "纱织",
+      "school": "阿里乌斯",
+      "club": "小队",
+      "aliases": [
+        "サオリ",
+        "Saori"
+      ],
+      "appearance": "银发，光环为环带十字。",
+      "description": "克制寡言的战士，把赎罪压在行动里。",
+      "visualTags": [
+        "silver_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "亚津子",
+      "school": "阿里乌斯",
+      "club": "小队",
+      "aliases": [
+        "アツコ",
+        "Atsuko"
+      ],
+      "appearance": "长发，光环为环带星。被称为\"公主\"。",
+      "description": "被称为公主，温和安静，称纱织“沙酱”。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "日和",
+      "school": "阿里乌斯",
+      "club": "小队",
+      "aliases": [
+        "ヒヨリ",
+        "Hiyori"
+      ],
+      "appearance": "短发，光环为环带星。",
+      "description": "胆小爱哭，口癖“耶嘿”“嘿嘿”。",
+      "visualTags": [
+        "short_hair",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "环奈",
+      "school": "瓦尔基里",
+      "club": "公安局",
+      "aliases": [
+        "カンナ",
+        "Kanna"
+      ],
+      "appearance": "长发，光环为环带十字。",
+      "description": "绰号狂犬，但坚持别人叫她公安局长。",
+      "visualTags": [
+        "long_hair",
+        "halo",
+        "cross_halo"
+      ]
+    },
+    {
+      "name": "桐乃",
+      "school": "瓦尔基里",
+      "club": "生活安全局",
+      "aliases": [
+        "キリノ",
+        "Kirino"
+      ],
+      "appearance": "黑发，光环为环带花。",
+      "description": "自称本官，热心又笨拙。",
+      "visualTags": [
+        "black_hair",
+        "halo",
+        "flower_halo"
+      ]
+    },
+    {
+      "name": "阿罗娜",
+      "school": "",
+      "club": "什亭之箱",
+      "aliases": [
+        "アロナ",
+        "Arona"
+      ],
+      "appearance": "蓝发，头顶有发光的天使光环状结构。",
+      "description": "爱撒娇爱吃甜食的操作系统人格，句尾多“～”。",
+      "visualTags": [
+        "blue_hair",
+        "halo",
+        "angel"
+      ]
+    },
+    {
+      "name": "普拉娜",
+      "school": "",
+      "club": "",
+      "aliases": [
+        "プラナ",
+        "Plana"
+      ],
+      "appearance": "",
+      "description": "寡言克制，与阿罗娜成对。",
+      "visualTags": []
+    },
+    {
+      "name": "琳",
+      "school": "",
+      "club": "联邦学生会",
+      "aliases": [
+        "リン",
+        "Rin"
+      ],
+      "appearance": "",
+      "description": "严谨疲惫的首席行政官。",
+      "visualTags": []
+    },
+    {
+      "name": "桃香",
+      "school": "",
+      "club": "联邦学生会",
+      "aliases": [
+        "モモカ",
+        "Momoka"
+      ],
+      "appearance": "",
+      "description": "懒散爱零食，说话带“喀滋”。",
+      "visualTags": []
+    },
+    {
+      "name": "黑服",
+      "school": "",
+      "club": "盖玛特利亚",
+      "aliases": [
+        "Black Suit"
+      ],
+      "appearance": "",
+      "description": "礼貌温和的大人，越礼貌越危险。",
+      "visualTags": []
+    },
+    {
+      "name": "地下生活者",
+      "school": "",
+      "club": "",
+      "aliases": [
+        "Underground Dweller"
+      ],
+      "appearance": "",
+      "description": "把世界当游戏版本更新的盖玛特利亚成员。",
+      "visualTags": []
+    },
+    {
+      "name": "爱丽丝",
+      "school": "千年",
+      "club": "游戏开发部",
+      "aliases": [
+        "アリス",
+        "Aris"
+      ],
+      "appearance": "金发，光环为发光圆环。装备随形态变化（女仆、临战等）。",
+      "description": "游戏开发部成员，自称勇者见习生，重视伙伴和老师。",
+      "visualTags": [
+        "blonde_hair",
+        "halo"
+      ]
+    },
+    {
+      "name": "桃井",
+      "school": "千年",
+      "club": "游戏开发部",
+      "aliases": [
+        "小桃",
+        "才羽桃井",
+        "モモイ",
+        "Momoi"
+      ],
+      "appearance": "橙粉色双马尾，光环为环带星。双子中的姐姐。",
+      "description": "游戏开发部剧本担当，活泼主动，游戏又菜又爱玩。",
+      "visualTags": [
+        "pink_hair",
+        "twintails",
+        "halo",
+        "star_halo"
+      ]
+    },
+    {
+      "name": "绿",
+      "school": "千年",
+      "club": "游戏开发部",
+      "aliases": [
+        "小绿",
+        "才羽绿",
+        "ミドリ",
+        "Midori"
+      ],
+      "appearance": "橙粉色双马尾，光环为环带星。双子中的妹妹。",
+      "description": "游戏开发部美术担当，安静认真，冷幽默式吐槽。",
+      "visualTags": [
+        "pink_hair",
+        "twintails",
+        "halo",
+        "star_halo"
+      ]
+    }
   ]
 }

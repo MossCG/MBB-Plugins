@@ -7,6 +7,7 @@ import org.moboxlab.moboxbot.API.PluginService;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
 
 /**
  * 识图公共服务
@@ -48,9 +49,11 @@ public class VisionService implements PluginService {
         boolean cacheEnable = plugin.getConfig().getBoolean("cacheEnable",true);
         boolean force = params.getBooleanValue("force");
         String fileUnique = safe(params.getString("fileUnique"));
+        String reference = safe(params.getString("reference"));
+        String referenceHash = hashReference(reference);
 
         if (cacheEnable && !force && !fileUnique.isEmpty()) {
-            JSONObject row = cache.findByFileUnique(fileUnique,kind,promptVersion);
+            JSONObject row = cache.findByFileUnique(fileUnique,kind,promptVersion,referenceHash);
             if (row != null) {
                 cache.touch(row);
                 logHit(kind,row);
@@ -65,7 +68,7 @@ public class VisionService implements PluginService {
             return error("图片读取失败："+e.getMessage());
         }
         if (cacheEnable && !force) {
-            JSONObject row = cache.findByHash(image.sha256,kind,promptVersion);
+            JSONObject row = cache.findByHash(image.sha256,kind,promptVersion,referenceHash);
             if (row != null) {
                 cache.touch(row);
                 logHit(kind,row);
@@ -75,9 +78,9 @@ public class VisionService implements PluginService {
         String profile = safe(params.getString("profile"));
         if (profile.isEmpty()) profile = plugin.getConfig().getString("aiProfile","default");
         if (force) {
-            return describeRemote(params,image,fileUnique,kind,profile,promptVersion,false);
+            return describeRemote(params,image,fileUnique,kind,profile,reference,promptVersion,false);
         }
-        String lockKey = kind+"|"+image.sha256+"|"+promptVersion;
+        String lockKey = kind+"|"+image.sha256+"|"+promptVersion+"|"+referenceHash;
         Object lock = inflightLocks.get(lockKey);
         if (lock == null) {
             Object newLock = new Object();
@@ -87,14 +90,14 @@ public class VisionService implements PluginService {
         synchronized (lock) {
             try {
                 if (cacheEnable) {
-                    JSONObject row = cache.findByHash(image.sha256,kind,promptVersion);
+                    JSONObject row = cache.findByHash(image.sha256,kind,promptVersion,referenceHash);
                     if (row != null) {
                         cache.touch(row);
                         logHit(kind,row);
                         return cache.toResult(row,true);
                     }
                 }
-                return describeRemote(params,image,fileUnique,kind,profile,promptVersion,cacheEnable);
+                return describeRemote(params,image,fileUnique,kind,profile,reference,promptVersion,cacheEnable);
             } finally {
                 inflightLocks.remove(lockKey,lock);
             }
@@ -103,7 +106,7 @@ public class VisionService implements PluginService {
 
     private JSONObject describeRemote(JSONObject params,VisionImageSource.ImageData image,
                                       String fileUnique,String kind,String profile,
-                                      int promptVersion,boolean cacheEnable) {
+                                      String reference,int promptVersion,boolean cacheEnable) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return error("MBB-AI 未启用");
         int maxTokens = plugin.getConfig().getInt("maxTokens",4000);
@@ -113,7 +116,7 @@ public class VisionService implements PluginService {
             maxTokens = Math.max(4000,maxTokens);
         }
         JSONObject result = analyzer.analyze(ai,profile,maxTokens,image,kind,
-                safe(params.getString("context")));
+                safe(params.getString("context")),reference);
         if (result == null || !result.getBooleanValue("status")) {
             return error(result == null ? "识图失败" : safe(result.getString("message")));
         }
@@ -124,7 +127,7 @@ public class VisionService implements PluginService {
         result.put("promptVersion",promptVersion);
         if (cacheEnable) {
             cache.save(fileUnique,image.sha256,kind,result,profile,
-                    safe(result.getString("model")),promptVersion);
+                    safe(result.getString("model")),hashReference(reference),promptVersion);
         }
         logResult(kind,result);
         return result;
@@ -181,6 +184,20 @@ public class VisionService implements PluginService {
     private String shortHash(String hash) {
         if (hash == null || hash.length() <= 12) return safe(hash);
         return hash.substring(0,12);
+    }
+
+    private String hashReference(String reference) {
+        String value = safe(reference);
+        if (value.isEmpty()) return "";
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(value.getBytes("UTF-8"));
+            StringBuilder builder = new StringBuilder();
+            for (byte item : bytes) builder.append(String.format("%02x",item & 0xff));
+            return builder.substring(0,16);
+        } catch (Exception e) {
+            return String.valueOf(value.hashCode());
+        }
     }
 
     private String shortText(String value,int maxLength) {

@@ -21,7 +21,8 @@ public class VisionAnalyzer {
     }
 
     public JSONObject analyze(PluginService ai,String profile,int maxTokens,
-                              VisionImageSource.ImageData image,String kind,String context) {
+                              VisionImageSource.ImageData image,String kind,String context,
+                              String reference) {
         JSONObject result = new JSONObject(true);
         try {
             String dataUri = "data:"+image.mime+";base64,"
@@ -29,7 +30,7 @@ public class VisionAnalyzer {
             JSONArray content = new JSONArray();
             JSONObject text = new JSONObject(true);
             text.put("type","text");
-            text.put("text",buildPrompt(kind,context));
+            text.put("text",buildPrompt(kind,context,reference));
             content.add(text);
             JSONObject imageUrl = new JSONObject(true);
             imageUrl.put("url",dataUri);
@@ -140,7 +141,7 @@ public class VisionAnalyzer {
         return response != null && response.getBooleanValue("status");
     }
 
-    private String buildPrompt(String kind,String context) {
+    private String buildPrompt(String kind,String context,String reference) {
         StringBuilder builder = new StringBuilder();
         if ("sticker".equalsIgnoreCase(kind)) {
             builder.append("You are describing a chat sticker for a roleplay system.\n")
@@ -171,6 +172,12 @@ public class VisionAnalyzer {
                 .append("- Do not use Markdown.\n");
         if (context != null && !context.trim().isEmpty()) {
             builder.append("Conversation context:\n").append(shortText(context,500));
+        }
+        if (reference != null && !reference.trim().isEmpty()) {
+            builder.append("\nKnown Blue Archive student appearance reference:\n")
+                    .append(limitText(reference,8000))
+                    .append("\nUse the reference only as candidate guidance. Do not force a match, "
+                            + "and do not rely on hair color alone.");
         }
         return builder.toString();
     }
@@ -223,6 +230,13 @@ public class VisionAnalyzer {
     private String shortText(String value,int maxLength) {
         if (value == null) return "";
         String text = value.replace("\r"," ").replace("\n"," ").trim();
+        if (text.length() <= maxLength) return text;
+        return text.substring(0,maxLength)+"...";
+    }
+
+    private String limitText(String value,int maxLength) {
+        if (value == null) return "";
+        String text = value.replace("\r","").trim();
         if (text.length() <= maxLength) return text;
         return text.substring(0,maxLength)+"...";
     }

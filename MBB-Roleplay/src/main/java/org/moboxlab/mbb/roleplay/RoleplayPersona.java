@@ -16,6 +16,16 @@ import java.util.Set;
  * 角色设定
  */
 public class RoleplayPersona {
+    public static class StudentProfile {
+        public String name = "";
+        public String school = "";
+        public String club = "";
+        public String appearance = "";
+        public String description = "";
+        public List<String> aliases = new ArrayList<>();
+        public List<String> visualTags = new ArrayList<>();
+    }
+
     public String name = "角色";
     public String identity = "";
     public String worldview = "";
@@ -31,6 +41,7 @@ public class RoleplayPersona {
     public List<String> dislikes = new ArrayList<>();
     public List<String> relationships = new ArrayList<>();
     public List<String> otherStudents = new ArrayList<>();
+    public List<StudentProfile> studentProfiles = new ArrayList<>();
     public List<String> terminology = new ArrayList<>();
     public List<String> storyMemory = new ArrayList<>();
 
@@ -96,6 +107,32 @@ public class RoleplayPersona {
                 +"行为规则："+behavior;
     }
 
+    public String visionReferenceText() {
+        if (studentProfiles.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder("蔚蓝档案学生外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
+        int count = 0;
+        for (StudentProfile profile : studentProfiles) {
+            if (profile == null || profile.name.isEmpty()) continue;
+            String appearance = safe(profile.appearance,"");
+            String description = safe(profile.description,"");
+            if (appearance.isEmpty() && description.isEmpty()) continue;
+            String line = "- "+profile.name;
+            if (!profile.school.isEmpty() || !profile.club.isEmpty()) {
+                line += "（"+safe(profile.school,"")+"/"+safe(profile.club,"")+"）";
+            }
+            line += "：";
+            if (!appearance.isEmpty()) line += appearance;
+            if (!appearance.isEmpty() && !description.isEmpty()) line += "；";
+            if (!description.isEmpty()) line += description;
+            if (!profile.visualTags.isEmpty()) line += "；视觉标签："+String.join(",",profile.visualTags);
+            line += "\n";
+            if (builder.length()+line.length() > 8000) break;
+            builder.append(line);
+            count++;
+        }
+        return count == 0 ? "" : builder.toString();
+    }
+
     private static List<String> readList(JSONArray array) {
         List<String> result = new ArrayList<>();
         if (array == null) return result;
@@ -114,18 +151,75 @@ public class RoleplayPersona {
             String text = new String(Files.readAllBytes(Paths.get(path)),StandardCharsets.UTF_8);
             JSONObject json = JSONObject.parseObject(text);
             if (json == null) return;
-            List<String> shared = readList(json.getJSONArray("students"));
+            JSONArray shared = json.getJSONArray("students");
+            if (shared == null) return;
             Set<String> names = new HashSet<>();
             for (String item : persona.otherStudents) names.add(studentKey(item));
-            for (String item : shared) {
-                String key = studentKey(item);
+            for (Object value : shared) {
+                StudentProfile profile = parseStudentProfile(value);
+                if (profile == null || profile.name.isEmpty()) continue;
+                String key = studentKey(profile.name);
                 if (key.isEmpty() || names.contains(key)) continue;
-                persona.otherStudents.add(item);
+                persona.otherStudents.add(profileText(profile));
+                persona.studentProfiles.add(profile);
                 names.add(key);
             }
         } catch (Exception e) {
             plugin.getLogger().sendWarn("读取共享学生设定失败："+e.getMessage());
         }
+    }
+
+    private static StudentProfile parseStudentProfile(Object value) {
+        if (value instanceof JSONObject) {
+            JSONObject json = (JSONObject)value;
+            StudentProfile profile = new StudentProfile();
+            profile.name = safe(json.getString("name"),"");
+            profile.school = safe(json.getString("school"),"");
+            profile.club = safe(json.getString("club"),"");
+            profile.appearance = safe(json.getString("appearance"),"");
+            profile.description = safe(json.getString("description"),"");
+            profile.aliases = readList(json.getJSONArray("aliases"));
+            profile.visualTags = readList(json.getJSONArray("visualTags"));
+            return profile;
+        }
+        String text = value == null ? "" : String.valueOf(value).trim();
+        if (text.isEmpty()) return null;
+        StudentProfile profile = new StudentProfile();
+        int start = text.indexOf('（');
+        int end = text.indexOf('）');
+        int colon = text.indexOf('：');
+        if (start >= 0) {
+            profile.name = text.substring(0,start).trim();
+            if (end > start) {
+                String belong = text.substring(start+1,end).trim();
+                int split = belong.indexOf('/');
+                if (split >= 0) {
+                    profile.school = belong.substring(0,split).trim();
+                    profile.club = belong.substring(split+1).trim();
+                } else {
+                    profile.club = belong;
+                }
+            }
+        } else if (colon >= 0) {
+            profile.name = text.substring(0,colon).trim();
+        } else {
+            profile.name = text;
+        }
+        if (colon >= 0 && colon+1 < text.length()) {
+            profile.description = text.substring(colon+1).trim();
+        }
+        return profile;
+    }
+
+    private static String profileText(StudentProfile profile) {
+        StringBuilder builder = new StringBuilder(profile.name);
+        if (!profile.school.isEmpty() || !profile.club.isEmpty()) {
+            builder.append("（").append(safe(profile.school,"")).append("/")
+                    .append(safe(profile.club,"")).append("）");
+        }
+        builder.append("：").append(safe(profile.description,""));
+        if (!profile.appearance.isEmpty()) builder.append("；外貌：").append(profile.appearance);
+        return builder.toString();
     }
 
     private static String studentKey(String value) {

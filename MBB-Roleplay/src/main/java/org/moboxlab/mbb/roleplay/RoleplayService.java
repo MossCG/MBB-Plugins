@@ -1820,6 +1820,7 @@ public class RoleplayService {
         params.put("url",data == null ? "" : safe(data.getString("url")));
         params.put("file",data == null ? "" : safe(data.getString("file")));
         params.put("context",context);
+        params.put("reference",persona.visionReferenceText());
         params.put("profile",config.imageUnderstandingProfile);
         JSONObject result = vision.call("describe",params);
         if (result == null || !result.getBooleanValue("status")) {

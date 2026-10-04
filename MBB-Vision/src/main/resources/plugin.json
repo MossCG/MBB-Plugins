@@ -1,6 +1,6 @@
 {
   "name": "MBB-Vision",
-  "version": "V0.1.2.1.0413",
+  "version": "V0.1.3.0.0451",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.vision.VisionPlugin",
   "author": "MoBoxLab",
