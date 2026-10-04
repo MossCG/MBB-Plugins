@@ -247,6 +247,16 @@ global-memory-backup.json
 
 标记及其内容不会发送到 QQ。`target` 为 `self` 时是角色自己的提醒，为 `user` 时提醒当前群友。到点后仍然会调用角色 AI 生成正文，并通过消息段艾特对应用户。
 
+角色也可以直接查询、修改和删除当前用户在当前群的提醒：
+
+```text
+<reminder>{"action":"list"}</reminder>
+<reminder>{"action":"delete","id":12}</reminder>
+<reminder>{"action":"edit","id":12,"time":"2026-10-05 08:00:00","task":"开会"}</reminder>
+```
+
+角色提示词中会包含当前用户的待触发提醒列表，因此可以直接回答“我有哪些提醒”，不需要额外查询命令。
+
 ## 多角色部署
 
 同一群部署桃井、绿、爱丽丝等多个角色时，建议保留默认的 `otherRoleBotNames`，或通过 `otherRoleBotQQs` 明确填写其他角色机器人的 QQ。默认接话概率为 `0.50`，在没有真人插话时最多连续处理 2 条对方消息。

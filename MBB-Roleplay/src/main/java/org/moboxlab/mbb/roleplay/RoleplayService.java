@@ -90,13 +90,18 @@ public class RoleplayService {
         private final String time;
         private final String task;
         private final String target;
+        private final String action;
+        private final long id;
 
-        private ReminderMarkerResult(boolean requested,String reply,String time,String task,String target) {
+        private ReminderMarkerResult(boolean requested,String reply,String time,String task,
+                                     String target,String action,long id) {
             this.requested = requested;
             this.reply = reply;
             this.time = time;
             this.task = task;
             this.target = target;
+            this.action = action;
+            this.id = id;
         }
     }
 
@@ -218,11 +223,12 @@ public class RoleplayService {
         RememberResult rememberResult = extractRemember(globalRemember.reply);
         String reply = rememberResult.reply.trim();
         if (reminderMarker.requested) {
-            boolean created = reminderService.createFromAi(groupID,event.getUserID(),userName,
-                    relationship,reminderMarker.time,reminderMarker.task,reminderMarker.target);
-            if (!created) {
-                plugin.getLogger().sendWarn("[提醒] 群"+groupID+" AI标记提醒创建失败："
-                        +shortText(reminderMarker.task,80));
+            String actionResult = reminderService.executeAiAction(groupID,event.getUserID(),userName,
+                    relationship,reminderMarker.action,reminderMarker.id,reminderMarker.time,
+                    reminderMarker.task,reminderMarker.target);
+            if (actionResult != null && !actionResult.isEmpty()) {
+                reminderService.sendAt(groupID,event.getUserID(),
+                        RoleplayReminderService.REMINDER_MARKER+actionResult);
             }
         }
         if (rememberResult.requested && config.activeMemory) {
@@ -360,7 +366,7 @@ public class RoleplayService {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
-        messages.add(message("system",buildSystemPrompt(groupID,otherRoleBot,relationship)));
+        messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship)));
         messages.add(message("user","当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                 +"当前关系："+relationship+"\n"
                 +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
@@ -372,7 +378,7 @@ public class RoleplayService {
         return ai.call("chat",params);
     }
 
-    private String buildSystemPrompt(long groupID,boolean otherRoleBot,String relationship) {
+    private String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,String relationship) {
         String recentReplies = recentRoleReplyText(groupID);
         return persona.description()+"\n\n"
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
@@ -381,6 +387,7 @@ public class RoleplayService {
                 +"你最近说过的话：\n"+recentReplies+"\n"
                 +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
+                +"当前用户的待触发提醒：\n"+reminderService.pendingText(groupID,userID)+"\n"
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
                 +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
                 +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
@@ -411,11 +418,13 @@ public class RoleplayService {
                 +"或你自己的重要承诺与行为，把聊天正文写在 <remember> 前，把要记忆的内容写在标签后。"
                 +"例如：嗯，周末我也有空<remember>用户周末要参加活动。"
                 +"<remember> 标签及其后的记忆内容不会发给用户；没有长期价值时不要输出，不要解释这个标记。" : "")
-                +(config.reminderEnable ? "如果你认为当前对话需要定时任务，包括提醒群友，或提醒你自己稍后继续、"
-                +"结束某个活动，可以在回复末尾输出 <reminder>{\"time\":\"yyyy-MM-dd HH:mm:ss\","
-                +"\"task\":\"要提醒的内容\",\"target\":\"self\"}</reminder>。"
-                +"time 必须使用当前时区，target 使用 self 表示提醒自己，使用 user 表示提醒当前群友；"
-                +"没有明确时间时不要输出，标签及其内容不会发给用户。" : "")
+                +(config.reminderEnable ? "你可以管理当前用户的提醒。查询时直接根据“当前用户的待触发提醒”回答，并带上 #ID。"
+                +"创建任务输出 <reminder>{\"action\":\"create\",\"time\":\"yyyy-MM-dd HH:mm:ss\","
+                +"\"task\":\"要提醒的内容\",\"target\":\"self\"}</reminder>；"
+                +"删除任务输出 <reminder>{\"action\":\"delete\",\"id\":12}</reminder>；"
+                +"修改任务输出 <reminder>{\"action\":\"edit\",\"id\":12,\"time\":\"yyyy-MM-dd HH:mm:ss\","
+                +"\"task\":\"新的提醒内容\"}</reminder>。time 必须使用当前时区，target 使用 self 表示提醒自己，"
+                +"使用 user 表示提醒当前群友；没有明确 ID 时不要删除或修改，标签及其内容不会发给用户。" : "")
                 +(globalMemoryService.isLearnGroup(groupID) ? "如果当前上下文出现了值得所有群共享的、"
                 +"不绑定具体用户的说话方式、语气、生活习惯、知识、群梗或注意事项，可以在回复末尾输出 "
                 +"<global_remember>要永久记住的内容</global_remember>。不要记录个人隐私或用户专属信息；"
@@ -1076,7 +1085,7 @@ public class RoleplayService {
 
     private ReminderMarkerResult extractReminderMarker(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return new ReminderMarkerResult(false,"","","","");
+            return new ReminderMarkerResult(false,"","","","","create",0L);
         }
         Matcher pair = REMINDER_PAIR.matcher(text);
         if (pair.find()) {
@@ -1088,7 +1097,7 @@ public class RoleplayService {
             String reply = text.substring(0,open.start()).trim();
             return parseReminderMarker(text.substring(open.end()),reply);
         }
-        return new ReminderMarkerResult(false,text.trim(),"","","");
+        return new ReminderMarkerResult(false,text.trim(),"","","","create",0L);
     }
 
     private GlobalRememberResult extractGlobalRemember(String text) {
@@ -1112,12 +1121,15 @@ public class RoleplayService {
     private ReminderMarkerResult parseReminderMarker(String json,String reply) {
         JSONObject parsed = parseJson(json);
         if (parsed == null) {
-            return new ReminderMarkerResult(true,reply,"","","");
+            return new ReminderMarkerResult(true,reply,"","","","create",0L);
         }
         return new ReminderMarkerResult(true,reply,
                 safe(parsed.getString("time")),
                 safe(parsed.getString("task")),
-                safe(parsed.getString("target")));
+                safe(parsed.getString("target")),
+                safe(parsed.getString("action")).trim().isEmpty()
+                        ? "create" : safe(parsed.getString("action")).trim(),
+                parsed.getLongValue("id"));
     }
 
     private String cleanRememberText(String text) {

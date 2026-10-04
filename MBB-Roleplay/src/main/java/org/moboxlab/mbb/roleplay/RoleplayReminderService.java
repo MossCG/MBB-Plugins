@@ -216,6 +216,56 @@ public class RoleplayReminderService {
         return result.valid ? result.remindTime : -1L;
     }
 
+    public String pendingText(long groupID,long userID) {
+        JSONArray rows = listPending(groupID,userID);
+        if (rows.isEmpty()) return "无。";
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < rows.size(); i++) {
+            JSONObject row = rows.getJSONObject(i);
+            builder.append("#").append(row.getLongValue("id"))
+                    .append(" ").append(formatTime(row.getLongValue("remindTime")))
+                    .append(" ").append("self".equals(row.getString("target")) ? "角色自提醒" : "提醒本人")
+                    .append(" ").append(safe(row.getString("task"))).append("\n");
+        }
+        return builder.toString();
+    }
+
+    public String executeAiAction(long groupID,long userID,String userName,String relation,
+                                  String action,long id,String timeText,String task,String target) {
+        String value = safe(action).trim().toLowerCase(Locale.CHINA);
+        if (value.isEmpty()) value = "create";
+        if ("create".equals(value)) {
+            boolean created = createFromAi(groupID,userID,userName,relation,timeText,task,target);
+            if (!created) return "提醒创建失败，请检查时间和内容。";
+            return "提醒已创建："+(parseReminderTime(timeText) > 0
+                    ? formatTime(parseReminderTime(timeText)) : safe(timeText))
+                    +" "+safe(task);
+        }
+        if ("delete".equals(value) || "remove".equals(value) || "cancel".equals(value)) {
+            return cancel(id,groupID,userID) ? "提醒 #"+id+" 已取消。" : "没有找到可取消的提醒。";
+        }
+        if ("edit".equals(value) || "update".equals(value)) {
+            long remindTime = parseEditTime(timeText);
+            if (remindTime <= 0) return "没有识别出新的提醒时间。";
+            boolean changed = update(id,groupID,userID,remindTime,task);
+            return changed
+                    ? "提醒 #"+id+" 已修改为："+formatTime(remindTime)+" "+safe(task)
+                    : "提醒修改失败，请检查 ID、时间或内容。";
+        }
+        if ("list".equals(value)) {
+            String pending = pendingText(groupID,userID);
+            return "当前待触发提醒：\n"+pending;
+        }
+        if ("show".equals(value)) {
+            JSONObject row = getPending(id,groupID,userID);
+            if (row == null) return "没有找到这条提醒。";
+            return "提醒 #"+id+"\n时间："+formatTime(row.getLongValue("remindTime"))
+                    +"\n目标："+("self".equals(row.getString("target")) ? "角色自提醒" : "提醒本人")
+                    +"\n内容："+safe(row.getString("task"));
+        }
+        return "不支持的提醒操作："+value;
+    }
+
     private RoleplayReminderParser.Result parseWithAi(long groupID,long userID,String content,long now) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
@@ -442,7 +492,7 @@ public class RoleplayReminderService {
         return text;
     }
 
-    private void sendAt(long groupID,long userID,String text) {
+    public void sendAt(long groupID,long userID,String text) {
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null) return;
         JSONArray message = MessageUtil.message(MessageUtil.at(userID),
