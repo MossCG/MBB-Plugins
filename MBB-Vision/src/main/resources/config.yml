@@ -4,13 +4,13 @@
 enable: true
 #识图使用的 AI 配置名，对应 MBB-AI 的 profiles.json
 aiProfile: "default"
-#识图输出 Token 上限
+#识图输出 Token 上限，普通图片会保证不低于 12000
 maxTokens: 4000
 #单张图片最大大小，单位 KB
 maxImageSizeKB: 8192
 #是否启用本地识图缓存
 cacheEnable: true
 #提示词版本，调整识别提示词后递增可让旧缓存失效
-promptVersion: 2
+promptVersion: 3
 #标签命名规则，默认小写英文 snake_case
 tagPattern: "^[a-z][a-z0-9_]{1,31}$"

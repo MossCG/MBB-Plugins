@@ -41,7 +41,7 @@ public class VisionService implements PluginService {
         if (params == null) return error("缺少识图参数");
         String kind = safe(params.getString("kind"));
         if (kind.isEmpty()) kind = "image";
-        int promptVersion = Math.max(2,plugin.getConfig().getInt("promptVersion",2));
+        int promptVersion = Math.max(3,plugin.getConfig().getInt("promptVersion",3));
         boolean cacheEnable = plugin.getConfig().getBoolean("cacheEnable",true);
         boolean force = params.getBooleanValue("force");
         String fileUnique = safe(params.getString("fileUnique"));
@@ -74,7 +74,12 @@ public class VisionService implements PluginService {
         if (ai == null) return error("MBB-AI 未启用");
         String profile = safe(params.getString("profile"));
         if (profile.isEmpty()) profile = plugin.getConfig().getString("aiProfile","default");
-        int maxTokens = Math.max(4000,plugin.getConfig().getInt("maxTokens",4000));
+        int maxTokens = plugin.getConfig().getInt("maxTokens",4000);
+        if ("image".equalsIgnoreCase(kind)) {
+            maxTokens = Math.max(12000,maxTokens);
+        } else {
+            maxTokens = Math.max(4000,maxTokens);
+        }
         JSONObject result = analyzer.analyze(ai,profile,maxTokens,image,kind,
                 safe(params.getString("context")));
         if (result == null || !result.getBooleanValue("status")) {

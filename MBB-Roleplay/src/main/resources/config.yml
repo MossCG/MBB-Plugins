@@ -93,6 +93,8 @@ imageContextTimeoutSecond: 300
 maxLongMemories: 150
 #单次角色回复最大 Token
 replyMaxTokens: 1200
+#带图片上下文时单次角色回复最大 Token
+replyImageMaxTokens: 4000
 #单段回复最多字符数
 replySegmentMaxChars: 160
 #最多拆分发送多少段

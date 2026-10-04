@@ -479,7 +479,9 @@ public class RoleplayService {
         messages.add(userMessage);
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
-        params.put("maxTokens",config.replyMaxTokens);
+        params.put("maxTokens",imageContext == null
+                ? config.replyMaxTokens
+                : Math.max(config.replyMaxTokens,config.replyImageMaxTokens));
         params.put("sessionId","roleplay-"+groupID+"-"+contextToken(groupID));
         params.put("messages",messages);
         return ai.call("chat",params);

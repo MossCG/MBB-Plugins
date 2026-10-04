@@ -57,6 +57,7 @@ public class RoleplayConfig {
     public int imageContextTimeoutSecond = 300;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
+    public int replyImageMaxTokens = 4000;
     public int replySegmentMaxChars = 160;
     public int replyMaxSegments = 2;
     public int recentReplyCheckCount = 8;
@@ -143,6 +144,7 @@ public class RoleplayConfig {
         config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
+        config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",160);
         config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
         config.recentReplyCheckCount = plugin.getConfig().getInt("recentReplyCheckCount",8);
@@ -228,6 +230,8 @@ public class RoleplayConfig {
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;
         if (config.replyMaxTokens > 8000) config.replyMaxTokens = 8000;
+        if (config.replyImageMaxTokens < 400) config.replyImageMaxTokens = 400;
+        if (config.replyImageMaxTokens > 16000) config.replyImageMaxTokens = 16000;
         if (config.replySegmentMaxChars < 40) config.replySegmentMaxChars = 40;
         if (config.replySegmentMaxChars > 300) config.replySegmentMaxChars = 300;
         if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;

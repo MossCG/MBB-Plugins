@@ -164,6 +164,7 @@ imageUnderstandingInjectOcr: true
 imageUnderstandingProfile: ""
 imageUnderstandingMaxChars: 600
 imageContextTimeoutSecond: 300
+replyImageMaxTokens: 4000
 maxLongMemories: 150
 recentReplyCheckCount: 8
 repeatSimilarityThreshold: 0.72

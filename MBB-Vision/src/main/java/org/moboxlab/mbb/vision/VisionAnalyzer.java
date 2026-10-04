@@ -45,9 +45,11 @@ public class VisionAnalyzer {
             messages.add(message);
             int tokenLimit = Math.max(2000,maxTokens);
             JSONObject response = callAi(ai,profile,messages,tokenLimit,kind);
-            if (isSuccess(response) && firstContent(response).isEmpty()
-                    && "length".equalsIgnoreCase(safe(response.getString("finishReason")))) {
-                response = callAi(ai,profile,messages,Math.min(8000,tokenLimit * 2),kind);
+            JSONObject parsed = parseResponse(response);
+            if ((parsed == null || !isSuccess(response))
+                    && "length".equalsIgnoreCase(safe(response == null ? "" : response.getString("finishReason")))) {
+                response = callAi(ai,profile,messages,Math.min(20000,tokenLimit * 2),kind);
+                parsed = parseResponse(response);
             }
             if (response == null || !response.getBooleanValue("status")) {
                 result.put("status",false);
@@ -55,18 +57,25 @@ public class VisionAnalyzer {
                 return result;
             }
             String raw = firstContent(response);
-            JSONObject parsed = parseJson(raw);
-            JSONArray emotionTags = normalizeArray(parsed == null ? null : parsed.getJSONArray("emotionTags"));
+            if (parsed == null) parsed = repairResult(ai,profile,raw,kind);
+            if (parsed == null) {
+                plugin.getLogger().sendWarn("[识图] 模型没有返回合法 JSON，finishReason="
+                        +safe(response.getString("finishReason"))+" raw="+shortText(raw,300));
+                result.put("status",false);
+                result.put("message","模型没有返回合法 JSON");
+                return result;
+            }
+            JSONArray emotionTags = normalizeArray(parsed.getJSONArray("emotionTags"));
             if (emotionTags.isEmpty() && "sticker".equalsIgnoreCase(kind)) {
                 emotionTags = repairTags(ai,profile,raw);
             }
             result.put("status",true);
-            result.put("summary",parsed == null ? shortText(raw,300) : safe(parsed.getString("summary")));
-            result.put("ocr",parsed == null ? "" : safe(parsed.getString("ocr")));
-            result.put("description",parsed == null ? "" : safe(parsed.getString("description")));
-            result.put("scene",parsed == null ? "" : safe(parsed.getString("scene")));
+            result.put("summary",safe(parsed.getString("summary")));
+            result.put("ocr",safe(parsed.getString("ocr")));
+            result.put("description",safe(parsed.getString("description")));
+            result.put("scene",safe(parsed.getString("scene")));
             result.put("emotionTags",emotionTags);
-            result.put("visualTags",normalizeArray(parsed == null ? null : parsed.getJSONArray("visualTags")));
+            result.put("visualTags",normalizeArray(parsed.getJSONArray("visualTags")));
             result.put("profile",profile);
             result.put("model",safe(response.getString("model")));
             result.put("finishReason",safe(response.getString("finishReason")));
@@ -102,6 +111,29 @@ public class VisionAnalyzer {
         if (response == null || !response.getBooleanValue("status")) return new JSONArray();
         JSONObject parsed = parseJson(response.getString("content"));
         return normalizeArray(parsed == null ? null : parsed.getJSONArray("emotionTags"));
+    }
+
+    private JSONObject repairResult(PluginService ai,String profile,String rawContent,String kind) {
+        if (rawContent == null || rawContent.trim().isEmpty()) return null;
+        JSONObject params = new JSONObject(true);
+        params.put("profile",profile);
+        params.put("maxTokens",2500);
+        params.put("temperature",0.0);
+        params.put("prompt","Convert the following model output into only JSON. Do not explain or repeat reasoning. "
+                +"Use this schema: {\"summary\":\"Chinese description\",\"ocr\":\"text or empty\","
+                +"\"emotionTags\":[\"happy\"],\"visualTags\":[\"cat\"],\"scene\":\"group_chat\","
+                +"\"description\":\"Chinese description\"}. Kind: "+safe(kind)
+                +"\nOutput:\n"+shortText(rawContent,3000));
+        JSONObject response = ai.call("complete",params);
+        if (response == null || !response.getBooleanValue("status")) return null;
+        return parseJson(response.getString("content"));
+    }
+
+    private JSONObject parseResponse(JSONObject response) {
+        if (response == null) return null;
+        JSONObject parsed = parseJson(response.getString("content"));
+        if (parsed == null) parsed = parseJson(response.getString("reasoningContent"));
+        return parsed;
     }
 
     private boolean isSuccess(JSONObject response) {
