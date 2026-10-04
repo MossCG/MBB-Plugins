@@ -64,6 +64,7 @@ public class RoleplayCommand extends BotCommand {
                 "/role memory [页码]",
                 "/role gmemory [页码]",
                 "/role gmemory backup",
+                "/role gmemory merge",
                 "/role gmemory group [list|add|remove|clear] [群号...]",
                 "/role forget",
                 "/role persona [文件名]",
@@ -215,6 +216,11 @@ public class RoleplayCommand extends BotCommand {
             sender.sendMessage(path == null || path.isEmpty()
                     ? "永久记忆备份失败，请查看控制台日志。"
                     : "永久记忆已备份到："+path);
+            return;
+        }
+        if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {
+            memoryService.mergeNow();
+            sender.sendMessage("永久记忆整理合并已执行，请查看控制台日志确认结果。");
             return;
         }
         if (args.length > 2 && "group".equalsIgnoreCase(args[2])) {

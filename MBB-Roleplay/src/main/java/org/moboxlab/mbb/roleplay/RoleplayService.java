@@ -228,18 +228,26 @@ public class RoleplayService {
         if (reminderMarker.requested) {
             String actionResult = reminderService.executeAiAction(groupID,event.getUserID(),userName,
                     relationship,reminderMarker.action,reminderMarker.id,reminderMarker.time,
-                    reminderMarker.task,reminderMarker.target);
+                    reminderMarker.task,reminderMarker.target,content);
             if (actionResult != null && !actionResult.isEmpty()) {
                 reminderService.sendAt(groupID,event.getUserID(),
                         RoleplayReminderService.REMINDER_MARKER+actionResult);
             }
         }
-        if (rememberResult.requested && config.activeMemory) {
+        boolean inducedMemory = isInducedMemoryRequest(content);
+        boolean owner = isOwner(event.getUserID());
+        if (rememberResult.requested && config.activeMemory && (!inducedMemory || owner)) {
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 角色主动请求记忆");
             triggerMemory(groupID,"主动记忆",rememberResult.memory);
+        } else if (rememberResult.requested && inducedMemory) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 用户"+event.getUserID()
+                    +" 非 owner 诱导记忆，已忽略 <remember>");
         }
         if (globalRemember.requested) {
-            if (globalMemoryService.isLearnGroup(groupID)) {
+            if (inducedMemory && !owner) {
+                plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 用户"+event.getUserID()
+                        +" 非 owner 诱导全局记忆，已忽略 <global_remember>");
+            } else if (globalMemoryService.isLearnGroup(groupID)) {
                 globalMemoryService.save("note",globalRemember.content,3,groupID,event.getUserID());
             } else {
                 plugin.getLogger().sendWarn("[永久记忆] 群"+groupID
@@ -846,6 +854,19 @@ public class RoleplayService {
         String role = sender == null ? "" : safe(sender.getString("role")).trim().toLowerCase(Locale.CHINA);
         if ("owner".equals(role) || "admin".equals(role)) return "老师";
         return "朋友";
+    }
+
+    private boolean isInducedMemoryRequest(String content) {
+        String text = safe(content);
+        return text.contains("调用全局记忆") || text.contains("全局记忆功能")
+                || text.contains("永久记忆") || text.contains("记一下")
+                || text.contains("记住这个") || text.contains("记忆一下")
+                || text.contains("记下来");
+    }
+
+    private boolean isOwner(long userID) {
+        List<Long> owners = plugin.getServer().getOwnerList();
+        return owners != null && owners.contains(userID);
     }
 
     private boolean isAddressedToOtherRole(GroupMessageEvent event,String content,long selfID) {

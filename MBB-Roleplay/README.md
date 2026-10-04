@@ -62,6 +62,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/reminder clear` | `EVERYONE` | 取消自己在当前群的全部待触发提醒 |
 | `/role gmemory [页码]` | `BOT_ADMIN` | 图片查看全局永久记忆 |
 | `/role gmemory backup` | `BOT_ADMIN` | 导出全局永久记忆 JSON 备份 |
+| `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆 |
 | `/role gmemory group ...` | `BOT_ADMIN` | 管理永久记忆学习白名单群 |
 
 ## 角色设定
@@ -206,6 +207,8 @@ AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。
 
 用户只能查看和修改自己在当前群的提醒；编辑会重新排期，旧定时器不会提前触发。
 
+自我提醒会保存原始上下文，并在到点生成时明确“这是角色自己该做的事”，避免把“让小桃十点睡觉”误写成提醒用户。
+
 ## 永久记忆
 
 永久记忆存储在独立表中，所有群共享，不绑定具体用户。适合保存角色学到的说话方式、语气、生活习惯、知识、群梗和通用注意事项。
@@ -227,12 +230,15 @@ AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。
 
 解析器兼容 `globalremember`、`global-remember`、`global remember` 等大小写和分隔符变体，这些标签都会被剥离，不会发送到 QQ。
 
+用户主动通过聊天诱导 `<remember>` 或 `<global_remember>` 时，只有 owner 可以生效；角色在正常聊天中自发触发的记忆不受此限制。诱导关键词包括“调用全局记忆”“全局记忆功能”“永久记忆”“记一下”“记住这个”“记忆一下”“记下来”。
+
 查看与备份：
 
 ```text
 /role gmemory
 /role gmemory 2
 /role gmemory backup
+/role gmemory merge
 ```
 
 备份文件写入插件数据目录：
@@ -240,6 +246,8 @@ AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。
 ```text
 global-memory-backup.json
 ```
+
+永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是调用 AI 对重复或高度相似的条目进行整理合并。合并失败时保留原数据。
 
 角色 AI 可以在普通回复末尾输出结构化标记来主动创建任务：
 

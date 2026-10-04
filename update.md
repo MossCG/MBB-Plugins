@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.4.27.0.2217 | 2026-10-04 | `MBB-Roleplay` 自提醒结合原始上下文并明确角色归属；诱导记忆仅 owner 生效；永久记忆超限改为 AI 整理合并，新增 `/role gmemory merge` |
 | V0.4.26.1.2156 | 2026-10-04 | 修复 `MBB-Roleplay` 永久记忆标签变体未识别的问题，兼容 `globalremember`、`global-remember`、`global remember` 等写法并确保标签不外发 |
 | V0.4.26.0.2133 | 2026-10-04 | `MBB-Roleplay` 支持角色通过 `<reminder action>` 标记查询、修改和删除用户提醒，并将待触发提醒列表注入角色上下文 |
 | V0.4.25.0.2128 | 2026-10-04 | `MBB-Roleplay` 新增所有群共享的永久记忆：白名单群自动学习与 `<global_remember>` 主动记忆，支持图片查看、白名单管理和 JSON 备份 |
