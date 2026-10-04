@@ -18,6 +18,8 @@ public class RoleplayConfig {
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
     public int initialAffinity = 70;
+    public boolean reminderEnable = true;
+    public int reminderMaxDays = 30;
     public double interestReplyChance = 0.65;
     public int conversationWindowSecond = 180;
     public double continuationReplyChance = 0.80;
@@ -55,6 +57,8 @@ public class RoleplayConfig {
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
         config.initialAffinity = plugin.getConfig().getInt("initialAffinity",70);
+        config.reminderEnable = plugin.getConfig().getBoolean("reminderEnable",true);
+        config.reminderMaxDays = plugin.getConfig().getInt("reminderMaxDays",30);
         try {
             config.interestReplyChance = Double.parseDouble(plugin.getConfig().getString("interestReplyChance","0.65"));
         } catch (Exception e) {
@@ -111,6 +115,8 @@ public class RoleplayConfig {
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
         if (config.initialAffinity < 0) config.initialAffinity = 0;
         if (config.initialAffinity > 100) config.initialAffinity = 100;
+        if (config.reminderMaxDays < 1) config.reminderMaxDays = 1;
+        if (config.reminderMaxDays > 365) config.reminderMaxDays = 365;
         if (config.interestReplyChance < 0) config.interestReplyChance = 0;
         if (config.interestReplyChance > 1) config.interestReplyChance = 1;
         if (config.conversationWindowSecond < 10) config.conversationWindowSecond = 10;

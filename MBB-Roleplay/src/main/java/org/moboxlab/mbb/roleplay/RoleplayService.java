@@ -35,6 +35,7 @@ public class RoleplayService {
     private static final String GROUP_TABLE = "plugin_mbb_roleplay_group";
 
     private final Plugin plugin;
+    private final RoleplayReminderService reminderService;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,Long> lastReplyMap = new HashMap<>();
@@ -78,6 +79,7 @@ public class RoleplayService {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
+        this.reminderService = new RoleplayReminderService(plugin,config);
     }
 
     public void init() {
@@ -118,11 +120,13 @@ public class RoleplayService {
                 + ")");
         ensureColumn(GROUP_TABLE,"contextToken","TEXT NOT NULL DEFAULT ''");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_msg_group` ON `"+MSG_TABLE+"` (`groupID`,`messageTime`)");
+        reminderService.init();
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
         this.config = config;
         this.persona = persona;
+        reminderService.reload(config);
     }
 
     public void handle(GroupMessageEvent event) {
@@ -143,6 +147,7 @@ public class RoleplayService {
             messageCountMap.put(groupID,0);
             triggerMemory(groupID,"定时整理");
         }
+        if (!otherRoleBot && reminderService.handle(event,content)) return;
         if (otherRoleBot && otherRoleStreak > config.maxConsecutiveOtherRoleMessages) return;
 
         boolean direct = isDirect(event,content,selfID);

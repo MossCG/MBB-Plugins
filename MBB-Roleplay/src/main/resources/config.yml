@@ -16,6 +16,10 @@ replyCooldownSecond: 5
 maxRepliesPerHour: 180
 #角色对所有真人成员的初始好感度，0 到 100
 initialAffinity: 70
+#是否允许角色识别并创建自然语言定时提醒
+reminderEnable: true
+#定时提醒最长可提前多少天
+reminderMaxDays: 30
 #非直接提及消息命中兴趣关键词后的回复概率，0 到 1
 interestReplyChance: 0.65
 #最近与角色聊过后，延续对话的窗口秒数

@@ -18,6 +18,7 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 - 回复前后会对照最近的角色发言，对高度重复的语义和固定开头进行拦截
 - 小绿不再把“嗯”当作固定开场，连续使用会被重复检测拦截
 - 每轮回复动态注入当前日期、时间、星期和时区，角色不会自行猜日期
+- 支持自然语言定时提醒，到点主动艾特用户，并在控制台输出创建、恢复和触发日志
 - 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
 - 群主和管理员视为老师，其他真人成员视为朋友，另一个角色机器人不按群权限归类
 - 所有真人成员使用可配置的初始好感度，默认 `70/100`
@@ -109,6 +110,8 @@ MoBoxBot 角色扮演插件，根据 `persona.json` 进行群聊扮演，并维�
 replyCooldownSecond: 5
 maxRepliesPerHour: 180
 initialAffinity: 70
+reminderEnable: true
+reminderMaxDays: 30
 interestReplyChance: 0.65
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
@@ -137,6 +140,33 @@ minMessageLength: 2
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。
 
 `timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
+
+## 自然语言提醒
+
+角色会识别常见的提醒表达，并把任务写入 SQLite，重启后仍会恢复：
+
+```text
+下午三点提醒我干活
+明天早上八点提醒我开会
+10分钟后提醒我喝水
+晚上八点叫我交作业
+```
+
+到点后会主动发送：
+
+```text
+@用户 该干活了
+```
+
+控制台会输出：
+
+```text
+[提醒] 创建 #12 群xxx 用户xxx 时间=2026-10-04 15:00 内容=干活
+[提醒] 触发 #12 群xxx 用户xxx 内容=干活
+[提醒] 发送成功 #12 群xxx 用户xxx
+```
+
+`reminderEnable` 控制是否启用，`reminderMaxDays` 控制最长提前天数，默认 30 天。
 
 ## 多角色部署
 
