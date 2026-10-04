@@ -264,6 +264,8 @@ speech-corpus/speech-corpus-momoi.jsonl
 speech-corpus/speech-corpus-midori.jsonl
 ```
 
+插件内置了三份初始语料，首次运行会自动释放到上述目录；已有语料文件不会被覆盖。
+
 每行一个 JSON 对象：
 
 ```json
