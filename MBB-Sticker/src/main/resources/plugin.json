@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Sticker",
+  "version": "V0.1.0.0.0126",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.sticker.StickerPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 表情包收录、标签检索与发送插件",
+  "website": "",
+  "depend": [],
+  "softDepend": ["MBB-AI"],
+  "loadBefore": [],
+  "provides": ["sticker"]
+}

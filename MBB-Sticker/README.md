@@ -1,0 +1,38 @@
+# MBB-Sticker
+
+MoBoxBot 表情包收录、标签检索与发送插件。
+
+## 特性
+
+- 平铺存储表情包文件，不使用分类目录
+- 标签由 AI 识别，可动态扩展
+- 私聊 `/sticker receive` 快速收录图片
+- 收录完成后引用原图片回复标签信息
+- 下载图片按 URL 或响应类型保留 JPG、PNG、GIF、WebP 格式，收录完成后清理临时文件
+- 按标签查找时只返回匹配项，不会回退发送无关表情包
+- AI 识图失败时先用 `unlabeled` 标记，后续可以人工补标签
+- 提供 `MBB-Sticker` 公共服务供 Roleplay 调用
+
+## 指令
+
+| 指令 | 权限 | 说明 |
+|---|---|---|
+| `/sticker` | `EVERYONE` | 随机发送一张表情包 |
+| `/sticker happy,cat` | `EVERYONE` | 按标签发送 |
+| `/sticker receive` | `EVERYONE` | 私聊进入收录模式 |
+| `/sticker receive stop` | `EVERYONE` | 结束收录 |
+| `/sticker list` | `BOT_ADMIN` | 查看收录列表 |
+| `/sticker stats` | `BOT_ADMIN` | 查看数量和全部可用标签 |
+| `/sticker tag <ID> <标签>` | `BOT_ADMIN` | 修改标签 |
+| `/sticker remove <ID>` | `BOT_ADMIN` | 删除表情包 |
+| `/sticker reload` | `BOT_ADMIN` | 重载数据 |
+
+## 标签规则
+
+默认使用小写英文 snake_case：
+
+```text
+^[a-z][a-z0-9_]{1,31}$
+```
+
+AI 优先复用已有标签，也可以按规则创建新标签。可用标签集由所有启用表情包的 tags 自动去重生成。

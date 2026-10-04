@@ -66,6 +66,10 @@ public class RoleplayService {
             "(?is)<\\s*global[\\s_-]?remember\\s*/?\\s*>");
     private static final Pattern GLOBAL_REMEMBER_CLOSE = Pattern.compile(
             "(?is)<\\s*/\\s*global[\\s_-]?remember\\s*>");
+    private static final Pattern STICKER_PAIR = Pattern.compile(
+            "(?is)<\\s*sticker\\s*>(.*?)<\\s*/\\s*sticker\\s*>");
+    private static final Pattern STICKER_OPEN = Pattern.compile(
+            "(?is)<\\s*sticker\\s*/?\\s*>");
 
     private static class MemoryCursor {
         private final long time;
@@ -119,6 +123,18 @@ public class RoleplayService {
             this.requested = requested;
             this.reply = reply;
             this.content = content;
+        }
+    }
+
+    private static class StickerMarkerResult {
+        private final boolean requested;
+        private final String reply;
+        private final String tags;
+
+        private StickerMarkerResult(boolean requested,String reply,String tags) {
+            this.requested = requested;
+            this.reply = reply;
+            this.tags = tags;
         }
     }
 
@@ -229,7 +245,8 @@ public class RoleplayService {
         ReminderMarkerResult reminderMarker = extractReminderMarker(rawReply);
         GlobalRememberResult globalRemember = extractGlobalRemember(reminderMarker.reply);
         RememberResult rememberResult = extractRemember(globalRemember.reply);
-        String reply = rememberResult.reply.trim();
+        StickerMarkerResult stickerMarker = extractStickerMarker(rememberResult.reply);
+        String reply = stickerMarker.reply.trim();
         if (reminderMarker.requested) {
             String actionResult = reminderService.executeAiAction(groupID,event.getUserID(),userName,
                     relationship,reminderMarker.action,reminderMarker.id,reminderMarker.time,
@@ -259,19 +276,21 @@ public class RoleplayService {
                         +" 不在学习白名单，忽略 <global_remember>");
             }
         }
-        if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
-        if (shouldSuppressRepeat(groupID,reply)) {
+        boolean sendText = !reply.isEmpty() && !"<SKIP>".equalsIgnoreCase(reply);
+        if (sendText && shouldSuppressRepeat(groupID,reply)) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过重复回复："+shortText(reply,80));
-            return;
+            sendText = false;
         }
-        if (speechCorpusService.tooSimilar(reply)) {
+        if (sendText && speechCorpusService.tooSimilar(reply)) {
             plugin.getLogger().sendInfo("[语料] 群"+groupID+" 跳过高度相似台词："
                     +shortText(reply,80));
-            return;
+            sendText = false;
         }
         OneBotClient client = plugin.getServer().getOneBotClient();
-        if (client == null) return;
-        sendReply(client,groupID,selfID,event.getUserID(),reply);
+        if (sendText && client != null) sendReply(client,groupID,selfID,event.getUserID(),reply);
+        if (stickerMarker.requested) {
+            sendSticker(groupID,event.getUserID(),stickerMarker.tags);
+        }
     }
 
     public JSONObject status(long groupID) {
@@ -413,6 +432,7 @@ public class RoleplayService {
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
                 +"你最近说过的话：\n"+recentReplies+"\n"
                 +(speechPrompt == null || speechPrompt.isEmpty() ? "" : speechPrompt+"\n")
+                +stickerPrompt()+"\n"
                 +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
                 +"当前用户的待触发提醒：\n"+reminderService.pendingText(groupID,userID)+"\n"
@@ -1252,6 +1272,60 @@ public class RoleplayService {
             return new GlobalRememberResult(true,reply,content);
         }
         return new GlobalRememberResult(false,text.trim(),"");
+    }
+
+    private StickerMarkerResult extractStickerMarker(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return new StickerMarkerResult(false,"","");
+        }
+        Matcher pair = STICKER_PAIR.matcher(text);
+        if (pair.find()) {
+            String reply = (text.substring(0,pair.start())+text.substring(pair.end())).trim();
+            return new StickerMarkerResult(true,reply,pair.group(1).trim());
+        }
+        Matcher open = STICKER_OPEN.matcher(text);
+        if (open.find()) {
+            String reply = text.substring(0,open.start()).trim();
+            String tags = text.substring(open.end()).trim();
+            return new StickerMarkerResult(true,reply,tags);
+        }
+        return new StickerMarkerResult(false,text.trim(),"");
+    }
+
+    private String stickerPrompt() {
+        PluginService sticker = plugin.getServer().getPluginManager().getService("MBB-Sticker");
+        if (sticker == null) return "";
+        JSONObject result = sticker.call("tags",null);
+        if (result == null || !result.getBooleanValue("status")) return "";
+        JSONArray tags = result.getJSONArray("tags");
+        if (tags == null || tags.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder("当前可用表情包标签：");
+        for (int i = 0; i < tags.size(); i++) {
+            if (i > 0) builder.append(", ");
+            builder.append(tags.getString(i));
+        }
+        builder.append("\n如果适合发表情包，可以在回复末尾输出 <sticker>tag1,tag2</sticker>；")
+                .append("只能使用上面的标签，没有合适标签时不要输出。");
+        return builder.toString();
+    }
+
+    private void sendSticker(long groupID,long userID,String tags) {
+        PluginService sticker = plugin.getServer().getPluginManager().getService("MBB-Sticker");
+        if (sticker == null) return;
+        JSONObject params = new JSONObject(true);
+        JSONArray tagArray = new JSONArray();
+        for (String item : safe(tags).split("[,，]")) {
+            if (!item.trim().isEmpty()) tagArray.add(item.trim());
+        }
+        if (tagArray.isEmpty()) return;
+        params.put("tags",tagArray);
+        params.put("groupID",groupID);
+        params.put("userID",userID);
+        JSONObject result = sticker.call("random",params);
+        if (result == null || !result.getBooleanValue("status")) return;
+        OneBotClient client = plugin.getServer().getOneBotClient();
+        if (client == null) return;
+        client.sendGroupMessage(groupID,MessageUtil.message(MessageUtil.image(result.getString("file"))));
     }
 
     private String cleanGlobalRememberText(String text) {

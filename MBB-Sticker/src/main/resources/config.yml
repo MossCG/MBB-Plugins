@@ -1,0 +1,22 @@
+#MBB-Sticker 插件配置
+
+#是否启用表情包插件
+enable: true
+#识图打标签使用的 AI 配置名，对应 MBB-AI 的 profiles.json
+aiProfile: "default"
+#AI 打标签最大输出 Token
+taggingMaxTokens: 800
+#单张图片最大大小，单位 KB
+maxFileSizeKB: 8192
+#私聊收录模式无图片自动结束分钟数
+receiveTimeoutMinutes: 10
+#单次收录最多图片数
+receiveMaxImages: 50
+#同一用户发送表情包最小间隔秒数
+sendCooldownSecond: 5
+#同一用户每小时最多发送次数
+maxSendPerHour: 30
+#随机发送时避免最近多少张重复
+recentAvoidCount: 20
+#标签命名规则，默认小写英文 snake_case
+tagPattern: "^[a-z][a-z0-9_]{1,31}$"
