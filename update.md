@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.4.31.2.0150 | 2026-10-05 | `MBB-Sticker` 修复 `unlabeled` 概率过高：提高标签输出 Token 下限，兼容 reasoning 输出，并对中文、非 JSON 结果自动二次整理为英文情绪标签 |
 | V0.4.31.1.0138 | 2026-10-05 | `MBB-Sticker` 标签改为情绪、态度和聊天场景，画面描述继续保留在 `description`，并新增 `/sticker retag <ID>` 重新生成已有表情包标签 |
 | V0.4.31.0.0126 | 2026-10-05 | 新增 `MBB-Sticker` 表情包收录与标签检索插件；`MBB-Roleplay` 支持通过 `<sticker>标签</sticker>` 调用当前可用标签对应的表情包 |
 | V0.4.30.0.0042 | 2026-10-05 | `MBB-Roleplay` 长期记忆超过 `maxLongMemories` 时改为 AI 整理合并，失败保留原数据，并新增 `/role memory merge` |

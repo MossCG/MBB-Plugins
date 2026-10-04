@@ -55,13 +55,15 @@ public class StickerTagger {
             message.put("content",content);
             JSONArray messages = new JSONArray();
             messages.add(message);
-            JSONObject params = new JSONObject(true);
-            params.put("profile",plugin.getConfig().getString("aiProfile","default"));
-            params.put("maxTokens",plugin.getConfig().getInt("taggingMaxTokens",800));
-            params.put("temperature",0.1);
-            params.put("sessionId","sticker-tag-"+System.currentTimeMillis());
-            params.put("messages",messages);
-            JSONObject response = ai.call("chat",params);
+            String profile = plugin.getConfig().getString("aiProfile","default");
+            int maxTokens = Math.max(3000,plugin.getConfig().getInt("taggingMaxTokens",3000));
+            JSONObject response = callAi(ai,profile,messages,maxTokens,
+                    "sticker-tag-"+System.currentTimeMillis());
+            if (isSuccess(response) && firstContent(response).isEmpty()
+                    && "length".equalsIgnoreCase(safe(response.getString("finishReason")))) {
+                response = callAi(ai,profile,messages,Math.min(8000,maxTokens * 2),
+                        "sticker-tag-retry-"+System.currentTimeMillis());
+            }
             if (response == null || !response.getBooleanValue("status")) {
                 plugin.getLogger().sendWarn("表情包识图失败："
                         +safe(response == null ? "" : response.getString("message")));
@@ -69,9 +71,17 @@ public class StickerTagger {
                 result.put("description","");
                 return result;
             }
-            JSONObject parsed = parseJson(response.getString("content"));
+            JSONObject parsed = parseJson(firstContent(response));
             List<String> tags = library.normalizeTags(arrayToList(parsed == null ? null : parsed.getJSONArray("tags")));
-            if (tags.isEmpty()) tags.add("unlabeled");
+            if (tags.isEmpty()) {
+                tags = repairTags(ai,profile,firstContent(response));
+            }
+            if (tags.isEmpty()) {
+                plugin.getLogger().sendWarn("表情包识图没有生成有效标签：finishReason="
+                        +safe(response.getString("finishReason"))+" content="
+                        +shortText(firstContent(response),240));
+                tags.add("unlabeled");
+            }
             JSONArray tagArray = new JSONArray();
             tagArray.addAll(tags);
             result.put("tags",tagArray);
@@ -85,6 +95,48 @@ public class StickerTagger {
         }
     }
 
+    private JSONObject callAi(PluginService ai,String profile,JSONArray messages,int maxTokens,
+                              String sessionId) {
+        JSONObject params = new JSONObject(true);
+        params.put("profile",profile);
+        params.put("maxTokens",maxTokens);
+        params.put("temperature",0.1);
+        params.put("sessionId",sessionId);
+        params.put("messages",messages);
+        return ai.call("chat",params);
+    }
+
+    private List<String> repairTags(PluginService ai,String profile,String rawContent) {
+        if (rawContent == null || rawContent.trim().isEmpty()) return new java.util.ArrayList<>();
+        JSONObject params = new JSONObject(true);
+        params.put("profile",profile);
+        params.put("maxTokens",800);
+        params.put("temperature",0.0);
+        params.put("prompt",buildRepairPrompt(rawContent));
+        JSONObject response = ai.call("complete",params);
+        if (response == null || !response.getBooleanValue("status")) return new java.util.ArrayList<>();
+        JSONObject parsed = parseJson(response.getString("content"));
+        return library.normalizeTags(arrayToList(parsed == null ? null : parsed.getJSONArray("tags")));
+    }
+
+    private boolean isSuccess(JSONObject response) {
+        return response != null && response.getBooleanValue("status");
+    }
+
+    private String firstContent(JSONObject response) {
+        if (response == null) return "";
+        String content = safe(response.getString("content"));
+        if (!content.isEmpty()) return content;
+        return safe(response.getString("reasoningContent"));
+    }
+
+    private String shortText(String value,int maxLength) {
+        if (value == null) return "";
+        String text = value.replace("\r"," ").replace("\n"," ").trim();
+        if (text.length() <= maxLength) return text;
+        return text.substring(0,maxLength)+"...";
+    }
+
     private JSONArray fallbackTags() {
         JSONArray tags = new JSONArray();
         tags.add("unlabeled");
@@ -93,28 +145,29 @@ public class StickerTagger {
 
     private String buildPrompt() {
         StringBuilder builder = new StringBuilder();
-        builder.append("请判断这张表情包最适合在什么情绪或聊天场景发送。\n")
-                .append("生成 3 到 6 个情绪/用途标签，标签必须能代表发送这张图时想表达的情绪、态度或使用场景。\n")
-                .append("不要生成外貌、发色、眼睛、服装、角色身份、画风、物体、构图、性别、年龄等视觉描述标签。\n")
-                .append("标签命名规则：\n")
-                .append("- 小写英文 snake_case\n")
-                .append("- 只能使用 a-z、0-9、下划线\n")
-                .append("- 必须以字母开头，长度 2 到 32\n")
-                .append("- 不要使用空格、中文或特殊符号\n")
-                .append("可以参考这类方向：happy、sad、angry、surprised、shy、smug、confused、tired、crying、laughing、agree、refuse、greeting、goodnight、urging、comfort、teasing、celebrate、waiting、working、eating。\n")
-                .append("优先复用这些已有标签：\n");
-        int count = 0;
-        for (String tag : library.availableTags()) {
-            if (count > 0) builder.append(", ");
-            builder.append(tag);
-            count++;
-            if (count >= 120) break;
-        }
-        if (count == 0) builder.append("暂无");
-        builder.append("\n如果已有标签属于情绪/用途且合适，可以复用；如果是外貌、服装、画风或物体描述，不要复用。")
-                .append("description 可以描述画面内容，但 tags 只能放情绪/用途标签。")
-                .append("只返回 JSON：{\"tags\":[\"tag1\",\"tag2\"],\"description\":\"简短描述\"}");
+        builder.append("You are tagging a sticker for a chat bot.\n")
+                .append("Return 3 to 6 English snake_case tags describing the emotion, attitude, or chat usage of this sticker.\n")
+                .append("Tags must help decide when to send this sticker in a conversation.\n")
+                .append("Do not output appearance, hair, eyes, clothing, character identity, art style, object, composition, gender, or age tags.\n")
+                .append("Tag rules:\n")
+                .append("- lowercase English snake_case\n")
+                .append("- only a-z, 0-9, and underscore\n")
+                .append("- start with a letter, length 2 to 32\n")
+                .append("- no spaces, Chinese, or special characters\n")
+                .append("Good directions include: happy, sad, angry, surprised, shy, smug, confused, tired, crying, laughing, agree, refuse, greeting, goodnight, urging, comfort, teasing, celebrate, waiting, working, eating.\n")
+                .append("description: a short Chinese description of the image content.\n")
+                .append("Return only JSON: {\"tags\":[\"happy\",\"shy\"],\"description\":\"简短描述\"}");
         return builder.toString();
+    }
+
+    private String buildRepairPrompt(String rawContent) {
+        return "下面是表情包识图模型的原始输出。\n"
+                +"请把它整理成 3 到 6 个英文 snake_case 标签。\n"
+                +"标签只能描述情绪、态度或聊天场景，不要描述外貌、服装、发色、画风、物体、性别或年龄。\n"
+                +"如果原输出是中文，请翻译成英文。\n"
+                +"不要解释，只返回 JSON：{\"tags\":[\"happy\",\"shy\"]}\n"
+                +"原始输出：\n"
+                +shortText(rawContent,1500);
     }
 
     private String mime(File file) {

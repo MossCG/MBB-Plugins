@@ -4,8 +4,8 @@
 enable: true
 #识图打标签使用的 AI 配置名，对应 MBB-AI 的 profiles.json
 aiProfile: "default"
-#AI 打标签最大输出 Token
-taggingMaxTokens: 800
+#AI 打标签最大输出 Token，代码会保证不低于 3000
+taggingMaxTokens: 3000
 #单张图片最大大小，单位 KB
 maxFileSizeKB: 8192
 #私聊收录模式无图片自动结束分钟数

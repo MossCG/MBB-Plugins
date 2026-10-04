@@ -1,6 +1,6 @@
 {
   "name": "MBB-Sticker",
-  "version": "V0.1.0.1.0138",
+  "version": "V0.1.0.2.0150",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.sticker.StickerPlugin",
   "author": "MoBoxLab",
