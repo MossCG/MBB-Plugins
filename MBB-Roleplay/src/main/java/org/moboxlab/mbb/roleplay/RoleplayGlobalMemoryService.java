@@ -1,0 +1,172 @@
+package org.moboxlab.mbb.roleplay;
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import org.moboxlab.moboxbot.API.Plugin;
+import org.moboxlab.moboxbot.API.Storage.StorageService;
+
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * 所有群共享的角色永久记忆
+ */
+public class RoleplayGlobalMemoryService {
+    private static final String TABLE = "plugin_mbb_roleplay_global_memory";
+
+    private final Plugin plugin;
+    private volatile RoleplayConfig config;
+
+    public RoleplayGlobalMemoryService(Plugin plugin,RoleplayConfig config) {
+        this.plugin = plugin;
+        this.config = config;
+    }
+
+    public void init() {
+        storage().update("CREATE TABLE IF NOT EXISTS `"+TABLE+"` ("
+                + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "`memoryType` TEXT NOT NULL DEFAULT '',"
+                + "`content` TEXT NOT NULL DEFAULT '',"
+                + "`importance` INTEGER NOT NULL DEFAULT 1,"
+                + "`sourceGroupID` INTEGER NOT NULL DEFAULT 0,"
+                + "`sourceUserID` INTEGER NOT NULL DEFAULT 0,"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0"
+                + ")");
+        storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_global_memory_time` "
+                + "ON `"+TABLE+"` (`importance`,`updateTime`)");
+    }
+
+    public void reload(RoleplayConfig config) {
+        this.config = config;
+    }
+
+    public boolean isLearnGroup(long groupID) {
+        if (!config.globalMemoryEnable) return false;
+        String value = config.globalMemoryLearnGroups;
+        if (value == null || value.trim().isEmpty()) return false;
+        for (String item : value.split(",")) {
+            try {
+                if (Long.parseLong(item.trim()) == groupID) return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    public boolean save(String type,String content,int importance,long sourceGroupID,long sourceUserID) {
+        if (!config.globalMemoryEnable) return false;
+        String memoryType = safe(type).trim();
+        String value = safe(content).trim();
+        if (memoryType.isEmpty()) memoryType = "note";
+        if (value.isEmpty()) return false;
+        if (importance < 1) importance = 1;
+        if (importance > 5) importance = 5;
+        JSONObject exists = storage().queryOne(
+                "SELECT `ID` FROM `"+TABLE+"` WHERE `memoryType`=? AND `content`=?",
+                memoryType,value);
+        long now = System.currentTimeMillis();
+        if (exists != null) {
+            storage().update("UPDATE `"+TABLE+"` SET `importance`=MAX(`importance`,?),"
+                            + "`sourceGroupID`=?,`sourceUserID`=?,`updateTime`=? WHERE `ID`=?",
+                    importance,sourceGroupID,sourceUserID,now,exists.getLongValue("ID"));
+            return true;
+        }
+        storage().insert("INSERT INTO `"+TABLE+"` "
+                        + "(`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime`) "
+                        + "VALUES (?,?,?,?,?,?)",
+                memoryType,value,importance,sourceGroupID,sourceUserID,now);
+        plugin.getLogger().sendInfo("[永久记忆] 新增 ["+memoryType+"] "+shortText(value,120)
+                +" 来源群"+sourceGroupID);
+        trim();
+        return true;
+    }
+
+    public JSONArray list(int limit) {
+        JSONArray result = new JSONArray();
+        if (limit < 1) limit = config.globalMemoryMaxItems;
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`memoryType`,`content`,`importance`,`sourceGroupID`,`updateTime` "
+                        + "FROM `"+TABLE+"` ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
+                Math.min(limit,config.globalMemoryMaxItems));
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
+            item.put("type",row.getString("memoryType"));
+            item.put("content",row.getString("content"));
+            item.put("importance",row.getIntValue("importance"));
+            item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public int count() {
+        List<JSONObject> rows = storage().query("SELECT COUNT(*) AS `count` FROM `"+TABLE+"`");
+        return rows == null || rows.isEmpty() ? 0 : rows.get(0).getIntValue("count");
+    }
+
+    public String promptText() {
+        JSONArray memories = list(config.globalMemoryInjectItems);
+        if (memories.isEmpty()) return "暂无全局永久记忆。";
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < memories.size(); i++) {
+            JSONObject item = memories.getJSONObject(i);
+            builder.append("- [").append(safe(item.getString("type"))).append("] ")
+                    .append(safe(item.getString("content"))).append("\n");
+        }
+        return builder.toString();
+    }
+
+    public String backup() {
+        try {
+            JSONObject root = new JSONObject(true);
+            root.put("version",1);
+            root.put("exportTime",System.currentTimeMillis());
+            root.put("count",count());
+            root.put("memories",list(config.globalMemoryMaxItems));
+            File file = new File(plugin.getDataFolder(),"global-memory-backup.json");
+            Files.write(Paths.get(file.getAbsolutePath()),
+                    root.toJSONString().getBytes(StandardCharsets.UTF_8));
+            plugin.getLogger().sendInfo("[永久记忆] 已备份到 "+file.getAbsolutePath());
+            return file.getAbsolutePath();
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("永久记忆备份失败："+e.getMessage());
+            return "";
+        }
+    }
+
+    public String formatTime(long time) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.CHINA);
+        return format.format(new Date(time));
+    }
+
+    private void trim() {
+        int count = count();
+        if (count <= config.globalMemoryMaxItems) return;
+        int remove = count - config.globalMemoryMaxItems;
+        storage().update("DELETE FROM `"+TABLE+"` WHERE `ID` IN ("
+                + "SELECT `ID` FROM `"+TABLE+"` ORDER BY `importance` ASC,`updateTime` ASC LIMIT ?)",
+                remove);
+    }
+
+    private String shortText(String text,int maxChars) {
+        String value = safe(text).replace("\n"," ").trim();
+        return value.length() <= maxChars ? value : value.substring(0,maxChars)+"...";
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
+    }
+
+    private StorageService storage() {
+        return plugin.getServer().getStorage();
+    }
+}

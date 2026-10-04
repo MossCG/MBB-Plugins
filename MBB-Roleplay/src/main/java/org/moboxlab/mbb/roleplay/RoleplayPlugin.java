@@ -122,6 +122,10 @@ public class RoleplayPlugin extends Plugin {
         return setConfigValue("otherRoleBotNames",value == null ? "" : value.trim());
     }
 
+    public boolean setGlobalMemoryLearnGroups(String value) {
+        return setConfigValue("globalMemoryLearnGroups",value == null ? "" : value.trim());
+    }
+
     private boolean setConfigValue(String key,String value) {
         RoleplayConfigMigrator.ensure(this);
         getConfig().set(key,value);

@@ -62,6 +62,9 @@ public class RoleplayCommand extends BotCommand {
                 "/role bot qq [list|add|remove|set|clear] [QQ...]",
                 "/role bot name [list|add|remove|set|clear|reset] [名称...]",
                 "/role memory [页码]",
+                "/role gmemory [页码]",
+                "/role gmemory backup",
+                "/role gmemory group [list|add|remove|clear] [群号...]",
                 "/role forget",
                 "/role persona [文件名]",
                 "/role persona reset <文件名>");
@@ -122,6 +125,10 @@ public class RoleplayCommand extends BotCommand {
         }
         if ("memory".equals(action)) {
             handleMemory(sender,args);
+            return true;
+        }
+        if ("gmemory".equals(action)) {
+            handleGlobalMemory(sender,args);
             return true;
         }
         if ("forget".equals(action)) {
@@ -199,6 +206,113 @@ public class RoleplayCommand extends BotCommand {
                     .append(item.getString("content"));
         }
         sender.sendMessage(builder.toString());
+    }
+
+    private void handleGlobalMemory(CommandSender sender,String[] args) {
+        RoleplayGlobalMemoryService memoryService = service.getGlobalMemoryService();
+        if (args.length > 2 && "backup".equalsIgnoreCase(args[2])) {
+            String path = memoryService.backup();
+            sender.sendMessage(path == null || path.isEmpty()
+                    ? "永久记忆备份失败，请查看控制台日志。"
+                    : "永久记忆已备份到："+path);
+            return;
+        }
+        if (args.length > 2 && "group".equalsIgnoreCase(args[2])) {
+            handleGlobalMemoryGroups(sender,args);
+            return;
+        }
+        int page = 1;
+        if (args.length > 2) {
+            try {
+                page = Math.max(1,Integer.parseInt(args[2]));
+            } catch (Exception ignored) {
+            }
+        }
+        JSONArray memories = memoryService.list(plugin.getRoleplayConfig().globalMemoryMaxItems);
+        int pageSize = 12;
+        int totalPages = Math.max(1,(memories.size() + pageSize - 1) / pageSize);
+        if (page > totalPages) page = totalPages;
+        JSONArray pageMemories = new JSONArray();
+        int start = (page - 1) * pageSize;
+        int end = Math.min(memories.size(),start + pageSize);
+        for (int i = start; i < end; i++) {
+            JSONObject item = new JSONObject(true);
+            item.put("type",memories.getJSONObject(i).getString("type"));
+            item.put("subjectID",0L);
+            item.put("importance",memories.getJSONObject(i).getIntValue("importance"));
+            item.put("content",memories.getJSONObject(i).getString("content"));
+            pageMemories.add(item);
+        }
+        JSONObject data = new JSONObject(true);
+        data.put("role","全局永久记忆");
+        data.put("groupID",0L);
+        data.put("shortSummary","所有群共享，不绑定用户。学习白名单："
+                +safeList(plugin.getRoleplayConfig().globalMemoryLearnGroups)+"；总记忆数："+memories.size());
+        data.put("memories",pageMemories);
+        byte[] image = RoleplayMemoryImageRenderer.render(data,page,pageSize);
+        if (image != null) {
+            sender.sendImage(ImageUtil.toBase64Uri(image));
+        } else {
+            StringBuilder builder = new StringBuilder("全局永久记忆：");
+            for (int i = 0; i < pageMemories.size(); i++) {
+                JSONObject item = pageMemories.getJSONObject(i);
+                builder.append("\n#").append(i + start + 1)
+                        .append(" [").append(item.getString("type")).append("] ")
+                        .append(item.getString("content"));
+            }
+            sender.sendMessage(builder.toString());
+        }
+    }
+
+    private void handleGlobalMemoryGroups(CommandSender sender,String[] args) {
+        String action = args.length > 3 ? args[3].toLowerCase() : "list";
+        String current = plugin.getRoleplayConfig().globalMemoryLearnGroups;
+        if ("list".equals(action)) {
+            sender.sendMessage("永久记忆学习白名单："
+                    +(current == null || current.trim().isEmpty() ? "空" : current));
+            return;
+        }
+        if ("clear".equals(action)) {
+            boolean changed = plugin.setGlobalMemoryLearnGroups("");
+            sender.sendMessage(changed ? "永久记忆学习白名单已清空。" : "保存配置失败，请检查 config.yml 权限。");
+            return;
+        }
+        if (!"add".equals(action) && !"remove".equals(action) && !"set".equals(action)) {
+            sender.sendMessage("用法：/role gmemory group [list|add|remove|set|clear] [群号...]");
+            return;
+        }
+        if (args.length < 5) {
+            sender.sendMessage("请提供要设置的群号。");
+            return;
+        }
+        Set<String> groups = new LinkedHashSet<>();
+        if (!"set".equals(action)) groups.addAll(splitCsv(current));
+        for (int i = 4; i < args.length; i++) {
+            for (String item : splitCsv(args[i])) {
+                try {
+                    long groupID = Long.parseLong(item);
+                    if (groupID <= 0) throw new NumberFormatException();
+                    groups.add(String.valueOf(groupID));
+                } catch (Exception e) {
+                    sender.sendMessage("群号格式不正确："+item);
+                    return;
+                }
+            }
+        }
+        if ("remove".equals(action)) {
+            for (int i = 4; i < args.length; i++) {
+                for (String item : splitCsv(args[i])) groups.remove(item);
+            }
+        }
+        String value = joinCsv(groups);
+        boolean changed = plugin.setGlobalMemoryLearnGroups(value);
+        sender.sendMessage(changed
+                ? "永久记忆学习白名单已更新："+(value.isEmpty() ? "空" : value)
+                : "保存配置失败，请检查 config.yml 权限。");
+    }
+
+    private String safeList(String value) {
+        return value == null || value.trim().isEmpty() ? "空" : value.trim();
     }
 
     private void handleConfig(CommandSender sender,String[] args) {

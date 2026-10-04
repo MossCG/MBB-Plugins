@@ -36,6 +36,10 @@ public class RoleplayConfig {
     public int memoryExtractMaxChars = 16000;
     public int memoryExtractBatches = 3;
     public int memoryMaxTokens = 12000;
+    public boolean globalMemoryEnable = true;
+    public String globalMemoryLearnGroups = "";
+    public int globalMemoryMaxItems = 300;
+    public int globalMemoryInjectItems = 80;
     public boolean activeMemory = true;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
@@ -94,6 +98,10 @@ public class RoleplayConfig {
         config.memoryExtractMaxChars = plugin.getConfig().getInt("memoryExtractMaxChars",16000);
         config.memoryExtractBatches = plugin.getConfig().getInt("memoryExtractBatches",3);
         config.memoryMaxTokens = plugin.getConfig().getInt("memoryMaxTokens",12000);
+        config.globalMemoryEnable = plugin.getConfig().getBoolean("globalMemoryEnable",true);
+        config.globalMemoryLearnGroups = plugin.getConfig().getString("globalMemoryLearnGroups","");
+        config.globalMemoryMaxItems = plugin.getConfig().getInt("globalMemoryMaxItems",300);
+        config.globalMemoryInjectItems = plugin.getConfig().getInt("globalMemoryInjectItems",80);
         config.activeMemory = plugin.getConfig().getBoolean("activeMemory",true);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
@@ -145,6 +153,11 @@ public class RoleplayConfig {
         if (config.memoryExtractBatches > 10) config.memoryExtractBatches = 10;
         if (config.memoryMaxTokens < 2000) config.memoryMaxTokens = 2000;
         if (config.memoryMaxTokens > 32000) config.memoryMaxTokens = 32000;
+        if (config.globalMemoryLearnGroups == null) config.globalMemoryLearnGroups = "";
+        if (config.globalMemoryMaxItems < 20) config.globalMemoryMaxItems = 20;
+        if (config.globalMemoryMaxItems > 1000) config.globalMemoryMaxItems = 1000;
+        if (config.globalMemoryInjectItems < 10) config.globalMemoryInjectItems = 10;
+        if (config.globalMemoryInjectItems > 300) config.globalMemoryInjectItems = 300;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;

@@ -36,6 +36,7 @@ public class RoleplayService {
 
     private final Plugin plugin;
     private final RoleplayReminderService reminderService;
+    private final RoleplayGlobalMemoryService globalMemoryService;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,Long> lastReplyMap = new HashMap<>();
@@ -56,6 +57,10 @@ public class RoleplayService {
             "(?is)<\\s*reminder\\s*>(.*?)<\\s*/\\s*reminder\\s*>");
     private static final Pattern REMINDER_OPEN = Pattern.compile(
             "(?is)<\\s*reminder\\s*/?\\s*>");
+    private static final Pattern GLOBAL_REMEMBER_PAIR = Pattern.compile(
+            "(?is)<\\s*global_remember\\s*>(.*?)<\\s*/\\s*global_remember\\s*>");
+    private static final Pattern GLOBAL_REMEMBER_OPEN = Pattern.compile(
+            "(?is)<\\s*global_remember\\s*/?\\s*>");
 
     private static class MemoryCursor {
         private final long time;
@@ -95,11 +100,24 @@ public class RoleplayService {
         }
     }
 
+    private static class GlobalRememberResult {
+        private final boolean requested;
+        private final String reply;
+        private final String content;
+
+        private GlobalRememberResult(boolean requested,String reply,String content) {
+            this.requested = requested;
+            this.reply = reply;
+            this.content = content;
+        }
+    }
+
     public RoleplayService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona) {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
         this.reminderService = new RoleplayReminderService(plugin,config,persona);
+        this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config);
     }
 
     public void init() {
@@ -141,12 +159,14 @@ public class RoleplayService {
         ensureColumn(GROUP_TABLE,"contextToken","TEXT NOT NULL DEFAULT ''");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_msg_group` ON `"+MSG_TABLE+"` (`groupID`,`messageTime`)");
         reminderService.init();
+        globalMemoryService.init();
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
         this.config = config;
         this.persona = persona;
         reminderService.reload(config,persona);
+        globalMemoryService.reload(config);
     }
 
     public void handle(GroupMessageEvent event) {
@@ -194,7 +214,8 @@ public class RoleplayService {
         if (result == null || !result.getBooleanValue("status")) return;
         String rawReply = safe(result.getString("content")).trim();
         ReminderMarkerResult reminderMarker = extractReminderMarker(rawReply);
-        RememberResult rememberResult = extractRemember(reminderMarker.reply);
+        GlobalRememberResult globalRemember = extractGlobalRemember(reminderMarker.reply);
+        RememberResult rememberResult = extractRemember(globalRemember.reply);
         String reply = rememberResult.reply.trim();
         if (reminderMarker.requested) {
             boolean created = reminderService.createFromAi(groupID,event.getUserID(),userName,
@@ -207,6 +228,14 @@ public class RoleplayService {
         if (rememberResult.requested && config.activeMemory) {
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 角色主动请求记忆");
             triggerMemory(groupID,"主动记忆",rememberResult.memory);
+        }
+        if (globalRemember.requested) {
+            if (globalMemoryService.isLearnGroup(groupID)) {
+                globalMemoryService.save("note",globalRemember.content,3,groupID,event.getUserID());
+            } else {
+                plugin.getLogger().sendWarn("[永久记忆] 群"+groupID
+                        +" 不在学习白名单，忽略 <global_remember>");
+            }
         }
         if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
         if (shouldSuppressRepeat(groupID,reply)) {
@@ -318,6 +347,10 @@ public class RoleplayService {
         return reminderService;
     }
 
+    public RoleplayGlobalMemoryService getGlobalMemoryService() {
+        return globalMemoryService;
+    }
+
     public int ruleLikeCount() {
         return persona.interests.size();
     }
@@ -343,6 +376,7 @@ public class RoleplayService {
         String recentReplies = recentRoleReplyText(groupID);
         return persona.description()+"\n\n"
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
+                +"全局永久记忆：\n"+globalMemoryService.promptText()+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
                 +"你最近说过的话：\n"+recentReplies+"\n"
                 +"当前时间："+currentTimeText()+"\n"
@@ -382,6 +416,10 @@ public class RoleplayService {
                 +"\"task\":\"要提醒的内容\",\"target\":\"self\"}</reminder>。"
                 +"time 必须使用当前时区，target 使用 self 表示提醒自己，使用 user 表示提醒当前群友；"
                 +"没有明确时间时不要输出，标签及其内容不会发给用户。" : "")
+                +(globalMemoryService.isLearnGroup(groupID) ? "如果当前上下文出现了值得所有群共享的、"
+                +"不绑定具体用户的说话方式、语气、生活习惯、知识、群梗或注意事项，可以在回复末尾输出 "
+                +"<global_remember>要永久记住的内容</global_remember>。不要记录个人隐私或用户专属信息；"
+                +"没有长期价值时不要输出，标签及其内容不会发给用户。" : "")
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
@@ -497,6 +535,11 @@ public class RoleplayService {
                 +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
                 +"如果输入中包含“角色主动标记的记忆内容”，必须优先把其中的长期价值整理进 longTerm。"
+                +(globalMemoryService.isLearnGroup(groupID) ? "同时返回 globalMemory 数组："
+                +"[{\"type\":\"speech_style|tone|habit|knowledge|meme|note\","
+                +"\"content\":\"所有群通用、不绑定用户的记忆\",\"importance\":1}]。"
+                +"只记录角色学到的说话方式、语气、生活习惯、知识、群梗和注意事项，"
+                +"不要记录个人隐私或用户专属信息；没有可学内容时返回空数组。" : "")
                 +"不要重复已有记忆；已有短期记忆如下：\n"+shortSummary(groupID);
     }
 
@@ -531,12 +574,25 @@ public class RoleplayService {
                 if (saveLongMemory(groupID,(JSONObject) object)) saved++;
             }
         }
+        int globalSaved = 0;
+        JSONArray globalMemory = parsed.getJSONArray("globalMemory");
+        if (globalMemory != null && globalMemoryService.isLearnGroup(groupID)) {
+            for (Object object : globalMemory) {
+                if (!(object instanceof JSONObject)) continue;
+                JSONObject item = (JSONObject)object;
+                if (globalMemoryService.save(safe(item.getString("type")),
+                        safe(item.getString("content")),item.getIntValue("importance"),
+                        groupID,0)) {
+                    globalSaved++;
+                }
+            }
+        }
         if (!rows.isEmpty()) {
             JSONObject lastRow = rows.get(rows.size() - 1);
             saveMemoryState(groupID,shortTerm,lastRow.getLongValue("messageTime"),lastRow.getLongValue("ID"));
         }
         plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 整理完成：消息"+rows.size()
-                +"条，长期记忆"+saved+"条，短期记忆"+shortTerm.length()+"字");
+                +"条，长期记忆"+saved+"条，永久记忆"+globalSaved+"条，短期记忆"+shortTerm.length()+"字");
         return true;
     }
 
@@ -1033,6 +1089,24 @@ public class RoleplayService {
             return parseReminderMarker(text.substring(open.end()),reply);
         }
         return new ReminderMarkerResult(false,text.trim(),"","","");
+    }
+
+    private GlobalRememberResult extractGlobalRemember(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return new GlobalRememberResult(false,"","");
+        }
+        Matcher pair = GLOBAL_REMEMBER_PAIR.matcher(text);
+        if (pair.find()) {
+            String reply = (text.substring(0,pair.start())+text.substring(pair.end())).trim();
+            return new GlobalRememberResult(true,reply,pair.group(1).trim());
+        }
+        Matcher open = GLOBAL_REMEMBER_OPEN.matcher(text);
+        if (open.find()) {
+            String reply = text.substring(0,open.start()).trim();
+            String content = text.substring(open.end()).trim();
+            return new GlobalRememberResult(true,reply,content);
+        }
+        return new GlobalRememberResult(false,text.trim(),"");
     }
 
     private ReminderMarkerResult parseReminderMarker(String json,String reply) {
