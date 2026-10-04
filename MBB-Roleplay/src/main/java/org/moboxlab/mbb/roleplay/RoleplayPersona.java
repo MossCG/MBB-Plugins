@@ -8,7 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 角色设定
@@ -59,6 +61,7 @@ public class RoleplayPersona {
             persona.otherStudents = readList(json.getJSONArray("otherStudents"));
             persona.terminology = readList(json.getJSONArray("terminology"));
             persona.storyMemory = readList(json.getJSONArray("storyMemory"));
+            mergeSharedStudents(plugin,persona);
         } catch (Exception e) {
             plugin.getLogger().sendWarn("读取角色设定失败："+e.getMessage());
         }
@@ -102,6 +105,36 @@ public class RoleplayPersona {
             }
         }
         return result;
+    }
+
+    private static void mergeSharedStudents(Plugin plugin,RoleplayPersona persona) {
+        try {
+            String path = plugin.getDataFolder()+"/students.json";
+            if (!Files.exists(Paths.get(path))) return;
+            String text = new String(Files.readAllBytes(Paths.get(path)),StandardCharsets.UTF_8);
+            JSONObject json = JSONObject.parseObject(text);
+            if (json == null) return;
+            List<String> shared = readList(json.getJSONArray("students"));
+            Set<String> names = new HashSet<>();
+            for (String item : persona.otherStudents) names.add(studentKey(item));
+            for (String item : shared) {
+                String key = studentKey(item);
+                if (key.isEmpty() || names.contains(key)) continue;
+                persona.otherStudents.add(item);
+                names.add(key);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("读取共享学生设定失败："+e.getMessage());
+        }
+    }
+
+    private static String studentKey(String value) {
+        if (value == null) return "";
+        String text = value.trim();
+        int index = text.indexOf('（');
+        if (index < 0) index = text.indexOf(':');
+        if (index < 0) index = text.indexOf('：');
+        return index < 0 ? text : text.substring(0,index).trim();
     }
 
     private static String safe(String value,String defaultValue) {

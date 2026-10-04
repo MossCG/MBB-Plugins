@@ -144,5 +144,21 @@ public class RoleplayPlugin extends Plugin {
                 getLogger().sendException(e);
             }
         }
+        saveDefaultResource("students.json");
+    }
+
+    private void saveDefaultResource(String name) {
+        try {
+            File file = new File(getDataFolder(),name);
+            if (file.exists()) return;
+            byte[] bytes = readResource(name);
+            if (bytes == null) {
+                getLogger().sendWarn("插件 JAR 里没有 "+name+"！");
+                return;
+            }
+            Files.write(Paths.get(file.getAbsolutePath()),bytes);
+        } catch (Exception e) {
+            getLogger().sendException(e);
+        }
     }
 }
