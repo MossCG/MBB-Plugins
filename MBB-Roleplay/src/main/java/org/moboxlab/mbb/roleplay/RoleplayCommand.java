@@ -196,7 +196,7 @@ public class RoleplayCommand extends BotCommand {
         }
         JSONObject pageData = new JSONObject(true);
         pageData.putAll(result);
-        pageData.put("memories",pageMemories);
+        pageData.put("memories",memories == null ? new JSONArray() : memories);
         byte[] image = RoleplayMemoryImageRenderer.render(pageData,page,pageSize);
         if (image != null) {
             sender.sendImage(ImageUtil.toBase64Uri(image));
@@ -259,7 +259,7 @@ public class RoleplayCommand extends BotCommand {
         data.put("groupID",0L);
         data.put("shortSummary","所有群共享，不绑定用户。学习白名单："
                 +safeList(plugin.getRoleplayConfig().globalMemoryLearnGroups)+"；总记忆数："+memories.size());
-        data.put("memories",pageMemories);
+        data.put("memories",memories);
         byte[] image = RoleplayMemoryImageRenderer.render(data,page,pageSize);
         if (image != null) {
             sender.sendImage(ImageUtil.toBase64Uri(image));
