@@ -52,6 +52,10 @@ public class RoleplayService {
             "(?is)<\\s*remember\\s*/?\\s*>");
     private static final Pattern REMEMBER_CLOSE = Pattern.compile(
             "(?is)<\\s*/\\s*remember\\s*>");
+    private static final Pattern REMINDER_PAIR = Pattern.compile(
+            "(?is)<\\s*reminder\\s*>(.*?)<\\s*/\\s*reminder\\s*>");
+    private static final Pattern REMINDER_OPEN = Pattern.compile(
+            "(?is)<\\s*reminder\\s*/?\\s*>");
 
     private static class MemoryCursor {
         private final long time;
@@ -72,6 +76,22 @@ public class RoleplayService {
             this.requested = requested;
             this.reply = reply;
             this.memory = memory;
+        }
+    }
+
+    private static class ReminderMarkerResult {
+        private final boolean requested;
+        private final String reply;
+        private final String time;
+        private final String task;
+        private final String target;
+
+        private ReminderMarkerResult(boolean requested,String reply,String time,String task,String target) {
+            this.requested = requested;
+            this.reply = reply;
+            this.time = time;
+            this.task = task;
+            this.target = target;
         }
     }
 
@@ -173,8 +193,17 @@ public class RoleplayService {
         JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,relationship);
         if (result == null || !result.getBooleanValue("status")) return;
         String rawReply = safe(result.getString("content")).trim();
-        RememberResult rememberResult = extractRemember(rawReply);
+        ReminderMarkerResult reminderMarker = extractReminderMarker(rawReply);
+        RememberResult rememberResult = extractRemember(reminderMarker.reply);
         String reply = rememberResult.reply.trim();
+        if (reminderMarker.requested) {
+            boolean created = reminderService.createFromAi(groupID,event.getUserID(),userName,
+                    relationship,reminderMarker.time,reminderMarker.task,reminderMarker.target);
+            if (!created) {
+                plugin.getLogger().sendWarn("[提醒] 群"+groupID+" AI标记提醒创建失败："
+                        +shortText(reminderMarker.task,80));
+            }
+        }
         if (rememberResult.requested && config.activeMemory) {
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 角色主动请求记忆");
             triggerMemory(groupID,"主动记忆",rememberResult.memory);
@@ -344,6 +373,11 @@ public class RoleplayService {
                 +"或你自己的重要承诺与行为，把聊天正文写在 <remember> 前，把要记忆的内容写在标签后。"
                 +"例如：嗯，周末我也有空<remember>用户周末要参加活动。"
                 +"<remember> 标签及其后的记忆内容不会发给用户；没有长期价值时不要输出，不要解释这个标记。" : "")
+                +(config.reminderEnable ? "如果你认为当前对话需要定时任务，包括提醒群友，或提醒你自己稍后继续、"
+                +"结束某个活动，可以在回复末尾输出 <reminder>{\"time\":\"yyyy-MM-dd HH:mm:ss\","
+                +"\"task\":\"要提醒的内容\",\"target\":\"self\"}</reminder>。"
+                +"time 必须使用当前时区，target 使用 self 表示提醒自己，使用 user 表示提醒当前群友；"
+                +"没有明确时间时不要输出，标签及其内容不会发给用户。" : "")
                 +"只输出角色聊天内容，不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
@@ -777,7 +811,7 @@ public class RoleplayService {
 
     private boolean isReminderNotification(String content) {
         String text = content == null ? "" : content;
-        return text.contains("提醒已设置：") || text.contains("提醒：");
+        return text.contains(RoleplayReminderService.REMINDER_MARKER);
     }
 
     private int countMessage(long groupID) {
@@ -978,6 +1012,34 @@ public class RoleplayService {
             return new RememberResult(true,reply,"");
         }
         return new RememberResult(false,text.trim(),"");
+    }
+
+    private ReminderMarkerResult extractReminderMarker(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return new ReminderMarkerResult(false,"","","","");
+        }
+        Matcher pair = REMINDER_PAIR.matcher(text);
+        if (pair.find()) {
+            String reply = (text.substring(0,pair.start())+text.substring(pair.end())).trim();
+            return parseReminderMarker(pair.group(1),reply);
+        }
+        Matcher open = REMINDER_OPEN.matcher(text);
+        if (open.find()) {
+            String reply = text.substring(0,open.start()).trim();
+            return parseReminderMarker(text.substring(open.end()),reply);
+        }
+        return new ReminderMarkerResult(false,text.trim(),"","","");
+    }
+
+    private ReminderMarkerResult parseReminderMarker(String json,String reply) {
+        JSONObject parsed = parseJson(json);
+        if (parsed == null) {
+            return new ReminderMarkerResult(true,reply,"","","");
+        }
+        return new ReminderMarkerResult(true,reply,
+                safe(parsed.getString("time")),
+                safe(parsed.getString("task")),
+                safe(parsed.getString("target")));
     }
 
     private String cleanRememberText(String text) {
