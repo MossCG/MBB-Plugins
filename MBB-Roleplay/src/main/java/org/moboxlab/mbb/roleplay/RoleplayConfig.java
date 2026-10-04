@@ -19,6 +19,7 @@ public class RoleplayConfig {
     public int maxRepliesPerHour = 180;
     public int initialAffinity = 70;
     public boolean reminderEnable = true;
+    public boolean reminderAiParse = true;
     public int reminderMaxDays = 30;
     public double interestReplyChance = 0.65;
     public int conversationWindowSecond = 180;
@@ -58,6 +59,7 @@ public class RoleplayConfig {
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
         config.initialAffinity = plugin.getConfig().getInt("initialAffinity",70);
         config.reminderEnable = plugin.getConfig().getBoolean("reminderEnable",true);
+        config.reminderAiParse = plugin.getConfig().getBoolean("reminderAiParse",true);
         config.reminderMaxDays = plugin.getConfig().getInt("reminderMaxDays",30);
         try {
             config.interestReplyChance = Double.parseDouble(plugin.getConfig().getString("interestReplyChance","0.65"));

@@ -39,6 +39,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("maxRepliesPerHour","180","同一群每小时最多回复次数"),
             new ConfigEntry("initialAffinity","70","角色对所有真人成员的初始好感度，0 到 100"),
             new ConfigEntry("reminderEnable","true","是否允许角色识别并创建自然语言定时提醒"),
+            new ConfigEntry("reminderAiParse","true","是否优先调用 AI 识别提醒意图和时间，失败时回退到内置规则"),
             new ConfigEntry("reminderMaxDays","30","定时提醒最长可提前多少天"),
             new ConfigEntry("interestReplyChance","0.65","非直接提及消息命中兴趣关键词后的回复概率，0 到 1"),
             new ConfigEntry("conversationWindowSecond","180","最近与角色聊过后，延续对话的窗口秒数"),

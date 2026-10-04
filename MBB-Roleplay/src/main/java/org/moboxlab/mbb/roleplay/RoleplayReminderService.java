@@ -56,8 +56,15 @@ public class RoleplayReminderService {
 
     public boolean handle(GroupMessageEvent event,String content) {
         if (event == null || !config.reminderEnable) return false;
-        RoleplayReminderParser.Result result =
-                RoleplayReminderParser.parse(content,config,System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        RoleplayReminderParser.Result result = null;
+        if (config.reminderAiParse && mightBeReminder(content)) {
+            result = parseWithAi(event.getGroupID(),event.getUserID(),content,now);
+            if (result != null && !result.intent) return false;
+        }
+        if (result == null) {
+            result = RoleplayReminderParser.parse(content,config,now);
+        }
         if (!result.intent) return false;
         long groupID = event.getGroupID();
         long userID = event.getUserID();
@@ -66,19 +73,119 @@ public class RoleplayReminderService {
         if (!result.valid) {
             sendAt(groupID,userID,result.error);
             plugin.getLogger().sendWarn("[提醒] 群"+groupID+" 用户"+userID
-                    +" 创建失败："+safe(result.error)+"，原文："+shortText(content,120));
+                    +" 创建失败："+safe(result.error)+"，识别="+result.source
+                    +"，原文："+shortText(content,120));
             return true;
         }
-        long now = System.currentTimeMillis();
         long id = storage().insert("INSERT INTO `"+TABLE+"` "
                         + "(`groupID`,`userID`,`userName`,`relation`,`task`,`remindTime`,`createdAt`,`status`) "
                         + "VALUES (?,?,?,?,?,?,?,?)",
                 groupID,userID,userName,relation,result.task,result.remindTime,now,"pending");
         schedule(id,groupID,userID,result.task,relation,result.remindTime);
         plugin.getLogger().sendInfo("[提醒] 创建 #"+id+" 群"+groupID+" 用户"+userID
-                +" 时间="+formatTime(result.remindTime)+" 内容="+result.task);
+                +" 时间="+formatTime(result.remindTime)+" 内容="+result.task
+                +" 识别="+result.source);
         sendAt(groupID,userID,formatTime(result.remindTime)+" 提醒你："+result.task);
         return true;
+    }
+
+    private RoleplayReminderParser.Result parseWithAi(long groupID,long userID,String content,long now) {
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) return null;
+        try {
+            JSONArray messages = new JSONArray();
+            messages.add(message("system","你是定时提醒识别器。当前时间："
+                    +formatTime(now)+"，时区："+resolveTimeZoneName()+"。"
+                    +"判断用户是否在要求设置提醒。必须只输出 JSON，不要 Markdown、代码块或解释："
+                    +"{\"hasReminder\":true/false,\"time\":\"yyyy-MM-dd HH:mm:ss\",\"task\":\"提醒内容\",\"reason\":\"\"}。"
+                    +"如果无法确定具体时间、时间已经过去、或不是在设置提醒，hasReminder=false。"
+                    +"time 必须使用当前时区，task 只保留要提醒的事情，不要包含“提醒我”等指令词。"));
+            messages.add(message("user",content));
+            JSONObject params = new JSONObject(true);
+            params.put("profile",config.aiProfile);
+            params.put("maxTokens",300);
+            params.put("temperature",0.1);
+            params.put("sessionId","roleplay-reminder-parse-"+groupID+"-"+userID);
+            params.put("messages",messages);
+            JSONObject response = ai.call("chat",params);
+            if (response == null || !response.getBooleanValue("status")) {
+                plugin.getLogger().sendWarn("[提醒] AI识别失败，回退规则解析："
+                        +safe(response == null ? "" : response.getString("message")));
+                return null;
+            }
+            JSONObject parsed = parseJson(response.getString("content"));
+            if (parsed == null) {
+                plugin.getLogger().sendWarn("[提醒] AI识别没有返回合法 JSON，回退规则解析："
+                        +shortText(response.getString("content"),160));
+                return null;
+            }
+            if (!parsed.getBooleanValue("hasReminder")) {
+                RoleplayReminderParser.Result result = new RoleplayReminderParser.Result(false,false);
+                result.source = "AI";
+                return result;
+            }
+            long remindTime = parseReminderTime(parsed.getString("time"));
+            String task = safe(parsed.getString("task")).trim();
+            if (remindTime <= 0) {
+                plugin.getLogger().sendWarn("[提醒] AI识别时间格式无效，回退规则解析："
+                        +safe(parsed.getString("time")));
+                return null;
+            }
+            RoleplayReminderParser.Result result = new RoleplayReminderParser.Result(true,false);
+            result.source = "AI";
+            result.remindTime = remindTime;
+            result.task = task;
+            if (remindTime <= now) {
+                result.error = "AI 识别出的提醒时间已经过去。";
+                return result;
+            }
+            long maxMillis = now + Math.max(1,config.reminderMaxDays) * 86400000L;
+            if (remindTime > maxMillis) {
+                result.error = "提醒时间太远了，最多支持 "+config.reminderMaxDays+" 天。";
+                return result;
+            }
+            if (task.isEmpty()) task = "做这件事";
+            result.task = task;
+            result.valid = true;
+            plugin.getLogger().sendInfo("[提醒] AI识别成功 群"+groupID+" 用户"+userID
+                    +" 时间="+formatTime(remindTime)+" 内容="+task);
+            return result;
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[提醒] AI识别异常，回退规则解析："
+                    +safe(e.getMessage()));
+            return null;
+        }
+    }
+
+    private boolean mightBeReminder(String content) {
+        String text = safe(content);
+        return text.contains("提醒") || text.contains("叫我") || text.contains("记得")
+                || text.contains("闹钟") || text.contains("定时");
+    }
+
+    private long parseReminderTime(String text) {
+        if (text == null || text.trim().isEmpty()) return -1;
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.CHINA);
+            format.setTimeZone(resolveTimeZone(config.timeZone));
+            return format.parse(text.trim()).getTime();
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private JSONObject parseJson(String content) {
+        if (content == null) return null;
+        String text = content.trim();
+        text = text.replaceAll("(?s)```[a-zA-Z0-9_-]*\\s*","").replace("```","").trim();
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start < 0 || end <= start) return null;
+        try {
+            return JSONObject.parseObject(text.substring(start,end + 1));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void restorePending() {
@@ -182,6 +289,16 @@ public class RoleplayReminderService {
             return TimeZone.getTimeZone("Asia/Shanghai");
         }
         return zone;
+    }
+
+    private String resolveTimeZoneName() {
+        String value = config.timeZone == null || config.timeZone.trim().isEmpty()
+                ? "Asia/Shanghai" : config.timeZone.trim();
+        TimeZone zone = TimeZone.getTimeZone(value);
+        if ("GMT".equals(zone.getID()) && !"GMT".equalsIgnoreCase(value)) {
+            return "Asia/Shanghai";
+        }
+        return value;
     }
 
     private String senderName(GroupMessageEvent event) {

@@ -18,6 +18,8 @@ maxRepliesPerHour: 180
 initialAffinity: 70
 #是否允许角色识别并创建自然语言定时提醒
 reminderEnable: true
+#是否优先调用 AI 识别提醒意图和时间，失败时回退到内置规则
+reminderAiParse: true
 #定时提醒最长可提前多少天
 reminderMaxDays: 30
 #非直接提及消息命中兴趣关键词后的回复概率，0 到 1

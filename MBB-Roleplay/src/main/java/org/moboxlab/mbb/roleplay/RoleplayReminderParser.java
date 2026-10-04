@@ -26,8 +26,9 @@ public class RoleplayReminderParser {
         public long remindTime;
         public String task = "";
         public String error = "";
+        public String source = "规则";
 
-        private Result(boolean intent,boolean valid) {
+        public Result(boolean intent,boolean valid) {
             this.intent = intent;
             this.valid = valid;
         }
