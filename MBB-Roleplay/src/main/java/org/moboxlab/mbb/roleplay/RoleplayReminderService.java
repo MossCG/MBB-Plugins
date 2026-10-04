@@ -84,7 +84,7 @@ public class RoleplayReminderService {
                         + "(`groupID`,`userID`,`userName`,`relation`,`target`,`task`,`remindTime`,`createdAt`,`status`) "
                         + "VALUES (?,?,?,?,?,?,?,?,?)",
                 groupID,userID,userName,relation,"user",result.task,result.remindTime,now,"pending");
-        schedule(id,groupID,userID,result.task,relation,"user",result.remindTime);
+        schedule(id,groupID,userID,result.task,relation,"user",result.remindTime,result.remindTime);
         String confirmation = generateCreationText(id,groupID,userID,result.task,relation,result.remindTime);
         plugin.getLogger().sendInfo("[提醒] 创建 #"+id+" 群"+groupID+" 用户"+userID
                 +" 时间="+formatTime(result.remindTime)+" 内容="+result.task
@@ -125,10 +125,95 @@ public class RoleplayReminderService {
                         + "(`groupID`,`userID`,`userName`,`relation`,`target`,`task`,`remindTime`,`createdAt`,`status`) "
                         + "VALUES (?,?,?,?,?,?,?,?,?)",
                 groupID,userID,safe(userName),safe(relation),targetValue,value,remindTime,now,"pending");
-        schedule(id,groupID,userID,value,safe(relation),targetValue,remindTime);
+        schedule(id,groupID,userID,value,safe(relation),targetValue,remindTime,remindTime);
         plugin.getLogger().sendInfo("[提醒] AI上下文创建 #"+id+" 群"+groupID+" 用户"+userID
                 +" 目标="+targetValue+" 时间="+formatTime(remindTime)+" 内容="+value);
         return true;
+    }
+
+    public JSONArray listPending(long groupID,long userID) {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`target`,`task`,`remindTime` FROM `"+TABLE+"` "
+                        + "WHERE `groupID`=? AND `userID`=? AND `status`='pending' "
+                        + "ORDER BY `remindTime` ASC",
+                groupID,userID);
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
+            item.put("target",safe(row.getString("target")));
+            item.put("task",safe(row.getString("task")));
+            item.put("remindTime",row.getLongValue("remindTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public JSONObject getPending(long id,long groupID,long userID) {
+        JSONObject row = storage().queryOne(
+                "SELECT `ID`,`target`,`task`,`remindTime` FROM `"+TABLE+"` "
+                        + "WHERE `ID`=? AND `groupID`=? AND `userID`=? AND `status`='pending'",
+                id,groupID,userID);
+        if (row == null) return null;
+        JSONObject item = new JSONObject(true);
+        item.put("id",row.getLongValue("ID"));
+        item.put("target",safe(row.getString("target")));
+        item.put("task",safe(row.getString("task")));
+        item.put("remindTime",row.getLongValue("remindTime"));
+        return item;
+    }
+
+    public boolean update(long id,long groupID,long userID,long remindTime,String task) {
+        JSONObject row = getPending(id,groupID,userID);
+        if (row == null || remindTime <= System.currentTimeMillis() || safe(task).trim().isEmpty()) {
+            return false;
+        }
+        String target = safe(row.getString("target"));
+        String relation = "";
+        JSONObject detail = storage().queryOne(
+                "SELECT `relation` FROM `"+TABLE+"` WHERE `ID`=?",id);
+        if (detail != null) relation = safe(detail.getString("relation"));
+        int changed = storage().update(
+                "UPDATE `"+TABLE+"` SET `task`=?,`remindTime`=? WHERE `ID`=? AND `groupID`=? AND `userID`=? AND `status`='pending'",
+                safe(task).trim(),remindTime,id,groupID,userID);
+        if (changed <= 0) return false;
+        schedule(id,groupID,userID,safe(task).trim(),relation,target,remindTime,remindTime);
+        plugin.getLogger().sendInfo("[提醒] 修改 #"+id+" 群"+groupID+" 用户"+userID
+                +" 时间="+formatTime(remindTime)+" 内容="+safe(task).trim());
+        return true;
+    }
+
+    public boolean cancel(long id,long groupID,long userID) {
+        int changed = storage().update(
+                "UPDATE `"+TABLE+"` SET `status`='cancelled' "
+                        + "WHERE `ID`=? AND `groupID`=? AND `userID`=? AND `status`='pending'",
+                id,groupID,userID);
+        if (changed > 0) {
+            plugin.getLogger().sendInfo("[提醒] 取消 #"+id+" 群"+groupID+" 用户"+userID);
+            return true;
+        }
+        return false;
+    }
+
+    public int cancelAll(long groupID,long userID) {
+        int changed = storage().update(
+                "UPDATE `"+TABLE+"` SET `status`='cancelled' "
+                        + "WHERE `groupID`=? AND `userID`=? AND `status`='pending'",
+                groupID,userID);
+        if (changed > 0) {
+            plugin.getLogger().sendInfo("[提醒] 清空 群"+groupID+" 用户"+userID
+                    +" 共取消 "+changed+" 条");
+        }
+        return changed;
+    }
+
+    public long parseEditTime(String text) {
+        long direct = parseReminderTime(text);
+        if (direct > 0) return direct;
+        RoleplayReminderParser.Result result = RoleplayReminderParser.parse(
+                "提醒我 "+safe(text)+" 做这件事",config,System.currentTimeMillis());
+        return result.valid ? result.remindTime : -1L;
     }
 
     private RoleplayReminderParser.Result parseWithAi(long groupID,long userID,String content,long now) {
@@ -238,22 +323,25 @@ public class RoleplayReminderService {
         for (JSONObject row : rows) {
             schedule(row.getLongValue("ID"),row.getLongValue("groupID"),row.getLongValue("userID"),
                     safe(row.getString("task")),safe(row.getString("relation")),
-                    safe(row.getString("target")),row.getLongValue("remindTime"));
+                    safe(row.getString("target")),row.getLongValue("remindTime"),
+                    row.getLongValue("remindTime"));
         }
         plugin.getLogger().sendInfo("[提醒] 已恢复 "+rows.size()+" 条待触发提醒");
     }
 
     private void schedule(long id,long groupID,long userID,String task,String relation,
-                          String target,long remindTime) {
-        long delay = Math.max(1L,(remindTime - System.currentTimeMillis() + 999L) / 1000L);
+                          String target,long expectedRemindTime,long runAtTime) {
+        long delay = Math.max(1L,(runAtTime - System.currentTimeMillis() + 999L) / 1000L);
         plugin.getServer().getPluginManager().runTaskLater(plugin,
-                () -> trigger(id,groupID,userID,task,relation,target),delay);
+                () -> trigger(id,groupID,userID,task,relation,target,expectedRemindTime),delay);
     }
 
-    private void trigger(long id,long groupID,long userID,String task,String relation,String target) {
+    private void trigger(long id,long groupID,long userID,String task,String relation,
+                         String target,long expectedRemindTime) {
         JSONObject row = storage().queryOne(
-                "SELECT `status` FROM `"+TABLE+"` WHERE `ID`=?",id);
-        if (row == null || !"pending".equals(row.getString("status"))) return;
+                "SELECT `status`,`remindTime` FROM `"+TABLE+"` WHERE `ID`=?",id);
+        if (row == null || !"pending".equals(row.getString("status"))
+                || row.getLongValue("remindTime") != expectedRemindTime) return;
         plugin.getLogger().sendInfo("[提醒] 触发 #"+id+" 群"+groupID+" 用户"+userID
                 +" 内容="+task);
         String text = generateReminderText(id,groupID,userID,task,relation,target);
@@ -267,7 +355,8 @@ public class RoleplayReminderService {
         } else {
             plugin.getLogger().sendWarn("[提醒] 发送失败 #"+id+" 群"+groupID
                     +" 用户"+userID+"，60 秒后重试");
-            schedule(id,groupID,userID,task,relation,target,System.currentTimeMillis() + 60000L);
+            schedule(id,groupID,userID,task,relation,target,expectedRemindTime,
+                    System.currentTimeMillis() + 60000L);
         }
     }
 
@@ -368,7 +457,7 @@ public class RoleplayReminderService {
         return "该"+value+"了";
     }
 
-    private String formatTime(long time) {
+    public String formatTime(long time) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.CHINA);
         format.setTimeZone(resolveTimeZone(config.timeZone));
         return format.format(new Date(time));

@@ -54,6 +54,11 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role forget` | `BOT_ADMIN` | 清空当前群记忆、聊天上下文并轮换 AI 会话 |
 | `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
 | `/role persona reset <文件名>` | `BOT_ADMIN` | 用内置版本覆盖指定角色设定文件 |
+| `/reminder list [页码]` | `EVERYONE` | 查看自己在当前群的待触发提醒 |
+| `/reminder show <ID>` | `EVERYONE` | 查看自己的某条提醒详情 |
+| `/reminder edit <ID> <时间> <内容>` | `EVERYONE` | 修改自己的提醒时间和内容 |
+| `/reminder delete <ID>` | `EVERYONE` | 取消自己的某条提醒 |
+| `/reminder clear` | `EVERYONE` | 取消自己在当前群的全部待触发提醒 |
 
 ## 角色设定
 
@@ -184,6 +189,18 @@ AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。
 `reminderEnable` 控制是否启用，`reminderAiParse` 控制是否优先使用 AI 识别，`reminderMaxDays` 控制最长提前天数，默认 30 天。
 
 提醒消息会携带不可见标记。其他角色机器人识别到该标记时会跳过，避免两个角色互相抢答，但 QQ 消息中不会出现固定文字前缀。角色名识别会同时参考配置和内置的桃井/绿/爱丽丝名称。
+
+用户还可以通过 `/reminder` 管理自己的任务：
+
+```text
+/reminder list
+/reminder show 12
+/reminder edit 12 明天早上八点 开会
+/reminder delete 12
+/reminder clear
+```
+
+用户只能查看和修改自己在当前群的提醒；编辑会重新排期，旧定时器不会提前触发。
 
 角色 AI 可以在普通回复末尾输出结构化标记来主动创建任务：
 

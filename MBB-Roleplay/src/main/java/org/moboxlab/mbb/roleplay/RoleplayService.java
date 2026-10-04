@@ -314,6 +314,10 @@ public class RoleplayService {
         return persona.name;
     }
 
+    public RoleplayReminderService getReminderService() {
+        return reminderService;
+    }
+
     public int ruleLikeCount() {
         return persona.interests.size();
     }
