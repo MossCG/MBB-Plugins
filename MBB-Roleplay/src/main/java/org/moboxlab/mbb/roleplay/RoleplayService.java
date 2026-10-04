@@ -1311,7 +1311,8 @@ public class RoleplayService {
             if (i > 0) builder.append(", ");
             builder.append(tags.getString(i));
         }
-        builder.append("\n如果适合发表情包，可以在回复末尾输出 <sticker>tag1,tag2</sticker>；")
+        builder.append("\n表情包是可选表达，不是每句话都必须带；只有情绪或场景明显合适时才偶尔使用，")
+                .append("避免连续多条回复都发表情包。适合时可以在回复末尾输出 <sticker>tag1,tag2</sticker>；")
                 .append("只能使用上面的标签，没有合适标签时不要输出。");
         return builder.toString();
     }
