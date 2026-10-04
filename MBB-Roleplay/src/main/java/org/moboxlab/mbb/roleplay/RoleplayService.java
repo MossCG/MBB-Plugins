@@ -1,6 +1,7 @@
 package org.moboxlab.mbb.roleplay;
 
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Event.GroupMessageEvent;
 import org.moboxlab.moboxbot.API.OneBot.MessageUtil;
@@ -381,21 +382,59 @@ public class RoleplayService {
         }
     }
 
-    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows,String contextToken,String directMemory) {
-        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
-        if (ai == null) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：MBB-AI 未启用");
-            return false;
-        }
+    private JSONObject callMemoryAi(PluginService ai,long groupID,String source,String contextToken) {
+        JSONObject parsed = callMemoryAiOnce(ai,groupID,source,contextToken,false);
+        if (parsed != null) return parsed;
+        plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 首次输出解析失败，使用严格 JSON 提示重试");
+        return callMemoryAiOnce(ai,groupID,source,contextToken,true);
+    }
+
+    private JSONObject callMemoryAiOnce(PluginService ai,long groupID,String source,
+                                        String contextToken,boolean retry) {
         JSONArray messages = new JSONArray();
-        messages.add(message("system","你是角色扮演插件的记忆整理器。只输出 JSON，不要 Markdown。"
+        messages.add(message("system",memorySystemPrompt(groupID,retry)));
+        messages.add(message("user",source));
+        JSONObject params = new JSONObject(true);
+        params.put("profile",config.aiProfile);
+        params.put("maxTokens",retry ? 2600 : 2200);
+        params.put("temperature",retry ? 0.0 : 0.2);
+        params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken+(retry ? "-retry" : ""));
+        params.put("messages",messages);
+        JSONObject result = ai.call("chat",params);
+        if (result == null || !result.getBooleanValue("status")) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败："
+                    +safe(result == null ? "" : result.getString("message")));
+            return null;
+        }
+        String content = safe(result.getString("content"));
+        JSONObject parsed = parseJson(content);
+        if (parsed == null) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" "
+                    +(retry ? "重试" : "模型")+"没有返回合法 JSON，原始输出："
+                    +shortText(content,240));
+        }
+        return parsed;
+    }
+
+    private String memorySystemPrompt(long groupID,boolean retry) {
+        return "你是角色扮演插件的记忆整理器。"
+                +(retry ? "上一次输出无法解析。现在必须只输出一个合法 JSON 对象，"
+                +"不要输出任何解释、标题、Markdown、代码块或思考过程。" : "只输出 JSON，不要 Markdown。")
                 +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
                 +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
                 +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
                 +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
                 +"如果输入中包含“角色主动标记的记忆内容”，必须优先把其中的长期价值整理进 longTerm。"
-                +"不要重复已有记忆；已有短期记忆如下：\n"+shortSummary(groupID)));
+                +"不要重复已有记忆；已有短期记忆如下：\n"+shortSummary(groupID);
+    }
+
+    private boolean updateMemoryBatch(long groupID,List<JSONObject> rows,String contextToken,String directMemory) {
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：MBB-AI 未启用");
+            return false;
+        }
         StringBuilder source = new StringBuilder();
         if (directMemory != null && !directMemory.trim().isEmpty()) {
             source.append("角色主动标记的记忆内容：").append(directMemory.trim()).append("\n");
@@ -404,21 +443,8 @@ public class RoleplayService {
             source.append(safe(row.getString("userName"))).append("：")
                     .append(safe(row.getString("content"))).append("\n");
         }
-        messages.add(message("user",source.toString()));
-        JSONObject params = new JSONObject(true);
-        params.put("profile",config.aiProfile);
-        params.put("maxTokens",2000);
-        params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken);
-        params.put("messages",messages);
-        JSONObject result = ai.call("chat",params);
-        if (result == null || !result.getBooleanValue("status")) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败："
-                    +safe(result == null ? "" : result.getString("message")));
-            return false;
-        }
-        JSONObject parsed = parseJson(result.getString("content"));
+        JSONObject parsed = callMemoryAi(ai,groupID,source.toString(),contextToken);
         if (parsed == null) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败：模型没有返回合法 JSON");
             return false;
         }
         if (!contextToken.equals(contextToken(groupID))) {
@@ -909,16 +935,169 @@ public class RoleplayService {
     }
 
     private JSONObject parseJson(String content) {
-        if (content == null) return null;
-        String text = content.trim();
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start < 0 || end <= start) return null;
-        try {
-            return JSONObject.parseObject(text.substring(start,end + 1));
-        } catch (Exception e) {
-            return null;
+        if (content == null || content.trim().isEmpty()) return null;
+        String text = content.replace("\uFEFF","").trim();
+        JSONObject direct = tryParseObject(text);
+        if (direct != null) return direct;
+        for (String candidate : extractJsonObjects(text)) {
+            JSONObject parsed = tryParseObject(candidate);
+            if (parsed != null) return parsed;
         }
+        return null;
+    }
+
+    private JSONObject tryParseObject(String text) {
+        if (text == null || text.trim().isEmpty()) return null;
+        String value = text.trim();
+        JSONObject parsed = parseObjectValue(value);
+        if (parsed != null) return parsed;
+        String repaired = repairJson(value);
+        if (!repaired.equals(value)) return parseObjectValue(repaired);
+        return null;
+    }
+
+    private JSONObject parseObjectValue(String text) {
+        try {
+            Object value = JSON.parse(text);
+            if (value instanceof JSONObject) return (JSONObject)value;
+            if (value instanceof JSONArray) {
+                JSONArray array = (JSONArray)value;
+                for (Object item : array) {
+                    if (item instanceof JSONObject) return (JSONObject)item;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private List<String> extractJsonObjects(String text) {
+        List<String> result = new ArrayList<>();
+        if (text == null) return result;
+        boolean inString = false;
+        boolean escaped = false;
+        int depth = 0;
+        int start = -1;
+        for (int i = 0; i < text.length(); i++) {
+            char character = text.charAt(i);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (character == '\\') {
+                    escaped = true;
+                } else if (character == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (character == '"') {
+                inString = true;
+            } else if (character == '{') {
+                if (depth == 0) start = i;
+                depth++;
+            } else if (character == '}' && depth > 0) {
+                depth--;
+                if (depth == 0 && start >= 0) {
+                    result.add(text.substring(start,i + 1));
+                    start = -1;
+                }
+            }
+        }
+        return result;
+    }
+
+    private String repairJson(String text) {
+        String value = text.replace("\uFEFF","").trim();
+        value = value.replaceAll("(?s)```[a-zA-Z0-9_-]*\\s*","");
+        value = value.replace("```","");
+        value = stripJsonComments(value);
+        value = value.replaceAll(",\\s*([}\\]])","$1");
+        value = value.replaceAll(",\\s*([}\\]])","$1");
+        return escapeJsonControls(value);
+    }
+
+    private String stripJsonComments(String text) {
+        StringBuilder builder = new StringBuilder();
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = 0; i < text.length(); i++) {
+            char character = text.charAt(i);
+            if (inString) {
+                builder.append(character);
+                if (escaped) {
+                    escaped = false;
+                } else if (character == '\\') {
+                    escaped = true;
+                } else if (character == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (character == '"') {
+                inString = true;
+                builder.append(character);
+                continue;
+            }
+            if (character == '/' && i + 1 < text.length()) {
+                char next = text.charAt(i + 1);
+                if (next == '/') {
+                    i += 2;
+                    while (i < text.length() && text.charAt(i) != '\n') i++;
+                    builder.append('\n');
+                    continue;
+                }
+                if (next == '*') {
+                    i += 2;
+                    while (i + 1 < text.length()
+                            && !(text.charAt(i) == '*' && text.charAt(i + 1) == '/')) i++;
+                    i++;
+                    continue;
+                }
+            }
+            builder.append(character);
+        }
+        return builder.toString();
+    }
+
+    private String escapeJsonControls(String text) {
+        StringBuilder builder = new StringBuilder();
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = 0; i < text.length(); i++) {
+            char character = text.charAt(i);
+            if (!inString) {
+                builder.append(character);
+                if (character == '"') inString = true;
+                continue;
+            }
+            if (escaped) {
+                builder.append(character);
+                escaped = false;
+                continue;
+            }
+            if (character == '\\') {
+                builder.append(character);
+                escaped = true;
+                continue;
+            }
+            if (character == '"') {
+                builder.append(character);
+                inString = false;
+                continue;
+            }
+            if (character == '\n') {
+                builder.append("\\n");
+            } else if (character == '\r') {
+                builder.append("\\r");
+            } else if (character == '\t') {
+                builder.append("\\t");
+            } else if (character < 0x20) {
+                builder.append(String.format("\\u%04x",(int)character));
+            } else {
+                builder.append(character);
+            }
+        }
+        return builder.toString();
     }
 
     private JSONObject message(String role,String content) {
