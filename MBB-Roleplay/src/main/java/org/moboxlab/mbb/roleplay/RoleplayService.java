@@ -79,7 +79,7 @@ public class RoleplayService {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
-        this.reminderService = new RoleplayReminderService(plugin,config);
+        this.reminderService = new RoleplayReminderService(plugin,config,persona);
     }
 
     public void init() {
@@ -126,7 +126,7 @@ public class RoleplayService {
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
         this.config = config;
         this.persona = persona;
-        reminderService.reload(config);
+        reminderService.reload(config,persona);
     }
 
     public void handle(GroupMessageEvent event) {
