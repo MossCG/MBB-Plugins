@@ -225,6 +225,8 @@ AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。
 <global_remember>角色学到的非用户绑定经验</global_remember>
 ```
 
+解析器兼容 `globalremember`、`global-remember`、`global remember` 等大小写和分隔符变体，这些标签都会被剥离，不会发送到 QQ。
+
 查看与备份：
 
 ```text

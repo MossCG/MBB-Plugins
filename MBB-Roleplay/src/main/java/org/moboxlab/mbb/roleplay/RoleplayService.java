@@ -58,9 +58,12 @@ public class RoleplayService {
     private static final Pattern REMINDER_OPEN = Pattern.compile(
             "(?is)<\\s*reminder\\s*/?\\s*>");
     private static final Pattern GLOBAL_REMEMBER_PAIR = Pattern.compile(
-            "(?is)<\\s*global_remember\\s*>(.*?)<\\s*/\\s*global_remember\\s*>");
+            "(?is)<\\s*global[\\s_-]?remember\\s*>(.*?)"
+                    + "<\\s*/\\s*global[\\s_-]?remember\\s*>");
     private static final Pattern GLOBAL_REMEMBER_OPEN = Pattern.compile(
-            "(?is)<\\s*global_remember\\s*/?\\s*>");
+            "(?is)<\\s*global[\\s_-]?remember\\s*/?\\s*>");
+    private static final Pattern GLOBAL_REMEMBER_CLOSE = Pattern.compile(
+            "(?is)<\\s*/\\s*global[\\s_-]?remember\\s*>");
 
     private static class MemoryCursor {
         private final long time;
@@ -1107,15 +1110,20 @@ public class RoleplayService {
         Matcher pair = GLOBAL_REMEMBER_PAIR.matcher(text);
         if (pair.find()) {
             String reply = (text.substring(0,pair.start())+text.substring(pair.end())).trim();
-            return new GlobalRememberResult(true,reply,pair.group(1).trim());
+            return new GlobalRememberResult(true,reply,cleanGlobalRememberText(pair.group(1)));
         }
         Matcher open = GLOBAL_REMEMBER_OPEN.matcher(text);
         if (open.find()) {
             String reply = text.substring(0,open.start()).trim();
-            String content = text.substring(open.end()).trim();
+            String content = cleanGlobalRememberText(text.substring(open.end()));
             return new GlobalRememberResult(true,reply,content);
         }
         return new GlobalRememberResult(false,text.trim(),"");
+    }
+
+    private String cleanGlobalRememberText(String text) {
+        if (text == null) return "";
+        return GLOBAL_REMEMBER_CLOSE.matcher(text).replaceAll("").trim();
     }
 
     private ReminderMarkerResult parseReminderMarker(String json,String reply) {
