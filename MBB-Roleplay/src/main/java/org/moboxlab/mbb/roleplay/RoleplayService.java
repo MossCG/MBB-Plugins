@@ -144,6 +144,7 @@ public class RoleplayService {
     private static class RecentImage {
         private final JSONObject data;
         private final long expireAt;
+        private String summary = "";
 
         private RecentImage(JSONObject data,long expireAt) {
             this.data = data;
@@ -237,7 +238,7 @@ public class RoleplayService {
         if (hasImage) {
             currentImage = rememberImageContext(event,groupID);
             if (shouldUnderstandImages(event,content,direct,sameUserContinuation)) {
-                content = enrichImageContent(event,content,groupID);
+                content = enrichImageContent(event,content,groupID,currentImage);
                 direct = isDirect(event,content,selfID);
                 interest = persona.matchesInterest(content);
             }
@@ -1565,13 +1566,29 @@ public class RoleplayService {
     }
 
     private String imageSummary(RecentImage recent) {
+        if (recent == null) return "";
+        if (recent.summary != null && !recent.summary.trim().isEmpty()) return recent.summary;
         PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
-        if (vision == null || recent == null) return "";
+        if (vision == null) return "";
         JSONObject result = vision.call("describe",imageParams(recent));
         if (result == null || !result.getBooleanValue("status")) return "";
         String summary = safe(result.getString("summary"));
         if (summary.isEmpty()) summary = safe(result.getString("description"));
+        recent.summary = summary;
         return summary;
+    }
+
+    private boolean sameImage(JSONObject left,JSONObject right) {
+        if (left == null || right == null) return false;
+        String leftUnique = safe(left.getString("file_unique"));
+        String rightUnique = safe(right.getString("file_unique"));
+        if (!leftUnique.isEmpty() || !rightUnique.isEmpty()) return leftUnique.equals(rightUnique);
+        String leftUrl = safe(left.getString("url"));
+        String rightUrl = safe(right.getString("url"));
+        if (!leftUrl.isEmpty() || !rightUrl.isEmpty()) return leftUrl.equals(rightUrl);
+        String leftFile = safe(left.getString("file"));
+        String rightFile = safe(right.getString("file"));
+        return !leftFile.isEmpty() && leftFile.equals(rightFile);
     }
 
     private String recentImageKey(long groupID,long userID) {
@@ -1607,7 +1624,8 @@ public class RoleplayService {
         return !value.isEmpty() && !"0".equals(value);
     }
 
-    private String enrichImageContent(GroupMessageEvent event,String context,long groupID) {
+    private String enrichImageContent(GroupMessageEvent event,String context,long groupID,
+                                      RecentImage currentImage) {
         PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
         if (vision == null) return context;
         if (!reserveImageVision(groupID)) {
@@ -1626,7 +1644,7 @@ public class RoleplayService {
             } else if ("at".equals(type)) {
                 builder.append("@").append(data == null ? "" : safe(data.getString("qq")));
             } else if ("image".equals(type) || "mface".equals(type)) {
-                builder.append(describeImageSegment(vision,type,data,context));
+                builder.append(describeImageSegment(vision,type,data,context,currentImage));
             } else if ("face".equals(type)) {
                 builder.append("[表情]");
             }
@@ -1634,7 +1652,8 @@ public class RoleplayService {
         return builder.toString().trim();
     }
 
-    private String describeImageSegment(PluginService vision,String type,JSONObject data,String context) {
+    private String describeImageSegment(PluginService vision,String type,JSONObject data,String context,
+                                        RecentImage currentImage) {
         boolean sticker = isStickerSegment(type,data);
         JSONObject params = new JSONObject(true);
         params.put("kind",sticker ? "sticker" : "image");
@@ -1651,6 +1670,9 @@ public class RoleplayService {
         }
         String summary = safe(result.getString("summary"));
         if (summary.isEmpty()) summary = safe(result.getString("description"));
+        if (currentImage != null && !sticker && sameImage(data,currentImage.data)) {
+            currentImage.summary = summary;
+        }
         String ocr = safe(result.getString("ocr"));
         String tags = joinArray(result.getJSONArray("emotionTags"));
         StringBuilder builder = new StringBuilder(sticker ? "[表情包" : "[图片");

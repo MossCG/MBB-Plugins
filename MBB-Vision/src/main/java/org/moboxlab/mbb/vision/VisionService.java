@@ -5,6 +5,8 @@ import org.moboxlab.moboxbot.API.Plugin;
 import org.moboxlab.moboxbot.API.PluginService;
 
 import java.util.Base64;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 识图公共服务
@@ -13,6 +15,7 @@ public class VisionService implements PluginService {
     private final Plugin plugin;
     private final VisionCache cache;
     private final VisionAnalyzer analyzer;
+    private final Map<String,Object> inflightLocks = new ConcurrentHashMap<>();
 
     public VisionService(Plugin plugin,VisionCache cache) {
         this.plugin = plugin;
@@ -69,11 +72,40 @@ public class VisionService implements PluginService {
                 return cache.toResult(row,true);
             }
         }
-
-        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
-        if (ai == null) return error("MBB-AI 未启用");
         String profile = safe(params.getString("profile"));
         if (profile.isEmpty()) profile = plugin.getConfig().getString("aiProfile","default");
+        if (force) {
+            return describeRemote(params,image,fileUnique,kind,profile,promptVersion,false);
+        }
+        String lockKey = kind+"|"+image.sha256+"|"+promptVersion;
+        Object lock = inflightLocks.get(lockKey);
+        if (lock == null) {
+            Object newLock = new Object();
+            Object existing = inflightLocks.putIfAbsent(lockKey,newLock);
+            lock = existing == null ? newLock : existing;
+        }
+        synchronized (lock) {
+            try {
+                if (cacheEnable) {
+                    JSONObject row = cache.findByHash(image.sha256,kind,promptVersion);
+                    if (row != null) {
+                        cache.touch(row);
+                        logHit(kind,row);
+                        return cache.toResult(row,true);
+                    }
+                }
+                return describeRemote(params,image,fileUnique,kind,profile,promptVersion,cacheEnable);
+            } finally {
+                inflightLocks.remove(lockKey,lock);
+            }
+        }
+    }
+
+    private JSONObject describeRemote(JSONObject params,VisionImageSource.ImageData image,
+                                      String fileUnique,String kind,String profile,
+                                      int promptVersion,boolean cacheEnable) {
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) return error("MBB-AI 未启用");
         int maxTokens = plugin.getConfig().getInt("maxTokens",4000);
         if ("image".equalsIgnoreCase(kind)) {
             maxTokens = Math.max(12000,maxTokens);
