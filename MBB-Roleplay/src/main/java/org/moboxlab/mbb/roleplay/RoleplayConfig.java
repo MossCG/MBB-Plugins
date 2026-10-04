@@ -40,6 +40,13 @@ public class RoleplayConfig {
     public String globalMemoryLearnGroups = "";
     public int globalMemoryMaxItems = 300;
     public int globalMemoryInjectItems = 80;
+    public boolean speechCorpusEnable = true;
+    public String speechCorpusDirectory = "speech-corpus";
+    public int speechRetrievalCount = 8;
+    public int speechRetrievalMaxChars = 1200;
+    public double speechRetrievalMinScore = 0.35;
+    public double speechSimilarityThreshold = 0.78;
+    public int speechSimilarityMinChars = 6;
     public boolean activeMemory = true;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
@@ -102,6 +109,23 @@ public class RoleplayConfig {
         config.globalMemoryLearnGroups = plugin.getConfig().getString("globalMemoryLearnGroups","");
         config.globalMemoryMaxItems = plugin.getConfig().getInt("globalMemoryMaxItems",300);
         config.globalMemoryInjectItems = plugin.getConfig().getInt("globalMemoryInjectItems",80);
+        config.speechCorpusEnable = plugin.getConfig().getBoolean("speechCorpusEnable",true);
+        config.speechCorpusDirectory = plugin.getConfig().getString("speechCorpusDirectory","speech-corpus");
+        config.speechRetrievalCount = plugin.getConfig().getInt("speechRetrievalCount",8);
+        config.speechRetrievalMaxChars = plugin.getConfig().getInt("speechRetrievalMaxChars",1200);
+        try {
+            config.speechRetrievalMinScore = Double.parseDouble(
+                    plugin.getConfig().getString("speechRetrievalMinScore","0.35"));
+        } catch (Exception e) {
+            config.speechRetrievalMinScore = 0.35;
+        }
+        try {
+            config.speechSimilarityThreshold = Double.parseDouble(
+                    plugin.getConfig().getString("speechSimilarityThreshold","0.78"));
+        } catch (Exception e) {
+            config.speechSimilarityThreshold = 0.78;
+        }
+        config.speechSimilarityMinChars = plugin.getConfig().getInt("speechSimilarityMinChars",6);
         config.activeMemory = plugin.getConfig().getBoolean("activeMemory",true);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
@@ -158,6 +182,18 @@ public class RoleplayConfig {
         if (config.globalMemoryMaxItems > 1000) config.globalMemoryMaxItems = 1000;
         if (config.globalMemoryInjectItems < 10) config.globalMemoryInjectItems = 10;
         if (config.globalMemoryInjectItems > 300) config.globalMemoryInjectItems = 300;
+        if (config.speechCorpusDirectory == null || config.speechCorpusDirectory.trim().isEmpty()) {
+            config.speechCorpusDirectory = "speech-corpus";
+        }
+        if (config.speechRetrievalCount < 1) config.speechRetrievalCount = 1;
+        if (config.speechRetrievalCount > 30) config.speechRetrievalCount = 30;
+        if (config.speechRetrievalMaxChars < 200) config.speechRetrievalMaxChars = 200;
+        if (config.speechRetrievalMaxChars > 6000) config.speechRetrievalMaxChars = 6000;
+        if (config.speechRetrievalMinScore < 0) config.speechRetrievalMinScore = 0;
+        if (config.speechRetrievalMinScore > 1) config.speechRetrievalMinScore = 1;
+        if (config.speechSimilarityThreshold < 0.3) config.speechSimilarityThreshold = 0.3;
+        if (config.speechSimilarityThreshold > 1) config.speechSimilarityThreshold = 1;
+        if (config.speechSimilarityMinChars < 2) config.speechSimilarityMinChars = 2;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;

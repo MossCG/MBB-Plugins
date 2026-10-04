@@ -59,6 +59,20 @@ globalMemoryLearnGroups: ""
 globalMemoryMaxItems: 300
 #每次注入角色提示词的全局永久记忆条数
 globalMemoryInjectItems: 80
+#是否启用角色台词语料检索
+speechCorpusEnable: true
+#台词语料目录，文件名为 speech-corpus-<角色>.jsonl
+speechCorpusDirectory: "speech-corpus"
+#每次注入多少条参考台词
+speechRetrievalCount: 8
+#参考台词注入的最大字符数
+speechRetrievalMaxChars: 1200
+#台词检索最低分数
+speechRetrievalMinScore: 0.35
+#回复与台词语料相似度达到多少时视为照抄
+speechSimilarityThreshold: 0.78
+#少于多少字的回复不做照抄检测
+speechSimilarityMinChars: 6
 #是否允许角色通过回复末尾的 <remember> 主动触发记忆整理
 activeMemory: true
 #最多加载多少条长期记忆

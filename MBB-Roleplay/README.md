@@ -25,6 +25,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 提醒创建确认和到点提醒正文都由当前角色 AI 生成，模板仅作为兜底
 - AI 聊天过程中可以输出 `<reminder>` 标记，结合上下文创建定时任务，包括角色自己的提醒
 - 支持所有群共享的永久记忆，学习来源可限制到白名单群，并支持查看和 JSON 备份
+- 支持角色台词语料检索，按当前消息和上下文注入少量参考台词，并拦截高度照抄
 - 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
 - 群主和管理员视为老师，其他真人成员视为朋友，另一个角色机器人不按群权限归类
 - 所有真人成员使用可配置的初始好感度，默认 `70/100`
@@ -64,6 +65,10 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role gmemory backup` | `BOT_ADMIN` | 导出全局永久记忆 JSON 备份 |
 | `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆 |
 | `/role gmemory group ...` | `BOT_ADMIN` | 管理永久记忆学习白名单群 |
+| `/role speech stats` | `BOT_ADMIN` | 查看台词语料加载状态 |
+| `/role speech reload` | `BOT_ADMIN` | 重载台词语料 |
+| `/role speech search <文本>` | `BOT_ADMIN` | 调试台词语料检索 |
+| `/role speech on` / `off` | `BOT_ADMIN` | 开关台词语料检索 |
 
 ## 角色设定
 
@@ -248,6 +253,36 @@ global-memory-backup.json
 ```
 
 永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是调用 AI 对重复或高度相似的条目进行整理合并。合并失败时保留原数据。
+
+## 台词语料检索
+
+语料文件放在插件数据目录：
+
+```text
+speech-corpus/speech-corpus-aris.jsonl
+speech-corpus/speech-corpus-momoi.jsonl
+speech-corpus/speech-corpus-midori.jsonl
+```
+
+每行一个 JSON 对象：
+
+```json
+{"id":"aris-000001","role":"aris","text":"爱丽丝明白了！","tags":["日常","任务"],"emotion":"curious","scene":"group_chat","source":"设定集","weight":1.0,"spoiler":0}
+```
+
+插件会使用当前消息和最近群聊上下文做本地字符 n-gram 检索，把少量参考台词注入角色提示词。参考示例只用于学习表达方式，生成后还会做相似度检测，避免直接照抄台词。
+
+相关配置：
+
+```yaml
+speechCorpusEnable: true
+speechCorpusDirectory: "speech-corpus"
+speechRetrievalCount: 8
+speechRetrievalMaxChars: 1200
+speechRetrievalMinScore: 0.35
+speechSimilarityThreshold: 0.78
+speechSimilarityMinChars: 6
+```
 
 角色 AI 可以在普通回复末尾输出结构化标记来主动创建任务：
 

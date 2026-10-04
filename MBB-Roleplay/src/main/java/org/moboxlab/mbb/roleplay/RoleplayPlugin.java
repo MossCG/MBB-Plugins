@@ -126,6 +126,10 @@ public class RoleplayPlugin extends Plugin {
         return setConfigValue("globalMemoryLearnGroups",value == null ? "" : value.trim());
     }
 
+    public boolean setSpeechCorpusEnable(boolean enabled) {
+        return setConfigValue("speechCorpusEnable",enabled ? "true" : "false");
+    }
+
     private boolean setConfigValue(String key,String value) {
         RoleplayConfigMigrator.ensure(this);
         getConfig().set(key,value);

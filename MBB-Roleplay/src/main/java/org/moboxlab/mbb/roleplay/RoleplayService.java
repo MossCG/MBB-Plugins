@@ -37,6 +37,7 @@ public class RoleplayService {
     private final Plugin plugin;
     private final RoleplayReminderService reminderService;
     private final RoleplayGlobalMemoryService globalMemoryService;
+    private final RoleplaySpeechCorpusService speechCorpusService;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,Long> lastReplyMap = new HashMap<>();
@@ -126,6 +127,7 @@ public class RoleplayService {
         this.persona = persona;
         this.reminderService = new RoleplayReminderService(plugin,config,persona);
         this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config);
+        this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
     }
 
     public void init() {
@@ -168,6 +170,7 @@ public class RoleplayService {
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_msg_group` ON `"+MSG_TABLE+"` (`groupID`,`messageTime`)");
         reminderService.init();
         globalMemoryService.init();
+        speechCorpusService.init();
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
@@ -175,6 +178,7 @@ public class RoleplayService {
         this.persona = persona;
         reminderService.reload(config,persona);
         globalMemoryService.reload(config);
+        speechCorpusService.reload(config);
     }
 
     public void handle(GroupMessageEvent event) {
@@ -257,6 +261,11 @@ public class RoleplayService {
         if (reply.isEmpty() || "<SKIP>".equalsIgnoreCase(reply)) return;
         if (shouldSuppressRepeat(groupID,reply)) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过重复回复："+shortText(reply,80));
+            return;
+        }
+        if (speechCorpusService.tooSimilar(reply)) {
+            plugin.getLogger().sendInfo("[语料] 群"+groupID+" 跳过高度相似台词："
+                    +shortText(reply,80));
             return;
         }
         OneBotClient client = plugin.getServer().getOneBotClient();
@@ -368,6 +377,10 @@ public class RoleplayService {
         return globalMemoryService;
     }
 
+    public RoleplaySpeechCorpusService getSpeechCorpusService() {
+        return speechCorpusService;
+    }
+
     public int ruleLikeCount() {
         return persona.interests.size();
     }
@@ -377,7 +390,8 @@ public class RoleplayService {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
-        messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship)));
+        String speechPrompt = speechCorpusService.promptText(content,recentContext(groupID));
+        messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship,speechPrompt)));
         messages.add(message("user","当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                 +"当前关系："+relationship+"\n"
                 +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
@@ -389,13 +403,15 @@ public class RoleplayService {
         return ai.call("chat",params);
     }
 
-    private String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,String relationship) {
+    private String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,
+                                     String relationship,String speechPrompt) {
         String recentReplies = recentRoleReplyText(groupID);
         return persona.description()+"\n\n"
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
                 +"全局永久记忆：\n"+globalMemoryService.promptText()+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
                 +"你最近说过的话：\n"+recentReplies+"\n"
+                +(speechPrompt == null || speechPrompt.isEmpty() ? "" : speechPrompt+"\n")
                 +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
                 +"当前用户的待触发提醒：\n"+reminderService.pendingText(groupID,userID)+"\n"

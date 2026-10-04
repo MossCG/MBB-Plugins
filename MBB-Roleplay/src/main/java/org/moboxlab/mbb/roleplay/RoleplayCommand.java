@@ -66,6 +66,7 @@ public class RoleplayCommand extends BotCommand {
                 "/role gmemory backup",
                 "/role gmemory merge",
                 "/role gmemory group [list|add|remove|clear] [群号...]",
+                "/role speech [stats|reload|search <文本>|on|off]",
                 "/role forget",
                 "/role persona [文件名]",
                 "/role persona reset <文件名>");
@@ -130,6 +131,10 @@ public class RoleplayCommand extends BotCommand {
         }
         if ("gmemory".equals(action)) {
             handleGlobalMemory(sender,args);
+            return true;
+        }
+        if ("speech".equals(action)) {
+            handleSpeech(sender,args);
             return true;
         }
         if ("forget".equals(action)) {
@@ -319,6 +324,63 @@ public class RoleplayCommand extends BotCommand {
 
     private String safeList(String value) {
         return value == null || value.trim().isEmpty() ? "空" : value.trim();
+    }
+
+    private void handleSpeech(CommandSender sender,String[] args) {
+        RoleplaySpeechCorpusService speech = service.getSpeechCorpusService();
+        String action = args.length > 2 ? args[2].toLowerCase() : "stats";
+        if ("stats".equals(action)) {
+            JSONObject stats = speech.stats();
+            sender.sendMessage("台词语料："
+                    +"\n启用："+(stats.getBooleanValue("enabled") ? "是" : "否")
+                    +"\n条数："+stats.getIntValue("count")
+                    +"\n标签数："+stats.getIntValue("tagCount")
+                    +"\n文件："+stats.getString("path"));
+            return;
+        }
+        if ("reload".equals(action)) {
+            plugin.reloadRoleplay();
+            sender.sendMessage("台词语料已重载，当前条数："+speech.count());
+            return;
+        }
+        if ("on".equals(action) || "off".equals(action)) {
+            boolean changed = plugin.setSpeechCorpusEnable("on".equals(action));
+            sender.sendMessage(changed
+                    ? "台词语料检索已"+("on".equals(action) ? "开启。" : "关闭。")
+                    : "保存配置失败，请检查 config.yml 权限。");
+            return;
+        }
+        if ("search".equals(action)) {
+            if (args.length < 4) {
+                sender.sendMessage("用法：/role speech search <文本>");
+                return;
+            }
+            JSONArray results = speech.search(joinArgs(args,3),10);
+            if (results.isEmpty()) {
+                sender.sendMessage("没有检索到合适的台词示例。");
+                return;
+            }
+            StringBuilder builder = new StringBuilder("台词检索结果：");
+            for (int i = 0; i < results.size(); i++) {
+                JSONObject item = results.getJSONObject(i);
+                builder.append("\n#").append(i + 1)
+                        .append(" ").append(item.getString("text"))
+                        .append(" [").append(item.getString("emotion"))
+                        .append("/").append(item.getString("scene")).append("]");
+            }
+            sender.sendMessage(builder.toString());
+            return;
+        }
+        sender.sendMessage("用法：/role speech stats | reload | search <文本> | on | off");
+    }
+
+    private String joinArgs(String[] args,int start) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = start; i < args.length; i++) {
+            if (builder.length() > 0) builder.append(" ");
+            builder.append(args[i]);
+        }
+        return builder.toString().trim();
     }
 
     private void handleConfig(CommandSender sender,String[] args) {
