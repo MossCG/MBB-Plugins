@@ -49,6 +49,7 @@ public class RoleplayService {
     private final Map<Long,String> pendingMemoryMap = new HashMap<>();
     private final Map<Long,Integer> otherRoleMessageStreakMap = new HashMap<>();
     private final Map<Long,Boolean> memoryMergingMap = new HashMap<>();
+    private final Map<Long,long[]> imageVisionRateMap = new HashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
@@ -210,6 +211,16 @@ public class RoleplayService {
         if (isCommand(content)) return;
         boolean otherRoleBot = isOtherRoleBot(event,selfID);
         int otherRoleStreak = updateOtherRoleMessageStreak(groupID,otherRoleBot);
+        boolean direct = isDirect(event,content,selfID);
+        boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
+        boolean groupActive = isGroupActive(groupID);
+        boolean interest = persona.matchesInterest(content);
+        if (hasImageContent(event.getMessage())) {
+            if (!shouldUnderstandImages(event,content,direct,sameUserContinuation)) return;
+            content = enrichImageContent(event,content,groupID);
+            direct = isDirect(event,content,selfID);
+            interest = persona.matchesInterest(content);
+        }
         recordMessage(event,content,false);
         int count = countMessage(groupID);
         if (count >= config.memoryUpdateMessages) {
@@ -225,10 +236,6 @@ public class RoleplayService {
         if (!otherRoleBot && reminderService.handle(event,content)) return;
         if (otherRoleBot && otherRoleStreak > config.maxConsecutiveOtherRoleMessages) return;
 
-        boolean direct = isDirect(event,content,selfID);
-        boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
-        boolean groupActive = isGroupActive(groupID);
-        boolean interest = persona.matchesInterest(content);
         if (!direct && !sameUserContinuation && !groupActive && !interest) return;
         double chance = config.interestReplyChance;
         if (otherRoleBot) chance = config.otherRoleBotReplyChance;
@@ -1398,11 +1405,131 @@ public class RoleplayService {
             String type = segment.getString("type");
             JSONObject data = segment.getJSONObject("data");
             if ("text".equals(type)) builder.append(data == null ? "" : safe(data.getString("text")));
-            else if ("image".equals(type)) builder.append("[图片]");
+            else if ("image".equals(type) || "mface".equals(type)) builder.append("[图片]");
             else if ("at".equals(type)) builder.append("@").append(data == null ? "" : safe(data.getString("qq")));
             else if ("face".equals(type)) builder.append("[表情]");
         }
         return builder.toString().trim();
+    }
+
+    private boolean hasImageContent(JSONArray message) {
+        if (message == null) return false;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null) continue;
+            String type = segment.getString("type");
+            if ("image".equals(type) || "mface".equals(type)) return true;
+        }
+        return false;
+    }
+
+    private boolean shouldUnderstandImages(GroupMessageEvent event,String content,
+                                           boolean direct,boolean sameUserContinuation) {
+        if (!config.imageUnderstandingEnable || "off".equals(config.imageUnderstandingMode)) return false;
+        if (hasStickerContent(event.getMessage())) return true;
+        if ("all".equals(config.imageUnderstandingMode)) return true;
+        return direct || sameUserContinuation;
+    }
+
+    private boolean hasStickerContent(JSONArray message) {
+        if (message == null) return false;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null) continue;
+            if (isStickerSegment(segment.getString("type"),segment.getJSONObject("data"))) return true;
+        }
+        return false;
+    }
+
+    private boolean isStickerSegment(String type,JSONObject data) {
+        if ("mface".equals(type)) return true;
+        if (data == null) return false;
+        String file = safe(data.getString("file"));
+        if (file.contains("marketface")) return true;
+        Object subType = data.get("sub_type");
+        if (subType == null) return false;
+        String value = String.valueOf(subType).trim();
+        return !value.isEmpty() && !"0".equals(value);
+    }
+
+    private String enrichImageContent(GroupMessageEvent event,String context,long groupID) {
+        PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
+        if (vision == null) return context;
+        if (!reserveImageVision(groupID)) {
+            plugin.getLogger().sendWarn("[识图] 群"+groupID+" 已达到每小时识图上限，跳过图片理解。");
+            return context;
+        }
+        StringBuilder builder = new StringBuilder();
+        JSONArray message = event.getMessage();
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null) continue;
+            String type = segment.getString("type");
+            JSONObject data = segment.getJSONObject("data");
+            if ("text".equals(type)) {
+                builder.append(data == null ? "" : safe(data.getString("text")));
+            } else if ("at".equals(type)) {
+                builder.append("@").append(data == null ? "" : safe(data.getString("qq")));
+            } else if ("image".equals(type) || "mface".equals(type)) {
+                builder.append(describeImageSegment(vision,type,data,context));
+            } else if ("face".equals(type)) {
+                builder.append("[表情]");
+            }
+        }
+        return builder.toString().trim();
+    }
+
+    private String describeImageSegment(PluginService vision,String type,JSONObject data,String context) {
+        boolean sticker = isStickerSegment(type,data);
+        JSONObject params = new JSONObject(true);
+        params.put("kind",sticker ? "sticker" : "image");
+        String fileUnique = data == null ? "" : safe(data.getString("file_unique"));
+        if (fileUnique.isEmpty() && data != null) fileUnique = safe(data.getString("file_id"));
+        params.put("fileUnique",fileUnique);
+        params.put("url",data == null ? "" : safe(data.getString("url")));
+        params.put("file",data == null ? "" : safe(data.getString("file")));
+        params.put("context",context);
+        params.put("profile",config.imageUnderstandingProfile);
+        JSONObject result = vision.call("describe",params);
+        if (result == null || !result.getBooleanValue("status")) {
+            return sticker ? "[表情包]" : "[图片]";
+        }
+        String summary = safe(result.getString("summary"));
+        if (summary.isEmpty()) summary = safe(result.getString("description"));
+        String ocr = safe(result.getString("ocr"));
+        String tags = joinArray(result.getJSONArray("emotionTags"));
+        StringBuilder builder = new StringBuilder(sticker ? "[表情包" : "[图片");
+        if (!summary.isEmpty()) builder.append("：").append(shortText(summary,Math.min(220,config.imageUnderstandingMaxChars)));
+        if (sticker && !tags.isEmpty()) builder.append("；情绪：").append(tags);
+        if (!sticker && config.imageUnderstandingInjectOcr && !ocr.isEmpty()) {
+            builder.append("；文字：").append(shortText(ocr,120));
+        }
+        return builder.append("]").toString();
+    }
+
+    private String joinArray(JSONArray array) {
+        if (array == null || array.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < array.size(); i++) {
+            String value = safe(array.getString(i));
+            if (value.isEmpty()) continue;
+            if (builder.length() > 0) builder.append(", ");
+            builder.append(value);
+        }
+        return builder.toString();
+    }
+
+    private synchronized boolean reserveImageVision(long groupID) {
+        if (config.imageUnderstandingMaxPerHour <= 0) return true;
+        long now = System.currentTimeMillis();
+        long[] state = imageVisionRateMap.get(groupID);
+        if (state == null || now - state[0] >= 3600000L) {
+            imageVisionRateMap.put(groupID,new long[]{now,1});
+            return true;
+        }
+        if (state[1] >= config.imageUnderstandingMaxPerHour) return false;
+        state[1]++;
+        return true;
     }
 
     private boolean containsIgnoredContent(JSONArray message) {
@@ -1411,7 +1538,7 @@ public class RoleplayService {
             JSONObject segment = message.getJSONObject(i);
             if (segment == null) continue;
             String type = segment.getString("type");
-            if ("image".equals(type) || "mface".equals(type) || "face".equals(type)) return true;
+            if ("face".equals(type)) return true;
         }
         return false;
     }

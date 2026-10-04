@@ -68,13 +68,23 @@ public class StickerLibrary {
     }
 
     public synchronized StickerEntry add(File file,List<String> tags,String source,String description) {
+        return add(file,tags,source,description,"","",0);
+    }
+
+    public synchronized StickerEntry add(File file,List<String> tags,String source,String description,
+                                         String hash,String fileUnique,int visionVersion) {
         StickerEntry entry = new StickerEntry();
         entry.id = newId();
         entry.file = toFileUri(file);
         entry.tags = normalizeTags(tags);
         entry.source = source == null ? "" : source;
         entry.description = description == null ? "" : description;
+        entry.hash = hash == null ? "" : hash;
+        entry.fileUnique = fileUnique == null ? "" : fileUnique;
+        entry.visionVersion = visionVersion;
         entry.addedAt = System.currentTimeMillis();
+        entry.lastSeenAt = entry.addedAt;
+        entry.hitCount = 0;
         entries.add(entry);
         rebuildTags();
         save();
@@ -130,6 +140,32 @@ public class StickerLibrary {
         if (id == null) return null;
         for (StickerEntry entry : entries) if (id.equals(entry.id)) return entry;
         return null;
+    }
+
+    public synchronized StickerEntry findByHash(String hash) {
+        if (hash == null || hash.trim().isEmpty()) return null;
+        for (StickerEntry entry : entries) {
+            if (hash.equals(entry.hash)) return entry;
+        }
+        return null;
+    }
+
+    public synchronized StickerEntry findByFileUnique(String fileUnique) {
+        if (fileUnique == null || fileUnique.trim().isEmpty()) return null;
+        for (StickerEntry entry : entries) {
+            if (fileUnique.equals(entry.fileUnique)) return entry;
+        }
+        return null;
+    }
+
+    public synchronized void touch(StickerEntry entry,String fileUnique) {
+        if (entry == null) return;
+        entry.lastSeenAt = System.currentTimeMillis();
+        entry.hitCount++;
+        if (entry.fileUnique == null || entry.fileUnique.trim().isEmpty()) {
+            entry.fileUnique = fileUnique == null ? "" : fileUnique;
+        }
+        save();
     }
 
     public List<StickerEntry> all() {

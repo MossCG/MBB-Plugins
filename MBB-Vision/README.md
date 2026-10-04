@@ -1,0 +1,51 @@
+# MBB-Vision
+
+MoBoxBot 公用识图与本地缓存插件。
+
+## 特性
+
+- 对图片和表情包统一调用视觉模型
+- 优先按 OneBot `file_unique` 查询缓存
+- 没有平台唯一标识时按图片 SHA-256 查询缓存
+- 识别结果写入 SQLite，后续同一图片不重复调用 AI
+- 输出识别结果日志，便于调试
+- 提供 `MBB-Vision` 公共服务
+
+## 服务
+
+```text
+action: describe
+params:
+  fileUnique: 平台文件唯一标识，可选
+  url: 图片 URL，可选
+  file: OneBot 文件标识或本地路径，可选
+  fileUri: file:// 本地路径，可选
+  kind: sticker 或 image
+  context: 聊天上下文，可选
+  profile: 覆盖默认 AI 配置，可选
+  force: true 时强制重新识别，可选
+```
+
+返回：
+
+```json
+{
+  "status": true,
+  "cached": false,
+  "sha256": "...",
+  "summary": "图片内容摘要",
+  "ocr": "识别到的文字",
+  "emotionTags": ["happy", "shy"],
+  "visualTags": ["cat"],
+  "description": "简短描述",
+  "scene": "group_chat"
+}
+```
+
+## 指令
+
+| 指令 | 权限 | 说明 |
+|---|---|---|
+| `/vision stats` | `BOT_ADMIN` | 查看缓存数量 |
+| `/vision clear` | `BOT_ADMIN` | 清空识图缓存 |
+| `/vision reload` | `BOT_ADMIN` | 重载配置 |

@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Vision",
+  "version": "V0.1.0.0.0224",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.vision.VisionPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 公用识图与本地缓存插件",
+  "website": "",
+  "depend": [],
+  "softDepend": ["MBB-AI"],
+  "loadBefore": [],
+  "provides": ["vision"]
+}

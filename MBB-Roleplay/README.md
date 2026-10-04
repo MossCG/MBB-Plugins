@@ -34,7 +34,8 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 同一话题下允许多个群员继续参与，AI 会判断是否真正接续话题
 - 高频群聊模式：秒级回复冷却，默认每小时可回复 180 次
 - 输出纯文本聊天，不使用 Markdown
-- 图片、图片表情包和 QQ 表情消息直接忽略，不记录、不进入记忆、不触发回复
+- QQ 表情消息直接忽略；安装 `MBB-Vision` 后，图片和表情包可以按配置理解并注入聊天上下文
+- 图片理解默认只处理直接提及、连续对话和表情包，普通群图片不会全部送模型
 - 安装 `MBB-Sticker` 后，角色可以按当前真实标签集输出 `<sticker>tag</sticker>` 发送匹配表情包，不会调用不存在的标签
 
 ## 指令
@@ -128,7 +129,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 ## 依赖
 
-需要安装并启用 `MBB-AI`。`MBB-AI` 负责模型调用、纯文本输出清洗和会话统计。
+需要安装并启用 `MBB-AI`。图片理解还需要安装并启用 `MBB-Vision`。`MBB-AI` 负责模型调用，`MBB-Vision` 负责图片识别、缓存和复用。
 
 ## 默认性能
 
@@ -154,6 +155,12 @@ memoryProfile: ""
 timeZone: "Asia/Shanghai"
 memoryMaxTokens: 12000
 activeMemory: true
+imageUnderstandingEnable: true
+imageUnderstandingMode: "addressed"
+imageUnderstandingMaxPerHour: 30
+imageUnderstandingInjectOcr: true
+imageUnderstandingProfile: ""
+imageUnderstandingMaxChars: 600
 maxLongMemories: 150
 recentReplyCheckCount: 8
 repeatSimilarityThreshold: 0.72

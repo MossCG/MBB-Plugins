@@ -48,6 +48,12 @@ public class RoleplayConfig {
     public double speechSimilarityThreshold = 0.78;
     public int speechSimilarityMinChars = 6;
     public boolean activeMemory = true;
+    public boolean imageUnderstandingEnable = true;
+    public String imageUnderstandingMode = "addressed";
+    public int imageUnderstandingMaxPerHour = 30;
+    public boolean imageUnderstandingInjectOcr = true;
+    public String imageUnderstandingProfile = "";
+    public int imageUnderstandingMaxChars = 600;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
     public int replySegmentMaxChars = 160;
@@ -127,6 +133,12 @@ public class RoleplayConfig {
         }
         config.speechSimilarityMinChars = plugin.getConfig().getInt("speechSimilarityMinChars",6);
         config.activeMemory = plugin.getConfig().getBoolean("activeMemory",true);
+        config.imageUnderstandingEnable = plugin.getConfig().getBoolean("imageUnderstandingEnable",true);
+        config.imageUnderstandingMode = plugin.getConfig().getString("imageUnderstandingMode","addressed");
+        config.imageUnderstandingMaxPerHour = plugin.getConfig().getInt("imageUnderstandingMaxPerHour",30);
+        config.imageUnderstandingInjectOcr = plugin.getConfig().getBoolean("imageUnderstandingInjectOcr",true);
+        config.imageUnderstandingProfile = plugin.getConfig().getString("imageUnderstandingProfile","");
+        config.imageUnderstandingMaxChars = plugin.getConfig().getInt("imageUnderstandingMaxChars",600);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",160);
@@ -194,6 +206,20 @@ public class RoleplayConfig {
         if (config.speechSimilarityThreshold < 0.3) config.speechSimilarityThreshold = 0.3;
         if (config.speechSimilarityThreshold > 1) config.speechSimilarityThreshold = 1;
         if (config.speechSimilarityMinChars < 2) config.speechSimilarityMinChars = 2;
+        if (config.imageUnderstandingMode == null || config.imageUnderstandingMode.trim().isEmpty()) {
+            config.imageUnderstandingMode = "addressed";
+        }
+        config.imageUnderstandingMode = config.imageUnderstandingMode.trim().toLowerCase();
+        if (!"off".equals(config.imageUnderstandingMode)
+                && !"addressed".equals(config.imageUnderstandingMode)
+                && !"all".equals(config.imageUnderstandingMode)) {
+            config.imageUnderstandingMode = "addressed";
+        }
+        if (config.imageUnderstandingMaxPerHour < 0) config.imageUnderstandingMaxPerHour = 0;
+        if (config.imageUnderstandingMaxPerHour > 500) config.imageUnderstandingMaxPerHour = 500;
+        if (config.imageUnderstandingProfile == null) config.imageUnderstandingProfile = "";
+        if (config.imageUnderstandingMaxChars < 100) config.imageUnderstandingMaxChars = 100;
+        if (config.imageUnderstandingMaxChars > 3000) config.imageUnderstandingMaxChars = 3000;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;

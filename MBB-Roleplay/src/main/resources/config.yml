@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 3
+configVersion: 4
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -75,6 +75,18 @@ speechSimilarityThreshold: 0.78
 speechSimilarityMinChars: 6
 #是否允许角色通过回复末尾的 <remember> 主动触发记忆整理
 activeMemory: true
+#是否允许角色理解群聊图片和表情包
+imageUnderstandingEnable: true
+#图片理解模式：off 关闭 / addressed 只处理直接提及或连续对话 / all 处理全部图片
+imageUnderstandingMode: "addressed"
+#每个群每小时最多识图次数，0 表示不限制
+imageUnderstandingMaxPerHour: 30
+#识图结果是否把 OCR 文字注入角色上下文
+imageUnderstandingInjectOcr: true
+#图片理解使用的模型配置名，留空则使用 MBB-Vision 默认配置
+imageUnderstandingProfile: ""
+#图片理解结果注入角色的最大字符数
+imageUnderstandingMaxChars: 600
 #最多加载多少条长期记忆
 maxLongMemories: 150
 #单次角色回复最大 Token

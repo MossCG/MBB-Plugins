@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -116,6 +117,24 @@ public class StickerReceiveService {
                 sendQuote(event.getUserID(),event.getMessageID(),"图片超过大小限制："+maxBytes / 1024L+" KB。");
                 return;
             }
+            String fileUnique = fileUnique(data);
+            String hash = sha256(image);
+            StickerEntry existing = library.findByHash(hash);
+            if (existing == null && !fileUnique.isEmpty()) existing = library.findByFileUnique(fileUnique);
+            if (existing != null) {
+                if (source.temporary) deleteTemporary(image);
+                library.touch(existing,fileUnique);
+                plugin.getLogger().sendInfo("[表情包] 命中本地缓存 ID="+existing.id
+                        +" hash="+shortHash(hash)+" fileUnique="+fileUnique
+                        +" 标签="+String.join(", ",existing.tags)
+                        +" 描述="+shortText(existing.description,100));
+                sendQuote(event.getUserID(),event.getMessageID(),"表情包已存在：\n"
+                        +"ID："+existing.id+"\n"
+                        +"标签："+String.join(", ",existing.tags)+"\n"
+                        +"描述："+(existing.description.isEmpty() ? "无" : existing.description)+"\n"
+                        +"文件："+existing.file);
+                return;
+            }
             File stickerDir = new File(plugin.getDataFolder(),"stickers");
             if (!stickerDir.exists()) stickerDir.mkdirs();
             String extension = extension(image.getName());
@@ -131,10 +150,14 @@ public class StickerReceiveService {
                 if (!copied && target.exists()) deleteTemporary(target);
             }
             String mime = mime(extension);
-            JSONObject tagged = tagger.tag(target,mime);
+            JSONObject tagged = tagger.tag(target,mime,fileUnique);
             List<String> tags = toStringList(tagged.getJSONArray("tags"));
             String description = safe(tagged.getString("description"));
-            StickerEntry entry = library.add(target,tags,"receive",description);
+            StickerEntry entry = library.add(target,tags,"receive",description,hash,fileUnique,
+                    tagged.getIntValue("visionVersion"));
+            plugin.getLogger().sendInfo("[表情包] 新增 ID="+entry.id+" hash="+shortHash(hash)
+                    +" fileUnique="+fileUnique+" 标签="+String.join(", ",entry.tags)
+                    +" 描述="+shortText(entry.description,100));
             sendQuote(event.getUserID(),event.getMessageID(),"已收录表情包：\n"
                     +"ID："+entry.id+"\n"
                     +"标签："+String.join(", ",entry.tags)+"\n"
@@ -252,6 +275,34 @@ public class StickerReceiveService {
         if ("jpg".equals(value) || "jpeg".equals(value) || "png".equals(value)
                 || "gif".equals(value) || "webp".equals(value)) return value;
         return "";
+    }
+
+    private String fileUnique(JSONObject data) {
+        if (data == null) return "";
+        String value = safe(data.getString("file_unique"));
+        if (value.isEmpty()) value = safe(data.getString("file_id"));
+        return value;
+    }
+
+    private String sha256(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] bytes = Files.readAllBytes(file.toPath());
+        byte[] value = digest.digest(bytes);
+        StringBuilder builder = new StringBuilder();
+        for (byte item : value) builder.append(String.format("%02x",item & 0xff));
+        return builder.toString();
+    }
+
+    private String shortHash(String hash) {
+        if (hash == null || hash.length() <= 12) return safe(hash);
+        return hash.substring(0,12);
+    }
+
+    private String shortText(String value,int maxLength) {
+        if (value == null) return "";
+        String text = value.replace("\r"," ").replace("\n"," ").trim();
+        if (text.length() <= maxLength) return text;
+        return text.substring(0,maxLength)+"...";
     }
 
     private String extensionFromContentType(String contentType) {

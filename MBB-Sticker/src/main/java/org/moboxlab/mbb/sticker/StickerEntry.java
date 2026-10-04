@@ -18,6 +18,11 @@ public class StickerEntry {
     public long addedAt = 0L;
     public String source = "receive";
     public String description = "";
+    public String hash = "";
+    public String fileUnique = "";
+    public int visionVersion = 0;
+    public long lastSeenAt = 0L;
+    public int hitCount = 0;
 
     public static StickerEntry fromJson(JSONObject json) {
         StickerEntry entry = new StickerEntry();
@@ -29,6 +34,11 @@ public class StickerEntry {
         entry.addedAt = json.getLongValue("addedAt");
         entry.source = safe(json.getString("source"));
         entry.description = safe(json.getString("description"));
+        entry.hash = safe(json.getString("hash"));
+        entry.fileUnique = safe(json.getString("fileUnique"));
+        entry.visionVersion = json.getIntValue("visionVersion");
+        entry.lastSeenAt = json.getLongValue("lastSeenAt");
+        entry.hitCount = json.getIntValue("hitCount");
         JSONArray tagArray = json.getJSONArray("tags");
         if (tagArray != null) {
             for (Object tag : tagArray) {
@@ -52,6 +62,11 @@ public class StickerEntry {
         json.put("addedAt",addedAt);
         json.put("source",source);
         json.put("description",description);
+        json.put("hash",hash);
+        json.put("fileUnique",fileUnique);
+        json.put("visionVersion",visionVersion);
+        json.put("lastSeenAt",lastSeenAt);
+        json.put("hitCount",hitCount);
         return json;
     }
 

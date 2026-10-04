@@ -24,7 +24,30 @@ public class StickerTagger {
     }
 
     public JSONObject tag(File file) {
-        return tag(file,mime(file));
+        return tag(file,mime(file),"");
+    }
+
+    public JSONObject tag(File file,String mime,String fileUnique) {
+        PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
+        if (vision != null) {
+            JSONObject params = new JSONObject(true);
+            params.put("fileUri",StickerLibrary.toFileUri(file));
+            params.put("kind","sticker");
+            params.put("fileUnique",fileUnique == null ? "" : fileUnique);
+            JSONObject response = vision.call("describe",params);
+            if (response != null && response.getBooleanValue("status")) {
+                JSONObject result = new JSONObject(true);
+                JSONArray tags = response.getJSONArray("emotionTags");
+                if (tags == null || tags.isEmpty()) tags = response.getJSONArray("tags");
+                result.put("tags",tags == null || tags.isEmpty() ? fallbackTags() : tags);
+                result.put("description",safe(response.getString("summary")));
+                result.put("visionVersion",response.getIntValue("promptVersion"));
+                return result;
+            }
+        }
+        JSONObject fallback = tag(file,mime);
+        fallback.put("visionVersion",0);
+        return fallback;
     }
 
     public JSONObject tag(File file,String mime) {
@@ -86,6 +109,8 @@ public class StickerTagger {
             tagArray.addAll(tags);
             result.put("tags",tagArray);
             result.put("description",parsed == null ? "" : safe(parsed.getString("description")));
+            plugin.getLogger().sendInfo("[表情包] 识图结果 tags="+tagArray.toJSONString()
+                    +" description="+shortText(result.getString("description"),100));
             return result;
         } catch (Exception e) {
             plugin.getLogger().sendWarn("表情包识图异常："+e.getMessage());
