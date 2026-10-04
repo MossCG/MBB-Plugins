@@ -36,6 +36,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 输出纯文本聊天，不使用 Markdown
 - QQ 表情消息直接忽略；安装 `MBB-Vision` 后，图片和表情包可以按配置理解并注入聊天上下文
 - 图片理解默认只处理直接提及、连续对话和表情包，普通群图片不会全部送模型
+- 用户先发送图片再追问时，会在时间窗口内把原图作为多模态上下文传给模型，图片本身不会单独触发回复
 - 安装 `MBB-Sticker` 后，角色可以按当前真实标签集输出 `<sticker>tag</sticker>` 发送匹配表情包，不会调用不存在的标签
 - 表情包是可选表达，提示词会要求低频自然使用，不会每句话都携带
 
@@ -162,6 +163,7 @@ imageUnderstandingMaxPerHour: 30
 imageUnderstandingInjectOcr: true
 imageUnderstandingProfile: ""
 imageUnderstandingMaxChars: 600
+imageContextTimeoutSecond: 300
 maxLongMemories: 150
 recentReplyCheckCount: 8
 repeatSimilarityThreshold: 0.72

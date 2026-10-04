@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 4
+configVersion: 5
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -87,6 +87,8 @@ imageUnderstandingInjectOcr: true
 imageUnderstandingProfile: ""
 #图片理解结果注入角色的最大字符数
 imageUnderstandingMaxChars: 600
+#用户发送图片后，后续提问可复用原图作为上下文的时间窗口秒数
+imageContextTimeoutSecond: 300
 #最多加载多少条长期记忆
 maxLongMemories: 150
 #单次角色回复最大 Token

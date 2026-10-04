@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,6 +51,7 @@ public class RoleplayService {
     private final Map<Long,Integer> otherRoleMessageStreakMap = new HashMap<>();
     private final Map<Long,Boolean> memoryMergingMap = new HashMap<>();
     private final Map<Long,long[]> imageVisionRateMap = new HashMap<>();
+    private final Map<String,RecentImage> recentImageMap = new ConcurrentHashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
@@ -139,6 +141,20 @@ public class RoleplayService {
         }
     }
 
+    private static class RecentImage {
+        private final JSONObject data;
+        private final long expireAt;
+
+        private RecentImage(JSONObject data,long expireAt) {
+            this.data = data;
+            this.expireAt = expireAt;
+        }
+
+        private boolean expired() {
+            return System.currentTimeMillis() > expireAt;
+        }
+    }
+
     public RoleplayService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona) {
         this.plugin = plugin;
         this.config = config;
@@ -215,18 +231,27 @@ public class RoleplayService {
         boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
         boolean groupActive = isGroupActive(groupID);
         boolean interest = persona.matchesInterest(content);
-        if (hasImageContent(event.getMessage())) {
-            if (!shouldUnderstandImages(event,content,direct,sameUserContinuation)) return;
-            content = enrichImageContent(event,content,groupID);
-            direct = isDirect(event,content,selfID);
-            interest = persona.matchesInterest(content);
+        boolean hasImage = hasImageContent(event.getMessage());
+        boolean hasText = hasMeaningfulText(event.getMessage());
+        RecentImage currentImage = null;
+        if (hasImage) {
+            currentImage = rememberImageContext(event,groupID);
+            if (shouldUnderstandImages(event,content,direct,sameUserContinuation)) {
+                content = enrichImageContent(event,content,groupID);
+                direct = isDirect(event,content,selfID);
+                interest = persona.matchesInterest(content);
+            }
         }
+        RecentImage replyImage = currentImage;
+        if (!hasImage) replyImage = findRecentImageContext(groupID,event.getUserID(),content);
+        boolean recentImageQuestion = !hasImage && replyImage != null;
         recordMessage(event,content,false);
         int count = countMessage(groupID);
         if (count >= config.memoryUpdateMessages) {
             messageCountMap.put(groupID,0);
             triggerMemory(groupID,"定时整理");
         }
+        if (hasImage && !hasText) return;
         if (isAddressedToOtherRole(event,content,selfID)) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过指向其他角色的消息："
                     +shortText(content,80));
@@ -236,17 +261,19 @@ public class RoleplayService {
         if (!otherRoleBot && reminderService.handle(event,content)) return;
         if (otherRoleBot && otherRoleStreak > config.maxConsecutiveOtherRoleMessages) return;
 
-        if (!direct && !sameUserContinuation && !groupActive && !interest) return;
+        if (!direct && !sameUserContinuation && !groupActive && !interest && !recentImageQuestion) return;
         double chance = config.interestReplyChance;
         if (otherRoleBot) chance = config.otherRoleBotReplyChance;
         else if (direct) chance = 1.0;
+        else if (recentImageQuestion) chance = 1.0;
         else if (sameUserContinuation) chance = config.continuationReplyChance;
         else if (groupActive) chance = config.otherParticipantReplyChance;
         if (content.length() < config.minMessageLength || Math.random() >= chance) return;
         if (!canReply(groupID)) return;
         String userName = senderName(event);
         String relationship = relationshipLabel(event,otherRoleBot);
-        JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,relationship);
+        JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,
+                relationship,replyImage);
         if (result == null || !result.getBooleanValue("status")) return;
         String rawReply = safe(result.getString("content")).trim();
         ReminderMarkerResult reminderMarker = extractReminderMarker(rawReply);
@@ -413,15 +440,43 @@ public class RoleplayService {
     }
 
     private JSONObject reply(long groupID,long userID,String userName,String content,
-                             boolean otherRoleBot,String relationship) {
+                             boolean otherRoleBot,String relationship,RecentImage imageContext) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
         String speechPrompt = speechCorpusService.promptText(content,recentContext(groupID));
         messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship,speechPrompt)));
-        messages.add(message("user","当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
+        String userText = "当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                 +"当前关系："+relationship+"\n"
-                +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID)));
+                +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID);
+        if (imageContext != null && !content.contains("[图片")) {
+            String summary = imageSummary(imageContext);
+            if (!summary.isEmpty()) {
+                userText += "\n\n用户最近发送的图片：\n"+summary
+                        +"\n请结合这张图片回答当前问题。";
+            }
+        }
+        JSONObject userMessage = new JSONObject(true);
+        userMessage.put("role","user");
+        JSONObject imageData = imageContext == null ? null : imageData(imageContext);
+        if (imageData != null && imageData.getBooleanValue("status")
+                && !safe(imageData.getString("dataUri")).isEmpty()) {
+            JSONArray contentArray = new JSONArray();
+            JSONObject textPart = new JSONObject(true);
+            textPart.put("type","text");
+            textPart.put("text",userText);
+            contentArray.add(textPart);
+            JSONObject imageUrl = new JSONObject(true);
+            imageUrl.put("url",imageData.getString("dataUri"));
+            JSONObject imagePart = new JSONObject(true);
+            imagePart.put("type","image_url");
+            imagePart.put("image_url",imageUrl);
+            contentArray.add(imagePart);
+            userMessage.put("content",contentArray);
+        } else {
+            userMessage.put("content",userText);
+        }
+        messages.add(userMessage);
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
         params.put("maxTokens",config.replyMaxTokens);
@@ -464,6 +519,7 @@ public class RoleplayService {
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"不要复述自己最近说过的话，也不要换同义词继续重复同一个细节。"
                 +"同一件小事最多回应一次，除非出现了明确的新进展；没有新信息时只输出 <SKIP>。"
+                +"如果当前消息带有 [表情包：...]，它只表示对方附带的情绪，不要单独评价或回复这个表情包本身。"
                 +"不要固定使用同一句式或同一开头。像“姐姐……”“哼哼！”这类口癖在最近几条回复里出现过时，"
                 +"必须换一种自然说法；最近 5 条回复中，同一种开头最多出现一次。"
                 +"不要把“嗯”“嗯……”当作固定开场；最近 3 条回复里已经出现过“嗯”开头时，必须换一种直接的说法。"
@@ -1424,6 +1480,102 @@ public class RoleplayService {
         return false;
     }
 
+    private boolean hasMeaningfulText(JSONArray message) {
+        if (message == null) return false;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null) continue;
+            String type = segment.getString("type");
+            JSONObject data = segment.getJSONObject("data");
+            if ("text".equals(type) && data != null && !safe(data.getString("text")).trim().isEmpty()) {
+                return true;
+            }
+            if ("at".equals(type) && data != null && !safe(data.getString("qq")).trim().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private RecentImage rememberImageContext(GroupMessageEvent event,long groupID) {
+        JSONArray message = event.getMessage();
+        if (message == null) return null;
+        JSONObject latest = null;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null) continue;
+            String type = segment.getString("type");
+            JSONObject data = segment.getJSONObject("data");
+            if (!("image".equals(type) || "mface".equals(type))) continue;
+            if (isStickerSegment(type,data)) continue;
+            latest = data;
+        }
+        if (latest == null) return null;
+        JSONObject copy = new JSONObject(true);
+        copy.put("file_unique",safe(latest.getString("file_unique")));
+        copy.put("file_id",safe(latest.getString("file_id")));
+        copy.put("url",safe(latest.getString("url")));
+        copy.put("file",safe(latest.getString("file")));
+        copy.put("sub_type",latest.get("sub_type"));
+        RecentImage recent = new RecentImage(copy,
+                System.currentTimeMillis() + config.imageContextTimeoutSecond * 1000L);
+        recentImageMap.put(recentImageKey(groupID,event.getUserID()),recent);
+        return recent;
+    }
+
+    private RecentImage findRecentImageContext(long groupID,long userID,String content) {
+        String key = recentImageKey(groupID,userID);
+        RecentImage recent = recentImageMap.get(key);
+        if (recent == null) return null;
+        if (recent.expired()) {
+            recentImageMap.remove(key);
+            return null;
+        }
+        return referencesImage(content) ? recent : null;
+    }
+
+    private boolean referencesImage(String content) {
+        String value = safe(content);
+        String[] keywords = new String[]{"图","照片","截图","这个","这张","里面","上面","什么",
+                "谁","哪里","颜色","文字","写","看","识别","描述"};
+        for (String keyword : keywords) {
+            if (value.contains(keyword)) return true;
+        }
+        return false;
+    }
+
+    private JSONObject imageParams(RecentImage recent) {
+        JSONObject params = new JSONObject(true);
+        JSONObject data = recent == null ? null : recent.data;
+        params.put("fileUnique",data == null ? "" : safe(data.getString("file_unique")));
+        if (safe(params.getString("fileUnique")).isEmpty() && data != null) {
+            params.put("fileUnique",safe(data.getString("file_id")));
+        }
+        params.put("url",data == null ? "" : safe(data.getString("url")));
+        params.put("file",data == null ? "" : safe(data.getString("file")));
+        return params;
+    }
+
+    private JSONObject imageData(RecentImage recent) {
+        PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
+        if (vision == null || recent == null) return null;
+        return vision.call("dataUri",imageParams(recent));
+    }
+
+    private String imageSummary(RecentImage recent) {
+        PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
+        if (vision == null || recent == null) return "";
+        JSONObject result = vision.call("describe",imageParams(recent));
+        if (result == null || !result.getBooleanValue("status")) return "";
+        String summary = safe(result.getString("summary"));
+        if (summary.isEmpty()) summary = safe(result.getString("description"));
+        return summary;
+    }
+
+    private String recentImageKey(long groupID,long userID) {
+        return groupID+"|"+userID;
+    }
+
     private boolean shouldUnderstandImages(GroupMessageEvent event,String content,
                                            boolean direct,boolean sameUserContinuation) {
         if (!config.imageUnderstandingEnable || "off".equals(config.imageUnderstandingMode)) return false;
@@ -1500,7 +1652,7 @@ public class RoleplayService {
         String ocr = safe(result.getString("ocr"));
         String tags = joinArray(result.getJSONArray("emotionTags"));
         StringBuilder builder = new StringBuilder(sticker ? "[表情包" : "[图片");
-        if (!summary.isEmpty()) builder.append("：").append(shortText(summary,Math.min(220,config.imageUnderstandingMaxChars)));
+        if (!summary.isEmpty()) builder.append("：").append(shortText(summary,config.imageUnderstandingMaxChars));
         if (sticker && !tags.isEmpty()) builder.append("；情绪：").append(tags);
         if (!sticker && config.imageUnderstandingInjectOcr && !ocr.isEmpty()) {
             builder.append("；文字：").append(shortText(ocr,120));

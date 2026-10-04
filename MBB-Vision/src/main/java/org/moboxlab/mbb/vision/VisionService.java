@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Plugin;
 import org.moboxlab.moboxbot.API.PluginService;
 
+import java.util.Base64;
+
 /**
  * 识图公共服务
  */
@@ -27,6 +29,7 @@ public class VisionService implements PluginService {
     public JSONObject call(String action,JSONObject params) {
         if (action == null) return error("缺少动作名");
         if ("describe".equalsIgnoreCase(action)) return describe(params);
+        if ("dataUri".equalsIgnoreCase(action)) return dataUri(params);
         if ("stats".equalsIgnoreCase(action)) return cache.stats();
         if ("clear".equalsIgnoreCase(action)) return clear();
         if ("reload".equalsIgnoreCase(action)) return reload();
@@ -38,7 +41,7 @@ public class VisionService implements PluginService {
         if (params == null) return error("缺少识图参数");
         String kind = safe(params.getString("kind"));
         if (kind.isEmpty()) kind = "image";
-        int promptVersion = Math.max(1,plugin.getConfig().getInt("promptVersion",1));
+        int promptVersion = Math.max(2,plugin.getConfig().getInt("promptVersion",2));
         boolean cacheEnable = plugin.getConfig().getBoolean("cacheEnable",true);
         boolean force = params.getBooleanValue("force");
         String fileUnique = safe(params.getString("fileUnique"));
@@ -71,7 +74,7 @@ public class VisionService implements PluginService {
         if (ai == null) return error("MBB-AI 未启用");
         String profile = safe(params.getString("profile"));
         if (profile.isEmpty()) profile = plugin.getConfig().getString("aiProfile","default");
-        int maxTokens = Math.max(2000,plugin.getConfig().getInt("maxTokens",3000));
+        int maxTokens = Math.max(4000,plugin.getConfig().getInt("maxTokens",4000));
         JSONObject result = analyzer.analyze(ai,profile,maxTokens,image,kind,
                 safe(params.getString("context")));
         if (result == null || !result.getBooleanValue("status")) {
@@ -97,6 +100,23 @@ public class VisionService implements PluginService {
         result.put("count",count);
         result.put("message","识图缓存已清空");
         return result;
+    }
+
+    private JSONObject dataUri(JSONObject params) {
+        if (params == null) return error("缺少图片参数");
+        try {
+            VisionImageSource.ImageData image = VisionImageSource.load(plugin,params);
+            JSONObject result = new JSONObject(true);
+            result.put("status",true);
+            result.put("sha256",image.sha256);
+            result.put("fileUnique",safe(params.getString("fileUnique")));
+            result.put("mime",image.mime);
+            result.put("dataUri","data:"+image.mime+";base64,"
+                    +Base64.getEncoder().encodeToString(image.bytes));
+            return result;
+        } catch (Exception e) {
+            return error("图片读取失败："+e.getMessage());
+        }
     }
 
     private JSONObject reload() {

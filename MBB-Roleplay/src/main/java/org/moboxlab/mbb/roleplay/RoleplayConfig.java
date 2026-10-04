@@ -54,6 +54,7 @@ public class RoleplayConfig {
     public boolean imageUnderstandingInjectOcr = true;
     public String imageUnderstandingProfile = "";
     public int imageUnderstandingMaxChars = 600;
+    public int imageContextTimeoutSecond = 300;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
     public int replySegmentMaxChars = 160;
@@ -139,6 +140,7 @@ public class RoleplayConfig {
         config.imageUnderstandingInjectOcr = plugin.getConfig().getBoolean("imageUnderstandingInjectOcr",true);
         config.imageUnderstandingProfile = plugin.getConfig().getString("imageUnderstandingProfile","");
         config.imageUnderstandingMaxChars = plugin.getConfig().getInt("imageUnderstandingMaxChars",600);
+        config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",160);
@@ -220,6 +222,8 @@ public class RoleplayConfig {
         if (config.imageUnderstandingProfile == null) config.imageUnderstandingProfile = "";
         if (config.imageUnderstandingMaxChars < 100) config.imageUnderstandingMaxChars = 100;
         if (config.imageUnderstandingMaxChars > 3000) config.imageUnderstandingMaxChars = 3000;
+        if (config.imageContextTimeoutSecond < 10) config.imageContextTimeoutSecond = 10;
+        if (config.imageContextTimeoutSecond > 3600) config.imageContextTimeoutSecond = 3600;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;

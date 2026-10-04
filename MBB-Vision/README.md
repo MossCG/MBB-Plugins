@@ -8,6 +8,7 @@ MoBoxBot 公用识图与本地缓存插件。
 - 优先按 OneBot `file_unique` 查询缓存
 - 没有平台唯一标识时按图片 SHA-256 查询缓存
 - 识别结果写入 SQLite，后续同一图片不重复调用 AI
+- 普通图片生成较完整的 2 到 4 句中文描述，表情包只生成情绪和聊天用途摘要
 - 输出识别结果日志，便于调试
 - 提供 `MBB-Vision` 公共服务
 
@@ -25,6 +26,14 @@ params:
   profile: 覆盖默认 AI 配置，可选
   force: true 时强制重新识别，可选
 ```
+
+```text
+action: dataUri
+params:
+  fileUnique / url / file / fileUri
+```
+
+`dataUri` 不调用 AI，只读取图片并返回 `data:image/...;base64,...`，供角色追问时把原图传给模型。
 
 返回：
 

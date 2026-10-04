@@ -109,18 +109,33 @@ public class VisionAnalyzer {
     }
 
     private String buildPrompt(String kind,String context) {
-        String type = "sticker".equalsIgnoreCase(kind) ? "sticker" : "image";
         StringBuilder builder = new StringBuilder();
-        builder.append("You are describing a ").append(type).append(" for a chat bot roleplay system.\n")
-                .append("Return only JSON with this schema:\n")
-                .append("{\"summary\":\"short Chinese description\",\"ocr\":\"recognized text or empty\",")
-                .append("\"emotionTags\":[\"happy\"],\"visualTags\":[\"cat\"],\"scene\":\"group_chat\",")
-                .append("\"description\":\"short Chinese description\"}\n")
-                .append("Rules:\n")
-                .append("- summary and description use concise Chinese.\n")
-                .append("- emotionTags use 3 to 6 English snake_case emotion, attitude, or chat usage tags.\n")
-                .append("- visualTags use 3 to 8 English snake_case visual tags.\n")
-                .append("- Do not describe the bot itself or add explanations.\n")
+        if ("sticker".equalsIgnoreCase(kind)) {
+            builder.append("You are describing a chat sticker for a roleplay system.\n")
+                    .append("Return only JSON with this schema:\n")
+                    .append("{\"summary\":\"short Chinese emotion description\",\"ocr\":\"recognized text or empty\",")
+                    .append("\"emotionTags\":[\"happy\"],\"visualTags\":[\"cat\"],\"scene\":\"group_chat\",")
+                    .append("\"description\":\"short Chinese emotion description\"}\n")
+                    .append("Rules:\n")
+                    .append("- summary and description should focus on the emotion or chat usage, in concise Chinese.\n")
+                    .append("- Do not over-describe appearance or make a long analysis.\n")
+                    .append("- emotionTags use 3 to 6 English snake_case emotion, attitude, or chat usage tags.\n")
+                    .append("- visualTags use 3 to 8 English snake_case visual tags.\n");
+        } else {
+            builder.append("You are describing an image for a chat bot roleplay system.\n")
+                    .append("Return only JSON with this schema:\n")
+                    .append("{\"summary\":\"rich Chinese description\",\"ocr\":\"recognized text or empty\",")
+                    .append("\"emotionTags\":[\"curious\"],\"visualTags\":[\"cat\"],\"scene\":\"group_chat\",")
+                    .append("\"description\":\"rich Chinese description\"}\n")
+                    .append("Rules:\n")
+                    .append("- summary and description use 2 to 4 complete Chinese sentences.\n")
+                    .append("- Describe main subjects, actions, environment, mood, important objects, and notable details.\n")
+                    .append("- Include visible text in ocr when present.\n")
+                    .append("- Do not guess identities, locations, or facts that are not visible.\n")
+                    .append("- emotionTags use 3 to 6 English snake_case emotion or chat usage tags.\n")
+                    .append("- visualTags use 3 to 8 English snake_case visual tags.\n");
+        }
+        builder.append("- Do not describe the bot itself or add explanations.\n")
                 .append("- Do not use Markdown.\n");
         if (context != null && !context.trim().isEmpty()) {
             builder.append("Conversation context:\n").append(shortText(context,500));
