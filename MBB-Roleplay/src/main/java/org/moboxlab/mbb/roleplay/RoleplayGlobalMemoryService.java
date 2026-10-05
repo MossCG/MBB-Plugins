@@ -124,17 +124,23 @@ public class RoleplayGlobalMemoryService {
             JSONObject result = ai.call("chat",params);
             RoleplayAiLog.log(plugin.getLogger(),"永久记忆合并",0L,result,System.currentTimeMillis() - startTime);
             if (result == null || !result.getBooleanValue("status")) return;
+            if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
+                plugin.getLogger().sendWarn("[永久记忆] 合并输出被截断，放弃本次合并，原记忆保持不变");
+                return;
+            }
             JSONObject parsed = parseJson(result.getString("content"));
             if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
             JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
             if (merged == null || merged.isEmpty()) {
-                if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
-                    plugin.getLogger().sendWarn("[永久记忆] 合并输出被截断，可提高 memoryMergeMaxTokens "
-                            +"或给 memoryProfile 配非 reasoning 模型");
-                }
                 plugin.getLogger().sendWarn("[永久记忆] 合并失败：模型没有返回有效 memories");
                 return;
             }
+            if (!isMergeResultSafe(memories.size(),merged.size())) {
+                plugin.getLogger().sendWarn("[永久记忆] 合并结果异常：原 "+memories.size()
+                        +" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
+                return;
+            }
+            backup();
             storage().update("DELETE FROM `"+TABLE+"`");
             int saved = 0;
             long now = System.currentTimeMillis();
@@ -159,6 +165,12 @@ public class RoleplayGlobalMemoryService {
         } finally {
             merging = false;
         }
+    }
+
+    private boolean isMergeResultSafe(int original,int merged) {
+        if (merged <= 0) return false;
+        if (original >= 20 && merged < Math.max(2,original / 10)) return false;
+        return true;
     }
 
     private void mergeIfNeeded() {

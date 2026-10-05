@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.4.48.7.2345 | 2026-10-05 | `MBB-Roleplay` 修复长期记忆合并被截断后仍从 reasoning 结果执行破坏性合并的问题：`finish=length` 直接放弃，合并后条目少于原有 10% 时判定异常并放弃；合并前自动备份原长期记忆，永久记忆合并也加同样保护 |
 | V0.4.48.6.2337 | 2026-10-05 | `MBB-Roleplay` 长期记忆合并新增 `memoryMergeMaxTokens`（默认 32000），避免 reasoning 耗尽 12000 Token 后正文为空；合并结果支持从 `reasoningContent` 回退解析 JSON，输出被截断时给出提高预算或改用非 reasoning profile 的提示 |
 | V0.4.48.5.2325 | 2026-10-05 | `MBB-Roleplay` 技能开放清单也统一规范化 `poke`、`poke_back`、`poke-back`，修复旧运行版本清单写 `poke_back`、技能 ID 写 `poke-back` 时被误判为未开放的问题；日志中的当前开放动作同步显示规范名 |
 | V0.4.48.4.2320 | 2026-10-05 | `MBB-Roleplay` 启动和重载时检查戳一戳配置：`pokeBackEnable=false` 或 `MBB-Poke` 已启用时输出明确告警，避免被误判为戳回去功能没有加载 |

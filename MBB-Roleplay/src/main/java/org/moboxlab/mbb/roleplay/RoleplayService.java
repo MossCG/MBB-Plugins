@@ -11,6 +11,10 @@ import org.moboxlab.moboxbot.API.Plugin;
 import org.moboxlab.moboxbot.API.PluginService;
 import org.moboxlab.moboxbot.API.Storage.StorageService;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -1188,17 +1192,24 @@ public class RoleplayService {
                     +safe(result == null ? "" : result.getString("message")));
             return;
         }
+        if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID
+                    +" 长期记忆合并输出被截断，放弃本次合并，原记忆保持不变");
+            return;
+        }
         JSONObject parsed = parseJson(result.getString("content"));
         if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
         JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
         if (merged == null || merged.isEmpty()) {
-            if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
-                plugin.getLogger().sendWarn("[记忆] 群"+groupID
-                        +" 长期记忆合并输出被截断，可提高 memoryMergeMaxTokens 或给 memoryProfile 配非 reasoning 模型");
-            }
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败：模型没有返回有效 memories");
             return;
         }
+        if (!isMergeResultSafe(rows.size(),merged.size())) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并结果异常：原 "
+                    +rows.size()+" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
+            return;
+        }
+        backupLongMemories(groupID,rows);
         storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
         int saved = 0;
         long now = System.currentTimeMillis();
@@ -1221,6 +1232,36 @@ public class RoleplayService {
         }
         plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆整理合并完成：原 "+rows.size()
                 +" 条，合并后 "+saved+" 条");
+    }
+
+    private boolean isMergeResultSafe(int original,int merged) {
+        if (merged <= 0) return false;
+        if (original >= 20 && merged < Math.max(2,original / 10)) return false;
+        return true;
+    }
+
+    private void backupLongMemories(long groupID,List<JSONObject> rows) {
+        try {
+            JSONArray memories = new JSONArray();
+            for (JSONObject row : rows) {
+                JSONObject item = new JSONObject(true);
+                item.putAll(row);
+                memories.add(item);
+            }
+            JSONObject root = new JSONObject(true);
+            root.put("version",1);
+            root.put("groupID",groupID);
+            root.put("exportTime",System.currentTimeMillis());
+            root.put("count",memories.size());
+            root.put("memories",memories);
+            File file = new File(plugin.getDataFolder(),
+                    "long-memory-backup-"+groupID+"-"+System.currentTimeMillis()+".json");
+            Files.write(Paths.get(file.getAbsolutePath()),
+                    root.toJSONString().getBytes(StandardCharsets.UTF_8));
+            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 合并前备份已写入 "+file.getAbsolutePath());
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 合并前备份失败："+e.getMessage());
+        }
     }
 
     private String recentRoleReplyText(long groupID) {
