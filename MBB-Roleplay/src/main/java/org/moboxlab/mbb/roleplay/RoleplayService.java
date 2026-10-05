@@ -1131,6 +1131,10 @@ public class RoleplayService {
     }
 
     public boolean mergeLongMemoryNow(long groupID) {
+        return mergeLongMemoryNow(groupID,false);
+    }
+
+    public boolean mergeLongMemoryNow(long groupID,boolean force) {
         synchronized (memoryMergingMap) {
             Boolean merging = memoryMergingMap.get(groupID);
             if (merging != null && merging) return false;
@@ -1138,7 +1142,7 @@ public class RoleplayService {
         }
         plugin.getServer().getPluginManager().runTask(plugin,() -> {
             try {
-                mergeLongMemory(groupID);
+                mergeLongMemory(groupID,force);
             } finally {
                 memoryMergingMap.put(groupID,false);
             }
@@ -1146,7 +1150,7 @@ public class RoleplayService {
         return true;
     }
 
-    private void mergeLongMemory(long groupID) {
+    private void mergeLongMemory(long groupID,boolean force) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并跳过：MBB-AI 未启用");
@@ -1162,7 +1166,12 @@ public class RoleplayService {
         int target = config.maxLongMemories;
         int maxRounds = config.memoryMergeMaxRounds;
         int batchSize = config.memoryMergeBatchSize;
-        for (int round = 1; round <= maxRounds && current.size() > target; round++) {
+        boolean needMerge = force;
+        int executedRounds = 0;
+        for (int round = 1; round <= maxRounds; round++) {
+            if (!needMerge && current.size() <= target) break;
+            needMerge = false;
+            executedRounds++;
             List<JSONObject> sorted = MemoryBatchSorter.sortForMerge(current);
             List<List<JSONObject>> batches = MemoryBatchSorter.batches(sorted,batchSize);
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round+"/"+maxRounds
@@ -1186,6 +1195,10 @@ public class RoleplayService {
             current = MemoryBatchSorter.sortForMerge(mergedAll);
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
                     +" 轮完成：结果 "+current.size()+" 条");
+        }
+        if (executedRounds == 0) {
+            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆未超过上限，跳过合并");
+            return;
         }
         if (!isMergeResultSafe(original,current.size())) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并结果异常：原 "

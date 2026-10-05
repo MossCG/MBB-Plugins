@@ -89,6 +89,10 @@ public class RoleplayGlobalMemoryService {
     }
 
     public void mergeNow() {
+        mergeNow(false);
+    }
+
+    public void mergeNow(boolean force) {
         if (merging) return;
         merging = true;
         try {
@@ -119,7 +123,12 @@ public class RoleplayGlobalMemoryService {
             int target = config.globalMemoryMaxItems;
             int maxRounds = config.memoryMergeMaxRounds;
             int batchSize = config.memoryMergeBatchSize;
-            for (int round = 1; round <= maxRounds && current.size() > target; round++) {
+            boolean needMerge = force;
+            int executedRounds = 0;
+            for (int round = 1; round <= maxRounds; round++) {
+                if (!needMerge && current.size() <= target) break;
+                needMerge = false;
+                executedRounds++;
                 List<JSONObject> sorted = MemoryBatchSorter.sortForMerge(current);
                 List<List<JSONObject>> batches = MemoryBatchSorter.batches(sorted,batchSize);
                 plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+"/"+maxRounds
@@ -142,6 +151,10 @@ public class RoleplayGlobalMemoryService {
                 current = MemoryBatchSorter.sortForMerge(mergedAll);
                 plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮完成：结果 "
                         +current.size()+" 条");
+            }
+            if (executedRounds == 0) {
+                plugin.getLogger().sendInfo("[永久记忆] 未超过上限，跳过合并");
+                return;
             }
             if (!isMergeResultSafe(original,current.size())) {
                 plugin.getLogger().sendWarn("[永久记忆] 合并结果异常：原 "+original
