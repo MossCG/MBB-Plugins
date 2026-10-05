@@ -43,6 +43,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 表情包已开始识别时会暂停回合，识别完成后立即合并；最多额外等待 15 秒，超时按无表情包继续
 - 学生图鉴已升级为全身立绘外貌索引，69 个学生补齐下装、腿部、鞋履、尾巴与武器细节；角色识图时会把完整外貌参考传给 `MBB-Vision`
 - 角色知道自己的外貌设定；被问起某位学生是谁或长什么样时，会结合共享图鉴的外貌、社团、性格和关系作答
+- 学生图鉴不会整份塞进每条请求：常驻的「了解的学生」只保留一句话印象，被点名的学生才按需注入完整外貌，省下的上下文留给聊天本身
 - 安装 `MBB-Sticker` 后，角色可以按当前真实标签集输出 `<sticker>tag</sticker>` 发送匹配表情包，不会调用不存在的标签
 - 表情包是可选表达，提示词会要求低频自然使用，不会每句话都携带
 
@@ -156,7 +157,7 @@ continuationReplyChance: 0.80
 otherParticipantReplyChance: 0.45
 otherRoleBotReplyChance: 0.50
 maxConsecutiveOtherRoleMessages: 2
-shortContextMessages: 80
+shortContextMessages: 120
 memoryUpdateMessages: 50
 memoryExtractMessages: 300
 memoryExtractMaxChars: 16000
@@ -189,6 +190,8 @@ minMessageLength: 2
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。
 
 `timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
+
+`shortContextMessages` 控制注入的即时群聊条数，默认 `120`，上限 `300`。学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，所以扩大这个窗口不会把整份图鉴重复带进每条请求。
 
 ## 自然语言提醒
 

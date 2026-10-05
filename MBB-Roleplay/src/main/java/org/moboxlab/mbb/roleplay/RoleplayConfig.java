@@ -29,7 +29,7 @@ public class RoleplayConfig {
     public int maxConsecutiveOtherRoleMessages = DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES;
     public String otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
     public String otherRoleBotQQs = "";
-    public int shortContextMessages = 80;
+    public int shortContextMessages = 120;
     public int shortTermDays = 3;
     public int memoryUpdateMessages = 50;
     public int memoryExtractMessages = 300;
@@ -109,7 +109,7 @@ public class RoleplayConfig {
                 "maxConsecutiveOtherRoleMessages",DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES);
         config.otherRoleBotNames = plugin.getConfig().getString("otherRoleBotNames",config.otherRoleBotNames);
         config.otherRoleBotQQs = plugin.getConfig().getString("otherRoleBotQQs","");
-        config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",80);
+        config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",120);
         config.shortTermDays = plugin.getConfig().getInt("shortTermDays",3);
         config.memoryUpdateMessages = plugin.getConfig().getInt("memoryUpdateMessages",50);
         config.memoryExtractMessages = plugin.getConfig().getInt("memoryExtractMessages",300);

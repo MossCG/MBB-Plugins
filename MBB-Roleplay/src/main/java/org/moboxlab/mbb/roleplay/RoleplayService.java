@@ -509,7 +509,7 @@ public class RoleplayService {
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
         String speechPrompt = speechCorpusService.promptText(content,recentContext(groupID));
-        messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship,speechPrompt)));
+        messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship,speechPrompt,content)));
         String userText = "当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                 +"当前关系："+relationship+"\n"
                 +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID);
@@ -552,9 +552,11 @@ public class RoleplayService {
     }
 
     private String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,
-                                     String relationship,String speechPrompt) {
+                                     String relationship,String speechPrompt,String messageText) {
         String recentReplies = recentRoleReplyText(groupID);
+        String studentDetail = persona.studentDetailText(messageText);
         return persona.description()+"\n\n"
+                +(studentDetail.isEmpty() ? "" : studentDetail+"\n")
                 +"长期记忆：\n"+longMemoryText(groupID)+"\n"
                 +"全局永久记忆：\n"+globalMemoryService.promptText()+"\n"
                 +"短期记忆：\n"+shortSummary(groupID)+"\n"
@@ -572,7 +574,8 @@ public class RoleplayService {
                 +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
-                +"如果有人问起某位学生是谁、长什么样或有什么特点，可以根据“了解的学生”中的外貌、社团、性格和关系细节回答，不要只给名字。"
+                +"如果有人问起某位学生是谁、长什么样或有什么特点，优先参考“被提到的学生详细设定”里的外貌、社团、性格和关系；"
+                +"没有该区块时再用“了解的学生”里的信息回答，不要只给名字。"
                 +"如果其他群员正在接续当前话题，可以自然参与；如果只是无关话题，只输出 <SKIP>。"
                 +(otherRoleBot ? "当前发言者是另一个角色机器人。不要和另一个机器人旁若无人地连续互动，"
                 +"只有对方明确叫你、提出新问题、或真人正在参与时才简短回应；不要追问、捧哏或主动延长话题。" : "")

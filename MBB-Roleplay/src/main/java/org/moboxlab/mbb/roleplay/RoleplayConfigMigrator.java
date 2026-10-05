@@ -50,7 +50,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("otherRoleBotNames",RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES,
                     "识别其他角色机器人显示名的关键词，英文逗号分隔"),
             new ConfigEntry("otherRoleBotQQs","","其他角色机器人 QQ，多个用英文逗号分隔；为空时只按显示名识别"),
-            new ConfigEntry("shortContextMessages","80","即时上下文消息条数"),
+            new ConfigEntry("shortContextMessages","120","即时上下文消息条数"),
             new ConfigEntry("shortTermDays","3","短期记忆覆盖天数"),
             new ConfigEntry("memoryUpdateMessages","50","每累计多少条消息更新一次记忆"),
             new ConfigEntry("memoryExtractMessages","300","每次记忆整理最多读取的消息条数"),

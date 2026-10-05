@@ -110,6 +110,35 @@ public class RoleplayPersona {
                 +"行为规则："+behavior;
     }
 
+    /**
+     * 按当前消息里出现的学生名或别名，取回完整设定（含外貌）。
+     * 只在被问到具体学生时注入，避免把整份图鉴塞进每一条请求。
+     */
+    public String studentDetailText(String text) {
+        if (text == null || text.isEmpty() || studentProfiles.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
+        int count = 0;
+        for (StudentProfile profile : studentProfiles) {
+            if (profile == null || profile.name.isEmpty()) continue;
+            if (!matchesStudent(profile,text)) continue;
+            String line = "- "+studentDetail(profile)+"\n";
+            if (builder.length()+line.length() > 4000) break;
+            builder.append(line);
+            count++;
+            if (count >= 6) break;
+        }
+        if (count == 0) return "";
+        return "被提到的学生详细设定（外貌、社团、性格、关系）：\n"+builder.toString();
+    }
+
+    private static boolean matchesStudent(StudentProfile profile,String text) {
+        if (profile.name.length() >= 2 && text.contains(profile.name)) return true;
+        for (String alias : profile.aliases) {
+            if (alias.length() >= 2 && text.contains(alias)) return true;
+        }
+        return false;
+    }
+
     public String visionReferenceText() {
         if (studentProfiles.isEmpty()) return "";
         StringBuilder builder = new StringBuilder("蔚蓝档案学生外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
@@ -175,10 +204,10 @@ public class RoleplayPersona {
                 if (profile == null || profile.name.isEmpty()) continue;
                 String key = studentKey(profile.name);
                 if (key.isEmpty()) continue;
-                String line = profileText(profile);
+                String line = studentBrief(profile);
                 Integer existing = index.get(key);
                 if (existing != null) {
-                    // 角色自带的学生条目比较简短，用共享图鉴的完整外貌与别名覆盖它
+                    // 角色自带的学生条目比较简短，用共享图鉴的描述与别名覆盖它
                     persona.otherStudents.set(existing,line);
                 } else {
                     persona.otherStudents.add(line);
@@ -233,15 +262,21 @@ public class RoleplayPersona {
         return profile;
     }
 
-    private static String profileText(StudentProfile profile) {
+    // 常驻的学生名录只保留一句话印象，完整外貌在被问到时才注入
+    private static String studentBrief(StudentProfile profile) {
         StringBuilder builder = new StringBuilder(profile.name);
         if (!profile.school.isEmpty() || !profile.club.isEmpty()) {
             builder.append("（").append(safe(profile.school,"")).append("/")
                     .append(safe(profile.club,"")).append("）");
         }
         builder.append("：").append(safe(profile.description,""));
-        if (!profile.appearance.isEmpty()) builder.append("；外貌：").append(profile.appearance);
         if (!profile.aliases.isEmpty()) builder.append("；别名：").append(String.join("、",profile.aliases));
+        return builder.toString();
+    }
+
+    private static String studentDetail(StudentProfile profile) {
+        StringBuilder builder = new StringBuilder(studentBrief(profile));
+        if (!profile.appearance.isEmpty()) builder.append("；外貌：").append(profile.appearance);
         return builder.toString();
     }
 
