@@ -780,7 +780,7 @@ public class RoleplayService {
                 +(messageText != null && messageText.contains("[戳一戳]")
                 ? "当前是戳一戳事件：可以只回一句话，也可以使用 poke-back 戳回去；不要长篇解释。" : "")
                 +"如果这条消息不适合参与，只输出 <SKIP>。"
-                +"每条消息优先控制在 12 字以内，硬上限 20 字；一条说不完可以分两段，最多两段。"
+                +"每条消息优先控制在 12 字以内，硬上限 20 字；一条说不完可以在 text 里用换行分成两段，最多两段。"
                 +"同一条回复和最近回复里都不要重复同一件事或同一个细节，不要把无关背景、解释或补充信息塞进回复。"
                 +"回复只保留与当前消息直接相关的内容，和当前话题关系不大的内容可以不写。"
                 +"不要使用“稳、没问题、放心、交给我、没丢、记下、记账上”这些词，也不要使用“收到、记住了、已记录、明白、为你”等助理式确认。"
@@ -1427,8 +1427,16 @@ public class RoleplayService {
         List<String> result = new ArrayList<>();
         if (text == null || text.trim().isEmpty()) return result;
         String normalized = text.replace("\\n","\n").replace("\r\n","\n").replace("\r","\n");
-        String compact = normalized.replaceAll("\\s*\\n\\s*"," ").replaceAll("\\s+"," ").trim();
-        addParagraph(result,compact,config.replySegmentMaxChars);
+        String[] paragraphs = normalized.split("\n");
+        for (String paragraph : paragraphs) {
+            String value = paragraph.replaceAll("\\s+"," ").trim();
+            if (value.isEmpty()) continue;
+            if (value.length() <= config.replySegmentMaxChars) {
+                result.add(value);
+            } else {
+                addParagraph(result,value,config.replySegmentMaxChars);
+            }
+        }
         return result;
     }
 
@@ -1448,8 +1456,7 @@ public class RoleplayService {
             int cut = -1;
             int start = Math.max(0,maxChars - 20);
             for (int i = Math.min(maxChars - 1,text.length() - 1); i >= start; i--) {
-                char c = text.charAt(i);
-                if (c == '。' || c == '！' || c == '？' || c == '!' || c == '?' || c == '；' || c == ';') {
+                if (isSplitPunctuation(text.charAt(i))) {
                     cut = i + 1;
                     break;
                 }
@@ -1459,6 +1466,11 @@ public class RoleplayService {
             text = text.substring(cut).trim();
         }
         if (!text.isEmpty()) result.add(text);
+    }
+
+    private boolean isSplitPunctuation(char value) {
+        String punctuation = config.replySplitPunctuation;
+        return punctuation != null && punctuation.indexOf(value) >= 0;
     }
 
     private String senderName(GroupMessageEvent event) {
