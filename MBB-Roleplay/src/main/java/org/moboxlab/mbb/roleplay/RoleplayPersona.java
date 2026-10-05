@@ -126,7 +126,7 @@ public class RoleplayPersona {
             if (!description.isEmpty()) line += description;
             if (!profile.visualTags.isEmpty()) line += "；视觉标签："+String.join(",",profile.visualTags);
             line += "\n";
-            if (builder.length()+line.length() > 8000) break;
+            if (builder.length()+line.length() > 32000) break;
             builder.append(line);
             count++;
         }

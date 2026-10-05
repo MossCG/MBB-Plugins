@@ -176,7 +176,7 @@ public class RoleplayPlugin extends Plugin {
             String text = new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8);
             JSONObject json = JSONObject.parseObject(text);
             int version = json == null ? 0 : json.getIntValue("version");
-            if (version >= 2) return;
+            if (version >= 3) return;
             File backup = new File(getDataFolder(),"students.json.bak-"+System.currentTimeMillis());
             Files.copy(file.toPath(),backup.toPath());
             Files.write(Paths.get(file.getAbsolutePath()),bytes);

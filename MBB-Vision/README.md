@@ -25,7 +25,7 @@ params:
   fileUri: file:// 本地路径，可选
   kind: sticker 或 image
   context: 聊天上下文，可选
-  reference: 学生外貌参考文本，可选；会参与缓存键计算
+  reference: 学生外貌参考文本，可选，最多注入 32000 字符；会参与缓存键计算
   profile: 覆盖默认 AI 配置，可选
   force: true 时强制重新识别，可选
 ```

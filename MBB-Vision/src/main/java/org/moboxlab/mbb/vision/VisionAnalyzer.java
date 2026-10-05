@@ -175,7 +175,7 @@ public class VisionAnalyzer {
         }
         if (reference != null && !reference.trim().isEmpty()) {
             builder.append("\nKnown Blue Archive student appearance reference:\n")
-                    .append(limitText(reference,8000))
+                    .append(limitText(reference,32000))
                     .append("\nUse the reference only as candidate guidance. Do not force a match, "
                             + "and do not rely on hair color alone.");
         }
