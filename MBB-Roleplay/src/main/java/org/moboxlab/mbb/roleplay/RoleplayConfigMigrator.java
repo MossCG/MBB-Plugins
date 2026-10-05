@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "10";
+    private static final String CURRENT_VERSION = "11";
 
     private static class ConfigEntry {
         private final String key;
@@ -100,7 +100,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
-            new ConfigEntry("replySegmentMaxChars","160","单段回复最多字符数"),
+            new ConfigEntry("replySegmentMaxChars","20","单段回复硬上限字符数，提示词默认按 12 字以内生成"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
@@ -126,6 +126,8 @@ public class RoleplayConfigMigrator {
                 config.getString("stickerAttachWindowSecond",""));
         boolean legacyRouterMaxTokens = version < 9 && "400".equals(
                 config.getString("routerMaxTokens",""));
+        boolean legacyReplySegmentMaxChars = version < 11 && "160".equals(
+                config.getString("replySegmentMaxChars",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -139,7 +141,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 10) {
+        if (version < 11) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -160,8 +162,12 @@ public class RoleplayConfigMigrator {
             config.set("routerMaxTokens","1200");
             changed++;
         }
-        if (version < 10 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
-                || legacyRouterMaxTokens) {
+        if (legacyReplySegmentMaxChars) {
+            config.set("replySegmentMaxChars","20");
+            changed++;
+        }
+        if (version < 11 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+                || legacyRouterMaxTokens || legacyReplySegmentMaxChars) {
             if (config.save()) {
                 config.load();
             } else {

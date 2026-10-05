@@ -101,8 +101,8 @@ maxLongMemories: 150
 replyMaxTokens: 1200
 #带图片上下文时单次角色回复最大 Token
 replyImageMaxTokens: 4000
-#单段回复最多字符数
-replySegmentMaxChars: 160
+#单段回复硬上限字符数，提示词默认按 12 字以内生成
+replySegmentMaxChars: 20
 #最多拆分发送多少段
 replyMaxSegments: 2
 #重复检测时参考最近多少条角色回复

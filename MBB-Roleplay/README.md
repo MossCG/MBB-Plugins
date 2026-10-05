@@ -38,6 +38,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 明确艾特其他用户时不会误判为对爱丽丝说话
 - 同一话题下允许多个群员继续参与，AI 会判断是否真正接续话题
 - 高频群聊模式：秒级回复冷却，默认每小时可回复 180 次
+- 单条回复优先控制在 12 字以内、硬上限 20 字，一条说不完最多分两段
 - 输出纯文本聊天，不使用 Markdown
 - QQ 表情消息直接忽略；安装 `MBB-Vision` 后，图片和表情包可以按配置理解并注入聊天上下文
 - 图片理解默认只处理直接提及、连续对话和表情包，普通群图片不会全部送模型
@@ -203,6 +204,8 @@ styleMaxTokens: 400
 styleReasoningEffort: "low"
 styleProactiveEnable: false
 replyImageMaxTokens: 4000
+replySegmentMaxChars: 20
+replyMaxSegments: 2
 maxLongMemories: 150
 recentReplyCheckCount: 8
 repeatSimilarityThreshold: 0.72
@@ -211,7 +214,7 @@ repeatOpeningLimit: 2
 minMessageLength: 2
 ```
 
-非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求尽量只输出一句话，不要反复纠缠同一个生活细节，也不要连续使用同一种开头或口癖。
+非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息优先控制在 12 字以内、硬上限 20 字，一条说不完最多分两段；不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
 
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。`memoryTimeoutSecond` 默认 `300`，用于覆盖 profile 里较短的超时时间，避免长上下文整理频繁超时；可设置范围是 `30` 到 `600` 秒。
 
