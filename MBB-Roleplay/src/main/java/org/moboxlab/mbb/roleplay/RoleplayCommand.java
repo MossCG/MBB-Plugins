@@ -63,6 +63,9 @@ public class RoleplayCommand extends BotCommand {
                 "/role bot name [list|add|remove|set|clear|reset] [名称...]",
                 "/role memory [页码]",
                 "/role memory merge",
+                "/role memory backup",
+                "/role memory backups",
+                "/role memory restore <文件名>",
                 "/role gmemory [页码]",
                 "/role gmemory backup",
                 "/role gmemory merge",
@@ -175,6 +178,44 @@ public class RoleplayCommand extends BotCommand {
 
     private void handleMemory(CommandSender sender,String[] args) {
         long groupID = sender.getGroupID();
+        if (args.length > 2 && "backup".equalsIgnoreCase(args[2])) {
+            String file = service.backupAllMemories("manual");
+            sender.sendMessage(file.isEmpty()
+                    ? "记忆备份失败，请查看控制台日志。"
+                    : "全部记忆已备份：backup/"+file);
+            return;
+        }
+        if (args.length > 2 && "backups".equalsIgnoreCase(args[2])) {
+            List<String> backups = service.listMemoryBackups();
+            if (backups.isEmpty()) {
+                sender.sendMessage("backup 目录里还没有记忆备份。");
+                return;
+            }
+            StringBuilder builder = new StringBuilder("记忆备份列表：");
+            for (String file : backups) builder.append("\n").append(file);
+            sender.sendMessage(builder.toString());
+            return;
+        }
+        if (args.length > 2 && "restore".equalsIgnoreCase(args[2])) {
+            if (!sender.hasPermission(CommandPermission.OWNER)) {
+                sender.sendMessage("恢复记忆仅 owner 可用。");
+                return;
+            }
+            if (args.length < 4) {
+                sender.sendMessage("用法：/role memory restore <文件名>");
+                return;
+            }
+            JSONObject result = service.restoreAllMemories(args[3]);
+            if (!result.getBooleanValue("status")) {
+                sender.sendMessage(result.getString("message"));
+                return;
+            }
+            sender.sendMessage(result.getString("message")
+                    +" 短期 "+result.getIntValue("shortTerm")
+                    +" 条，长期 "+result.getIntValue("longTerm")
+                    +" 条，永久 "+result.getIntValue("globalMemory")+" 条。");
+            return;
+        }
         if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {
             boolean started = service.mergeLongMemoryNow(groupID);
             sender.sendMessage(started
@@ -225,10 +266,10 @@ public class RoleplayCommand extends BotCommand {
     private void handleGlobalMemory(CommandSender sender,String[] args) {
         RoleplayGlobalMemoryService memoryService = service.getGlobalMemoryService();
         if (args.length > 2 && "backup".equalsIgnoreCase(args[2])) {
-            String path = memoryService.backup();
-            sender.sendMessage(path == null || path.isEmpty()
+            String file = service.backupAllMemories("global-memory-backup");
+            sender.sendMessage(file.isEmpty()
                     ? "永久记忆备份失败，请查看控制台日志。"
-                    : "永久记忆已备份到："+path);
+                    : "全部记忆已备份：backup/"+file);
             return;
         }
         if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {

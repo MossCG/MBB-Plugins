@@ -30,6 +30,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 提醒创建确认和到点提醒正文都由当前角色 AI 生成，模板仅作为兜底
 - AI 聊天过程中可以输出 `<reminder>` 标记，结合上下文创建定时任务，包括角色自己的提醒
 - 支持所有群共享的永久记忆，学习来源可限制到白名单群，并支持查看和 JSON 备份
+- 合并记忆前会把短期、长期、永久记忆一起快照到 `backup/`，支持按文件名恢复
 - 支持角色台词语料检索，按当前消息和上下文注入少量参考台词，并拦截高度照抄
 - 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
 - 群主和管理员视为老师，其他真人成员视为朋友，另一个角色机器人不按群权限归类
@@ -74,6 +75,9 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role bot name ...` | `BOT_ADMIN` | 查看、增删、重置或清空名称识别关键词 |
 | `/role memory [页码]` | `BOT_ADMIN` | 以图片查看当前群短期记忆和长期记忆 |
 | `/role memory merge` | `BOT_ADMIN` | 手动整理合并当前群长期记忆 |
+| `/role memory backup` | `BOT_ADMIN` | 备份全部群的短期、长期、永久记忆 |
+| `/role memory backups` | `BOT_ADMIN` | 查看备份文件名列表 |
+| `/role memory restore <文件名>` | `OWNER` | 从备份文件恢复全部记忆 |
 | `/role forget` | `BOT_ADMIN` | 清空当前群记忆、聊天上下文并轮换 AI 会话 |
 | `/role persona [文件名]` | `BOT_ADMIN` | 查看或切换角色设定文件 |
 | `/role persona reset <文件名>` | `BOT_ADMIN` | 用内置版本覆盖指定角色设定文件 |
@@ -83,7 +87,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/reminder delete <ID>` | `EVERYONE` | 取消自己的某条提醒 |
 | `/reminder clear` | `EVERYONE` | 取消自己在当前群的全部待触发提醒 |
 | `/role gmemory [页码]` | `BOT_ADMIN` | 图片查看全局永久记忆 |
-| `/role gmemory backup` | `BOT_ADMIN` | 导出全局永久记忆 JSON 备份 |
+| `/role gmemory backup` | `BOT_ADMIN` | 兼容入口，同样创建全部记忆快照 |
 | `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆 |
 | `/role gmemory group ...` | `BOT_ADMIN` | 管理永久记忆学习白名单群 |
 | `/role speech stats` | `BOT_ADMIN` | 查看台词语料加载状态 |
@@ -388,13 +392,25 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 /role gmemory 2
 /role gmemory backup
 /role gmemory merge
+
+/role memory backup
+/role memory backups
+/role memory restore memory-backup-20261005-234512-123.json
 ```
 
-备份文件写入插件数据目录：
+备份文件写入插件数据目录下的 `backup/`：
 
 ```text
-global-memory-backup.json
+./MoBoxBot/plugins/MBB-Roleplay/backup/memory-backup-yyyyMMdd-HHmmss-SSS.json
 ```
+
+每次长期记忆合并或永久记忆合并前，都会自动生成一次全量快照。快照包含：
+
+- `shortTerm`：所有群的短期记忆
+- `longTerm`：所有群的长期记忆
+- `globalMemory`：全局永久记忆
+
+恢复时先自动备份当前记忆，再用指定文件覆盖三类记忆。恢复操作仅 `OWNER` 可用。
 
 永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是调用 AI 对重复或高度相似的条目进行整理合并。合并失败时保留原数据。
 

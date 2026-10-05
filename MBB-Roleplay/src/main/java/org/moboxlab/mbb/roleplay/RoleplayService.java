@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
 import java.util.HashMap;
@@ -219,7 +220,7 @@ public class RoleplayService {
         this.config = config;
         this.persona = persona;
         this.reminderService = new RoleplayReminderService(plugin,config,persona);
-        this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config);
+        this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config,this);
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
         this.skillRegistry = new RoleplaySkillRegistry(this);
@@ -1209,7 +1210,7 @@ public class RoleplayService {
                     +rows.size()+" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
             return;
         }
-        backupLongMemories(groupID,rows);
+        backupAllMemories("long-term-merge");
         storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
         int saved = 0;
         long now = System.currentTimeMillis();
@@ -1240,28 +1241,201 @@ public class RoleplayService {
         return true;
     }
 
-    private void backupLongMemories(long groupID,List<JSONObject> rows) {
+    public synchronized String backupAllMemories(String reason) {
         try {
-            JSONArray memories = new JSONArray();
-            for (JSONObject row : rows) {
-                JSONObject item = new JSONObject(true);
-                item.putAll(row);
-                memories.add(item);
-            }
+            File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
             root.put("version",1);
-            root.put("groupID",groupID);
-            root.put("exportTime",System.currentTimeMillis());
-            root.put("count",memories.size());
-            root.put("memories",memories);
-            File file = new File(plugin.getDataFolder(),
-                    "long-memory-backup-"+groupID+"-"+System.currentTimeMillis()+".json");
+            root.put("type","mbb-roleplay-memory-backup");
+            root.put("createTime",System.currentTimeMillis());
+            root.put("reason",safe(reason));
+            root.put("shortTerm",exportShortTerm());
+            root.put("longTerm",exportLongTerm());
+            root.put("globalMemory",globalMemoryService.exportAll());
+            String name = "memory-backup-"
+                    +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
+                    +".json";
+            File file = new File(directory,name);
             Files.write(Paths.get(file.getAbsolutePath()),
                     root.toJSONString().getBytes(StandardCharsets.UTF_8));
-            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 合并前备份已写入 "+file.getAbsolutePath());
+            plugin.getLogger().sendInfo("[记忆] 已备份全部记忆到 "+file.getAbsolutePath());
+            return name;
         } catch (Exception e) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 合并前备份失败："+e.getMessage());
+            plugin.getLogger().sendWarn("备份全部记忆失败："+e.getMessage());
+            return "";
         }
+    }
+
+    public List<String> listMemoryBackups() {
+        List<String> result = new ArrayList<>();
+        File[] files = backupDirectory().listFiles();
+        if (files == null) return result;
+        for (File file : files) {
+            String name = file.getName();
+            if (file.isFile() && name.startsWith("memory-backup-") && name.endsWith(".json")) {
+                result.add(name);
+            }
+        }
+        Collections.sort(result,Collections.reverseOrder());
+        return result;
+    }
+
+    public synchronized JSONObject restoreAllMemories(String fileName) {
+        JSONObject result = new JSONObject(true);
+        String name = fileName == null ? "" : fileName.trim();
+        if (name.isEmpty()) {
+            result.put("status",false);
+            result.put("message","请提供备份文件名。");
+            return result;
+        }
+        if (name.contains("/") || name.contains("\\") || name.contains("..")) {
+            result.put("status",false);
+            result.put("message","备份文件名不合法。");
+            return result;
+        }
+        File file = new File(backupDirectory(),name);
+        if (!file.exists()) {
+            result.put("status",false);
+            result.put("message","找不到备份文件："+name);
+            return result;
+        }
+        try {
+            String text = new String(Files.readAllBytes(Paths.get(file.getAbsolutePath())),
+                    StandardCharsets.UTF_8);
+            JSONObject root = JSONObject.parseObject(text);
+            if (root == null || !"mbb-roleplay-memory-backup".equals(root.getString("type"))) {
+                result.put("status",false);
+                result.put("message","备份文件格式不正确。");
+                return result;
+            }
+            JSONArray shortTerm = root.getJSONArray("shortTerm");
+            JSONArray longTerm = root.getJSONArray("longTerm");
+            JSONArray globalMemory = root.getJSONArray("globalMemory");
+            backupAllMemories("before-restore-"+name);
+            storage().update("DELETE FROM `"+MEMORY_TABLE+"`");
+            storage().update("DELETE FROM `"+STATE_TABLE+"`");
+            globalMemoryService.replaceAll(globalMemory);
+            int shortSaved = restoreShortTerm(shortTerm);
+            int longSaved = restoreLongTerm(longTerm);
+            clearRuntimeMemoryState();
+            result.put("status",true);
+            result.put("message","记忆已恢复。");
+            result.put("shortTerm",shortSaved);
+            result.put("longTerm",longSaved);
+            result.put("globalMemory",globalMemory == null ? 0 : globalMemory.size());
+            plugin.getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
+                    +" 条，长期 "+longSaved+" 条，永久 "
+                    +(globalMemory == null ? 0 : globalMemory.size())+" 条");
+            return result;
+        } catch (Exception e) {
+            plugin.getLogger().sendException(e);
+            result.put("status",false);
+            result.put("message","恢复失败："+e.getMessage());
+            return result;
+        }
+    }
+
+    private File backupDirectory() {
+        File directory = new File(plugin.getDataFolder(),"backup");
+        if (!directory.exists()) directory.mkdirs();
+        return directory;
+    }
+
+    private JSONArray exportShortTerm() {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`updateTime` "
+                        + "FROM `"+STATE_TABLE+"` ORDER BY `groupID` ASC");
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("groupID",row.getLongValue("groupID"));
+            item.put("shortSummary",row.getString("shortSummary"));
+            item.put("lastMemoryTime",row.getLongValue("lastMemoryTime"));
+            item.put("lastMemoryID",row.getLongValue("lastMemoryID"));
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    private JSONArray exportLongTerm() {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime` "
+                        + "FROM `"+MEMORY_TABLE+"` ORDER BY `groupID` ASC,`ID` ASC");
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
+            item.put("groupID",row.getLongValue("groupID"));
+            item.put("memoryType",row.getString("memoryType"));
+            item.put("subjectID",row.getLongValue("subjectID"));
+            item.put("content",row.getString("content"));
+            item.put("importance",row.getIntValue("importance"));
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    private int restoreShortTerm(JSONArray memories) {
+        if (memories == null) return 0;
+        int saved = 0;
+        long now = System.currentTimeMillis();
+        for (Object object : memories) {
+            if (!(object instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject) object;
+            long groupID = item.getLongValue("groupID");
+            if (groupID <= 0) continue;
+            long updateTime = item.getLongValue("updateTime");
+            if (updateTime <= 0) updateTime = now;
+            storage().insert("INSERT OR REPLACE INTO `"+STATE_TABLE+"` "
+                            + "(`groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?)",
+                    groupID,safe(item.getString("shortSummary")),
+                    item.getLongValue("lastMemoryTime"),item.getLongValue("lastMemoryID"),updateTime);
+            saved++;
+        }
+        return saved;
+    }
+
+    private int restoreLongTerm(JSONArray memories) {
+        if (memories == null) return 0;
+        int saved = 0;
+        long now = System.currentTimeMillis();
+        for (Object object : memories) {
+            if (!(object instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject) object;
+            long groupID = item.getLongValue("groupID");
+            String content = safe(item.getString("content")).trim();
+            if (groupID <= 0 || content.isEmpty()) continue;
+            String type = safe(item.getString("memoryType")).trim();
+            if (type.isEmpty()) type = "topic";
+            int importance = item.getIntValue("importance");
+            if (importance < 1) importance = 1;
+            if (importance > 5) importance = 5;
+            long updateTime = item.getLongValue("updateTime");
+            if (updateTime <= 0) updateTime = now;
+            storage().insert("INSERT INTO `"+MEMORY_TABLE+"` "
+                            + "(`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?)",
+                    groupID,type,item.getLongValue("subjectID"),content,importance,updateTime);
+            saved++;
+        }
+        return saved;
+    }
+
+    private void clearRuntimeMemoryState() {
+        conversationStateMap.clear();
+        messageCountMap.clear();
+        replyRateMap.clear();
+        pendingMemoryMap.clear();
+        memoryErrorTypeMap.clear();
+        memoryMergingMap.clear();
+        recentImageMap.clear();
+        recentStickerMap.clear();
+        pendingTurnMap.clear();
     }
 
     private String recentRoleReplyText(long groupID) {

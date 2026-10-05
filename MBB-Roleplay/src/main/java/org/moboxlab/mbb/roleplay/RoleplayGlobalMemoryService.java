@@ -6,10 +6,6 @@ import org.moboxlab.moboxbot.API.Plugin;
 import org.moboxlab.moboxbot.API.PluginService;
 import org.moboxlab.moboxbot.API.Storage.StorageService;
 
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -22,12 +18,14 @@ public class RoleplayGlobalMemoryService {
     private static final String TABLE = "plugin_mbb_roleplay_global_memory";
 
     private final Plugin plugin;
+    private final RoleplayService service;
     private volatile RoleplayConfig config;
     private volatile boolean merging = false;
 
-    public RoleplayGlobalMemoryService(Plugin plugin,RoleplayConfig config) {
+    public RoleplayGlobalMemoryService(Plugin plugin,RoleplayConfig config,RoleplayService service) {
         this.plugin = plugin;
         this.config = config;
+        this.service = service;
     }
 
     public void init() {
@@ -140,7 +138,7 @@ public class RoleplayGlobalMemoryService {
                         +" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
                 return;
             }
-            backup();
+            service.backupAllMemories("global-memory-merge");
             storage().update("DELETE FROM `"+TABLE+"`");
             int saved = 0;
             long now = System.currentTimeMillis();
@@ -237,22 +235,51 @@ public class RoleplayGlobalMemoryService {
         return builder.toString();
     }
 
-    public String backup() {
-        try {
-            JSONObject root = new JSONObject(true);
-            root.put("version",1);
-            root.put("exportTime",System.currentTimeMillis());
-            root.put("count",count());
-            root.put("memories",list(config.globalMemoryMaxItems));
-            File file = new File(plugin.getDataFolder(),"global-memory-backup.json");
-            Files.write(Paths.get(file.getAbsolutePath()),
-                    root.toJSONString().getBytes(StandardCharsets.UTF_8));
-            plugin.getLogger().sendInfo("[永久记忆] 已备份到 "+file.getAbsolutePath());
-            return file.getAbsolutePath();
-        } catch (Exception e) {
-            plugin.getLogger().sendWarn("永久记忆备份失败："+e.getMessage());
-            return "";
+    public JSONArray exportAll() {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime` "
+                        + "FROM `"+TABLE+"` ORDER BY `ID` ASC");
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
+            item.put("memoryType",row.getString("memoryType"));
+            item.put("content",row.getString("content"));
+            item.put("importance",row.getIntValue("importance"));
+            item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
+            item.put("sourceUserID",row.getLongValue("sourceUserID"));
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
         }
+        return result;
+    }
+
+    public boolean replaceAll(JSONArray memories) {
+        storage().update("DELETE FROM `"+TABLE+"`");
+        if (memories == null) return true;
+        long now = System.currentTimeMillis();
+        for (Object object : memories) {
+            if (!(object instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject) object;
+            String type = safe(item.getString("memoryType"));
+            if (type.isEmpty()) type = safe(item.getString("type"));
+            String content = safe(item.getString("content")).trim();
+            if (content.isEmpty()) continue;
+            if (type.isEmpty()) type = "note";
+            int importance = item.getIntValue("importance");
+            if (importance < 1) importance = 1;
+            if (importance > 5) importance = 5;
+            long sourceGroupID = item.getLongValue("sourceGroupID");
+            long sourceUserID = item.getLongValue("sourceUserID");
+            long updateTime = item.getLongValue("updateTime");
+            if (updateTime <= 0) updateTime = now;
+            storage().insert("INSERT INTO `"+TABLE+"` "
+                            + "(`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?)",
+                    type,content,importance,sourceGroupID,sourceUserID,updateTime);
+        }
+        return true;
     }
 
     public String formatTime(long time) {
