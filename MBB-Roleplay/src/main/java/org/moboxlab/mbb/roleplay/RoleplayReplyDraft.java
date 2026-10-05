@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * 执行层输出
  *
- * 约定模型返回 {"text":"正文","actions":[{"type":"poke_back"}],"quote":true}。
+ * 约定模型返回 {"text":"正文","actions":[{"type":"poke_back","args":{}}],"quote":true}。
  * 动作和正文是同一次表达，所以放在同一个结果里，而不是先决定动作再让模型配台词。
  *
  * 解析分三级：严格 JSON、截取最外层大括号、宽松字段提取。
@@ -19,7 +19,7 @@ import java.util.List;
 public class RoleplayReplyDraft {
     public String text = "";
     public boolean quote = false;
-    public final List<String> actions = new ArrayList<>();
+    public final List<RoleplaySkillCall> actions = new ArrayList<>();
     /** 是否成功按约定解析出结构，false 表示走了退化路径 */
     public boolean structured = false;
     /** 看起来是结构化结果但没能解析，调用方应记录日志并跳过发送 */
@@ -38,9 +38,8 @@ public class RoleplayReplyDraft {
             JSONArray actions = json.getJSONArray("actions");
             if (actions != null) {
                 for (Object item : actions) {
-                    String type = actionType(item);
-                    if (type == null || type.trim().isEmpty()) continue;
-                    if (!draft.actions.contains(type.trim())) draft.actions.add(type.trim());
+                    RoleplaySkillCall call = parseCall(item);
+                    if (call != null) draft.addCall(call);
                 }
             }
             return draft;
@@ -51,7 +50,7 @@ public class RoleplayReplyDraft {
         if (lenient != null) {
             draft.text = lenient.trim();
             draft.quote = raw.contains("\"quote\":true") || raw.contains("\"quote\": true");
-            if (raw.contains("poke_back")) draft.actions.add("poke_back");
+            if (raw.contains("poke_back")) draft.addCall(new RoleplaySkillCall("poke_back"));
             return draft;
         }
 
@@ -64,10 +63,35 @@ public class RoleplayReplyDraft {
         return draft;
     }
 
-    private static String actionType(Object item) {
-        if (item instanceof String) return String.valueOf(item);
-        if (item instanceof JSONObject) return ((JSONObject) item).getString("type");
+    /** 同类动作只保留一次，避免模型重复输出 */
+    public void addCall(RoleplaySkillCall call) {
+        if (call == null || call.type.isEmpty()) return;
+        for (RoleplaySkillCall existing : actions) {
+            if (existing.type.equals(call.type)) return;
+        }
+        actions.add(call);
+    }
+
+    public boolean hasAction(String type) {
+        return action(type) != null;
+    }
+
+    public RoleplaySkillCall action(String type) {
+        if (type == null) return null;
+        for (RoleplaySkillCall call : actions) {
+            if (type.equals(call.type)) return call;
+        }
         return null;
+    }
+
+    private static RoleplaySkillCall parseCall(Object item) {
+        if (item instanceof String) return new RoleplaySkillCall(String.valueOf(item));
+        if (!(item instanceof JSONObject)) return null;
+        JSONObject json = (JSONObject) item;
+        RoleplaySkillCall call = new RoleplaySkillCall(json.getString("type"));
+        JSONObject args = json.getJSONObject("args");
+        if (args != null) call.args = args;
+        return call;
     }
 
     private static JSONObject tryParse(String raw) {

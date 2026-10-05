@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "7";
+    private static final String CURRENT_VERSION = "8";
 
     private static class ConfigEntry {
         private final String key;
@@ -85,6 +85,17 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("pokeBackEnable","true","被戳时是否允许角色戳回去"),
             new ConfigEntry("pokeBackCooldownSecond","60","对同一用户戳回去的最小间隔秒数"),
             new ConfigEntry("quoteReplyEnable","true","回复被艾特或被直接回复的消息时是否引用原消息"),
+            new ConfigEntry("promptTotalChars","16000","注入执行层的资料总字符预算，超出部分按优先级截断"),
+            new ConfigEntry("routerEnable","true","是否启用 AI 路由层判断要不要回复、挂哪些技能和资料"),
+            new ConfigEntry("routerProfile","","路由层使用的模型配置名，留空则使用 aiProfile"),
+            new ConfigEntry("routerMaxTokens","400","路由层输出 Token 上限"),
+            new ConfigEntry("routerReasoningEffort","low","路由层思考强度：low / medium / high，留空表示不发送"),
+            new ConfigEntry("styleEnable","true","是否在回复带 AI 味时调用风格层改写"),
+            new ConfigEntry("styleMaxChars","60","回复超过多少字触发风格层"),
+            new ConfigEntry("styleProfile","","风格层使用的模型配置名，留空则使用 aiProfile"),
+            new ConfigEntry("styleMaxTokens","400","风格层输出 Token 上限"),
+            new ConfigEntry("styleReasoningEffort","low","风格层思考强度：low / medium / high，留空表示不发送"),
+            new ConfigEntry("styleProactiveEnable","false","主动发言时是否也触发风格层"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
@@ -125,7 +136,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 7) {
+        if (version < 8) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -142,7 +153,7 @@ public class RoleplayConfigMigrator {
             config.set("stickerAttachWindowSecond","5");
             changed++;
         }
-        if (version < 7 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow) {
+        if (version < 8 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow) {
             if (config.save()) {
                 config.load();
             } else {

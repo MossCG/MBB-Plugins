@@ -185,6 +185,17 @@ pokeReplyEnable: true
 pokeBackEnable: true
 pokeBackCooldownSecond: 60
 quoteReplyEnable: true
+promptTotalChars: 16000
+routerEnable: true
+routerProfile: ""
+routerMaxTokens: 400
+routerReasoningEffort: "low"
+styleEnable: true
+styleMaxChars: 60
+styleProfile: ""
+styleMaxTokens: 400
+styleReasoningEffort: "low"
+styleProactiveEnable: false
 replyImageMaxTokens: 4000
 maxLongMemories: 150
 recentReplyCheckCount: 8
@@ -211,6 +222,44 @@ minMessageLength: 2
 `timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
 
 `shortContextMessages` 控制注入的即时群聊条数，默认 `120`，上限 `300`。学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，所以扩大这个窗口不会把整份图鉴重复带进每条请求。
+
+## 分层处理
+
+回复流程分成四段，详细设计见 [DESIGN-LAYERED-AI.md](DESIGN-LAYERED-AI.md)。
+
+**路由层**：每条群消息都会先过一遍路由，判断要不要回复、要挂哪些技能、要带哪些资料。
+提示词刻意保持小，不带人设正文。规则保留否决权：被直接艾特必须回复，冷却中必须沉默，
+路由层不能推翻。路由调用失败时自动回退到规则决策，不会因为路由出错而漏掉艾特。
+
+```yaml
+routerEnable: true
+routerProfile: ""            #留空则使用 aiProfile
+routerMaxTokens: 400
+routerReasoningEffort: "low"
+```
+
+**技能注册表**：技能按声明注册，执行层只能调用已注册且在开放清单内的技能。当前注册了
+`reminder`、`memory`、`global-memory`、`sticker`、`poke-back` 五个。旧的
+`<reminder>` / `<remember>` / `<global_remember>` / `<sticker>` 标签仍然兼容，
+会被转换成同一批技能调用。
+
+**资料预算**：角色核心、外貌、学生名录、学生详细设定、长期/全局/短期记忆、最近发言、
+台词示例各自独立成项，常驻项必带，其余按路由点名的 id 注入，总量受 `promptTotalChars`
+限制。上限存在的意义是防止某一份资料把整条提示词撑爆。
+
+```yaml
+promptTotalChars: 16000
+```
+
+**风格层**：默认不调用，先用本地规则判断回复是否带 AI 味。命中超长、破折号、Markdown
+残留、AI 味词、列点、成对引号时才改写一次；改写不改事实、不增删信息、不动表达动作，
+失败或明显变长时直接用原文。
+
+```yaml
+styleEnable: true
+styleMaxChars: 60
+styleProactiveEnable: false   #主动发言时是否也触发风格层
+```
 
 ## 戳一戳与引用
 

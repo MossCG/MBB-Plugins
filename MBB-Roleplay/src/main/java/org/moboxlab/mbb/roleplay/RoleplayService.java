@@ -41,16 +41,16 @@ public class RoleplayService {
     private final RoleplayGlobalMemoryService globalMemoryService;
     private final RoleplaySpeechCorpusService speechCorpusService;
     private final RoleplayActionService actionService;
+    private final RoleplaySkillRegistry skillRegistry;
+    private final RoleplayRouter router;
+    private final RoleplayStyler styler;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
-    private final Map<Long,Long> lastReplyMap = new HashMap<>();
-    private final Map<Long,Long> lastReplyUserMap = new HashMap<>();
-    private final Map<Long,Long> lastBotMessageMap = new HashMap<>();
+    private final Map<Long,RoleplayConversationState> conversationStateMap = new ConcurrentHashMap<>();
     private final Map<Long,Integer> messageCountMap = new HashMap<>();
     private final Map<Long,long[]> replyRateMap = new HashMap<>();
     private final Map<Long,Boolean> memoryUpdatingMap = new HashMap<>();
     private final Map<Long,String> pendingMemoryMap = new HashMap<>();
-    private final Map<Long,Integer> otherRoleMessageStreakMap = new HashMap<>();
     private final Map<Long,Boolean> memoryMergingMap = new HashMap<>();
     private final Map<Long,long[]> imageVisionRateMap = new HashMap<>();
     private final Map<String,RecentImage> recentImageMap = new ConcurrentHashMap<>();
@@ -212,6 +212,9 @@ public class RoleplayService {
         this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config);
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
+        this.skillRegistry = new RoleplaySkillRegistry(this);
+        this.router = new RoleplayRouter(plugin,this);
+        this.styler = new RoleplayStyler(plugin);
     }
 
     public void init() {
@@ -333,12 +336,13 @@ public class RoleplayService {
             return;
         }
         if (!otherRoleBot && reminderService.handle(event,content)) return;
-        RoleplayRouteDecision decision = RoleplayDecisionEngine.decide(config,signals);
-        if (!decision.reply) return;
-        if (Math.random() >= decision.chance) return;
+        RoleplayRouteDecision decision = routeDecision(signals,event,groupID,selfID,content);
+        if (decision == null || !decision.reply) return;
+        if (decision.chance < 1.0 && Math.random() >= decision.chance) return;
         if (!canReply(groupID)) return;
         plugin.getLogger().sendInfo("[角色] 群"+groupID+" 决策 addressed="+decision.addressed
-                +" 概率="+String.format(Locale.US,"%.2f",decision.chance)
+                +" 技能="+decision.skills
+                +" 资料="+decision.materials
                 +" 引用="+(decision.quoteRequired ? "是" : "否")
                 +" 原因="+decision.reason);
         String userName = senderName(event);
@@ -366,40 +370,17 @@ public class RoleplayService {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 执行层未返回结构化结果，按纯文本处理");
         }
         String rawReply = safe(draft.text).trim();
+        // 兼容旧标签：模型偶尔仍会输出 <reminder> / <remember> / <global_remember> / <sticker>，
+        // 统一转成技能调用，和执行层直接给出的 actions 走同一条执行路径
         ReminderMarkerResult reminderMarker = extractReminderMarker(rawReply);
         GlobalRememberResult globalRemember = extractGlobalRemember(reminderMarker.reply);
         RememberResult rememberResult = extractRemember(globalRemember.reply);
         StickerMarkerResult stickerMarker = extractStickerMarker(rememberResult.reply);
         String reply = stickerMarker.reply.trim();
-        if (reminderMarker.requested) {
-            String actionResult = reminderService.executeAiAction(groupID,event.getUserID(),userName,
-                    relationship,reminderMarker.action,reminderMarker.id,reminderMarker.time,
-                    reminderMarker.task,reminderMarker.target,content);
-            if (actionResult != null && !actionResult.isEmpty()) {
-                reminderService.sendAt(groupID,event.getUserID(),
-                        RoleplayReminderService.REMINDER_MARKER+actionResult);
-            }
-        }
-        boolean inducedMemory = isInducedMemoryRequest(content);
-        boolean owner = isOwner(event.getUserID());
-        if (rememberResult.requested && config.activeMemory && (!inducedMemory || owner)) {
-            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 角色主动请求记忆");
-            triggerMemory(groupID,"主动记忆",rememberResult.memory);
-        } else if (rememberResult.requested && inducedMemory) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 用户"+event.getUserID()
-                    +" 非 owner 诱导记忆，已忽略 <remember>");
-        }
-        if (globalRemember.requested) {
-            if (inducedMemory && !owner) {
-                plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 用户"+event.getUserID()
-                        +" 非 owner 诱导全局记忆，已忽略 <global_remember>");
-            } else if (globalMemoryService.isLearnGroup(groupID)) {
-                globalMemoryService.save("note",globalRemember.content,3,groupID,event.getUserID());
-            } else {
-                plugin.getLogger().sendWarn("[永久记忆] 群"+groupID
-                        +" 不在学习白名单，忽略 <global_remember>");
-            }
-        }
+        if (reminderMarker.requested) draft.addCall(legacyReminderCall(reminderMarker));
+        if (rememberResult.requested) draft.addCall(legacyMemoryCall(rememberResult.memory));
+        if (globalRemember.requested) draft.addCall(legacyGlobalMemoryCall(globalRemember.content));
+        if (stickerMarker.requested) draft.addCall(legacyStickerCall(stickerMarker.tags));
         boolean sendText = !reply.isEmpty() && !"<SKIP>".equalsIgnoreCase(reply);
         if (sendText && shouldSuppressRepeat(groupID,reply)) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过重复回复："+shortText(reply,80));
@@ -410,15 +391,27 @@ public class RoleplayService {
                     +shortText(reply,80));
             sendText = false;
         }
+        if (sendText && config.styleEnable) {
+            boolean proactive = config.styleProactiveEnable
+                    && decision != null && "ambient".equals(decision.addressed);
+            String trigger = RoleplayStyleDetector.reason(config,reply,proactive);
+            if (!trigger.isEmpty()) {
+                String polished = styler.polish(config,persona,groupID,reply,trigger,
+                        speechCorpusService.promptText(content,recentContext(groupID)));
+                if (!polished.isEmpty() && !polished.equals(reply)) {
+                    plugin.getLogger().sendInfo("[角色] 风格 群"+groupID+" 触发="+trigger
+                            +" 原文="+shortText(reply,40)+" 改写="+shortText(polished,40));
+                    reply = polished;
+                }
+            }
+        }
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (sendText && client != null) {
             sendReply(client,groupID,selfID,event.getUserID(),reply,
                     decision != null && decision.quoteRequired,draft.quote,event.getMessageID());
         }
-        if (stickerMarker.requested) {
-            sendSticker(groupID,event.getUserID(),stickerMarker.tags);
-        }
-        executeActions(decision,draft,groupID,event.getUserID());
+        executeSkillCalls(decision,draft,groupID,event.getUserID(),event.getMessageID(),selfID,
+                userName,relationship,content);
     }
 
     /**
@@ -460,7 +453,7 @@ public class RoleplayService {
         if (sendText && client != null) sendReply(client,groupID,selfID,userID,text,false,false,0L);
         plugin.getLogger().sendInfo("[角色] 戳一戳 群"+groupID+" 用户"+userID
                 +" 回复="+(sendText ? shortText(text,60) : "无"));
-        executeActions(decision,draft,groupID,userID);
+        executeSkillCalls(decision,draft,groupID,userID,0L,selfID,userName,relationship,content);
     }
 
     private JSONObject pokeMember(long groupID,long userID) {
@@ -575,10 +568,7 @@ public class RoleplayService {
         memoryUpdatingMap.remove(groupID);
         pendingMemoryMap.remove(groupID);
         messageCountMap.put(groupID,0);
-        otherRoleMessageStreakMap.remove(groupID);
-        lastReplyMap.remove(groupID);
-        lastReplyUserMap.remove(groupID);
-        lastBotMessageMap.remove(groupID);
+        conversationStateMap.remove(groupID);
         replyRateMap.remove(groupID);
     }
 
@@ -600,6 +590,31 @@ public class RoleplayService {
 
     public RoleplayActionService getActionService() {
         return actionService;
+    }
+
+    /** 技能注册表使用的内部入口，只在本包内可见 */
+    Plugin plugin() {
+        return plugin;
+    }
+
+    RoleplayConfig config() {
+        return config;
+    }
+
+    void rememberNow(long groupID,String content) {
+        triggerMemory(groupID,"主动记忆",content);
+    }
+
+    void sendStickerMessage(long groupID,long userID,String tags) {
+        sendSticker(groupID,userID,tags);
+    }
+
+    boolean isOwnerUser(long userID) {
+        return isOwner(userID);
+    }
+
+    boolean isInducedMemory(String content) {
+        return isInducedMemoryRequest(content);
     }
 
     public int ruleLikeCount() {
@@ -664,18 +679,22 @@ public class RoleplayService {
                                      String relationship,String speechPrompt,String messageText,
                                      RoleplayRouteDecision decision) {
         String recentReplies = recentRoleReplyText(groupID);
-        String studentDetail = persona.studentDetailText(messageText);
-        return persona.description()+"\n\n"
-                +(studentDetail.isEmpty() ? "" : studentDetail+"\n")
-                +"长期记忆：\n"+longMemoryText(groupID)+"\n"
-                +"全局永久记忆：\n"+globalMemoryService.promptText()+"\n"
-                +"短期记忆：\n"+shortSummary(groupID)+"\n"
-                +"你最近说过的话：\n"+recentReplies+"\n"
-                +(speechPrompt == null || speechPrompt.isEmpty() ? "" : speechPrompt+"\n")
-                +stickerPrompt()+"\n"
+        List<String> actionIds = decision == null ? skillRegistry.actionIds(config) : decision.actions;
+        String materials = assembleMaterials(groupID,userID,relationship,messageText,recentReplies,
+                speechPrompt,decision);
+        RoleplaySkillContext skillContext = new RoleplaySkillContext();
+        skillContext.groupID = groupID;
+        skillContext.userID = userID;
+        skillContext.relationship = relationship;
+        skillContext.message = messageText;
+        skillContext.state = state(groupID);
+        String skillPrompt = skillRegistry.promptFragments(config,actionIds,skillContext);
+        return materials
+                +(skillPrompt.isEmpty() ? "" : "可用技能：\n"+skillPrompt)
                 +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
-                +"当前用户的待触发提醒：\n"+reminderService.pendingText(groupID,userID)+"\n"
+                +(actionIds.contains("reminder") ? "当前用户的待触发提醒：\n"
+                +reminderService.pendingText(groupID,userID)+"\n" : "")
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
                 +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
                 +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
@@ -705,21 +724,6 @@ public class RoleplayService {
                 +"不要把“嗯”“嗯……”当作固定开场；最近 3 条回复里已经出现过“嗯”开头时，必须换一种直接的说法。"
                 +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
-                +(config.activeMemory ? "如果当前内容出现了值得长期记忆的新人物信息、稳定偏好、重要事件、群梗，"
-                +"或你自己的重要承诺与行为，把聊天正文写在 <remember> 前，把要记忆的内容写在标签后。"
-                +"例如：嗯，周末我也有空<remember>用户周末要参加活动。"
-                +"<remember> 标签及其后的记忆内容不会发给用户；没有长期价值时不要输出，不要解释这个标记。" : "")
-                +(config.reminderEnable ? "你可以管理当前用户的提醒。查询时直接根据“当前用户的待触发提醒”回答，并带上 #ID。"
-                +"创建任务输出 <reminder>{\"action\":\"create\",\"time\":\"yyyy-MM-dd HH:mm:ss\","
-                +"\"task\":\"要提醒的内容\",\"target\":\"self\"}</reminder>；"
-                +"删除任务输出 <reminder>{\"action\":\"delete\",\"id\":12}</reminder>；"
-                +"修改任务输出 <reminder>{\"action\":\"edit\",\"id\":12,\"time\":\"yyyy-MM-dd HH:mm:ss\","
-                +"\"task\":\"新的提醒内容\"}</reminder>。time 必须使用当前时区，target 使用 self 表示提醒自己，"
-                +"使用 user 表示提醒当前群友；没有明确 ID 时不要删除或修改，标签及其内容不会发给用户。" : "")
-                +(globalMemoryService.isLearnGroup(groupID) ? "如果当前上下文出现了值得所有群共享的、"
-                +"不绑定具体用户的说话方式、语气、生活习惯、知识、群梗或注意事项，可以在回复末尾输出 "
-                +"<global_remember>要永久记住的内容</global_remember>。不要记录个人隐私或用户专属信息；"
-                +"没有长期价值时不要输出，标签及其内容不会发给用户。" : "")
                 +"不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。"
                 +"输出格式：只输出一个 JSON 对象，不要加代码块或额外说明，格式为 "
                 +"{\"text\":\"你要说的话\",\"actions\":[],\"quote\":false}。"
@@ -731,19 +735,78 @@ public class RoleplayService {
     }
 
     /**
-     * 表达类动作说明，只列出本轮开放的动作
+     * 表达类动作的选取约束，具体用法由技能自己的提示片段说明
      */
     private String actionPrompt(RoleplayRouteDecision decision) {
         if (decision == null || decision.actions.isEmpty()) {
             return "actions 必须保持空数组。";
         }
-        StringBuilder builder = new StringBuilder("actions 只能从这些动作里选，没有合适的就留空：");
-        for (String action : decision.actions) {
-            if ("poke_back".equals(action)) {
-                builder.append("poke_back 表示戳回去，适合被人戳、或想回敬对方时；");
-            }
+        return "actions 只能从“可用技能”里列出的类型中选，没有合适的就留空数组。";
+    }
+
+    /**
+     * 组装本轮注入的资料
+     * 常驻资料必带，其余按路由层点名的 id 注入，总量受 promptTotalChars 限制
+     */
+    private String assembleMaterials(long groupID,long userID,String relationship,String messageText,
+                                     String recentReplies,String speechPrompt,
+                                     RoleplayRouteDecision decision) {
+        List<String> requested = decision == null ? new ArrayList<>() : decision.materials;
+        List<RoleplayMaterial> materials = new ArrayList<>();
+        materials.add(new RoleplayMaterial("persona.core",true,100,6000,
+                () -> persona.coreText()));
+        materials.add(new RoleplayMaterial("persona.appearance",false,60,1200,
+                () -> persona.appearanceText()));
+        materials.add(new RoleplayMaterial("students.brief",true,70,4000,
+                () -> persona.studentBriefText()));
+        materials.add(new RoleplayMaterial("students.detail",false,80,4000,
+                () -> persona.studentDetailText(messageText)));
+        materials.add(new RoleplayMaterial("memory.long",true,90,3000,
+                () -> "长期记忆：\n"+longMemoryText(groupID)));
+        materials.add(new RoleplayMaterial("memory.global",true,85,2000,
+                () -> "全局永久记忆：\n"+globalMemoryService.promptText()));
+        materials.add(new RoleplayMaterial("memory.short",true,80,1500,
+                () -> "短期记忆：\n"+shortSummary(groupID)));
+        materials.add(new RoleplayMaterial("context.recent",true,75,2500,
+                () -> "你最近说过的话：\n"+recentReplies));
+        materials.add(new RoleplayMaterial("speech.corpus",true,50,1300,
+                () -> speechPrompt == null ? "" : speechPrompt));
+        return RoleplayMaterialBudget.assemble(materials,requested,config.promptTotalChars);
+    }
+
+    /**
+     * 可选资料清单，给路由层点名用
+     */
+    String materialCatalogue() {
+        return "persona.appearance：角色自己的外貌，被问到长相或外貌时带上\n"
+                +"students.detail：被提到的学生的完整外貌，问起某位学生时带上\n";
+    }
+
+    /**
+     * 产出本轮决策
+     * 规则先算一遍作为兜底，路由可用时以路由结果为准，但规则保留否决权
+     */
+    private RoleplayRouteDecision routeDecision(RoleplayDecisionEngine.Signals signals,
+                                                GroupMessageEvent event,long groupID,long selfID,
+                                                String content) {
+        RoleplayRouteDecision ruleDecision = RoleplayDecisionEngine.decide(config,signals);
+        if (!config.routerEnable) return ruleDecision;
+        RoleplayRouteDecision routed = router.route(config,persona,skillRegistry,state(groupID),
+                content,senderName(event),relationshipLabel(event,signals.otherRoleBot),
+                recentContext(groupID));
+        if (routed == null) {
+            plugin.getLogger().sendWarn("[角色] 群"+groupID+" 路由失败，回退规则决策");
+            return ruleDecision;
         }
-        return builder.toString();
+        if (signals.direct) {
+            routed.reply = true;
+            routed.addressed = "direct";
+        }
+        routed.quoteRequired = config.quoteReplyEnable
+                && (signals.quotingSelf || signals.mentioningSelf);
+        routed.otherRoleBot = signals.otherRoleBot;
+        routed.actions = skillRegistry.actionIds(config);
+        return routed;
     }
 
     private void triggerMemory(long groupID,String reason) {
@@ -1182,9 +1245,11 @@ public class RoleplayService {
             if (response != null && response.getIntValue("retcode") == 0) {
                 long messageID = response.getJSONObject("data") == null
                         ? 0L : response.getJSONObject("data").getLongValue("message_id");
-                lastBotMessageMap.put(groupID,messageID);
+                RoleplayConversationState state = state(groupID);
+                state.lastBotMessageID = messageID;
+                state.lastReplyUser = userID;
+                state.botStreak++;
                 recordBotMessage(groupID,selfID,segments.get(i),messageID);
-                lastReplyUserMap.put(groupID,userID);
             }
             if (i + 1 < count) {
                 try {
@@ -1198,23 +1263,67 @@ public class RoleplayService {
     }
 
     /**
-     * 执行表达类动作
-     * 动作类型必须在路由层开放的清单里，校验失败只丢弃该动作，不影响正文
+     * 执行技能调用
+     * 技能必须已注册且在本轮开放清单内，校验失败只丢弃该动作，不影响正文
      */
-    private void executeActions(RoleplayRouteDecision decision,RoleplayReplyDraft draft,
-                                long groupID,long userID) {
+    private void executeSkillCalls(RoleplayRouteDecision decision,RoleplayReplyDraft draft,
+                                   long groupID,long userID,long messageID,long selfID,
+                                   String userName,String relationship,String content) {
         if (draft == null || draft.actions.isEmpty()) return;
-        for (String action : draft.actions) {
-            if (decision != null && !decision.actions.contains(action)) {
-                plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未开放的动作："+action);
+        List<String> allowed = decision == null ? skillRegistry.actionIds(config) : decision.actions;
+        for (RoleplaySkillCall call : draft.actions) {
+            RoleplaySkill skill = skillRegistry.get(call.type);
+            if (skill == null) {
+                plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未注册的技能："+call.type);
                 continue;
             }
-            if ("poke_back".equals(action)) {
-                boolean success = actionService.pokeBack(config,groupID,userID);
-                plugin.getLogger().sendInfo("[角色] 戳回去 群"+groupID+" 用户"+userID
-                        +" 结果="+(success ? "成功" : "跳过"));
+            if (!allowed.contains(skill.id())) {
+                plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未开放的技能："+skill.id());
+                continue;
             }
+            RoleplaySkillContext context = new RoleplaySkillContext();
+            context.groupID = groupID;
+            context.userID = userID;
+            context.messageID = messageID;
+            context.selfID = selfID;
+            context.userName = userName == null ? "" : userName;
+            context.relationship = relationship == null ? "" : relationship;
+            context.message = content == null ? "" : content;
+            context.args = call.args == null ? new JSONObject(true) : call.args;
+            context.state = state(groupID);
+            RoleplaySkillResult result = skill.execute(context);
+            plugin.getLogger().sendInfo("[角色] 技能 "+skill.id()+" 群"+groupID+" 用户"+userID
+                    +" 结果="+(result.success ? "成功" : "失败")
+                    +" 摘要="+shortText(result.summary,80));
         }
+    }
+
+    private RoleplaySkillCall legacyReminderCall(ReminderMarkerResult marker) {
+        RoleplaySkillCall call = new RoleplaySkillCall("reminder");
+        call.args.put("action",marker.action);
+        if (marker.id > 0) call.args.put("id",marker.id);
+        if (marker.time != null && !marker.time.isEmpty()) call.args.put("time",marker.time);
+        if (marker.task != null && !marker.task.isEmpty()) call.args.put("task",marker.task);
+        if (marker.target != null && !marker.target.isEmpty()) call.args.put("target",marker.target);
+        return call;
+    }
+
+    private RoleplaySkillCall legacyMemoryCall(String content) {
+        RoleplaySkillCall call = new RoleplaySkillCall("memory");
+        call.args.put("content",content == null ? "" : content);
+        return call;
+    }
+
+    private RoleplaySkillCall legacyGlobalMemoryCall(String content) {
+        RoleplaySkillCall call = new RoleplaySkillCall("global-memory");
+        call.args.put("content",content == null ? "" : content);
+        return call;
+    }
+
+    private RoleplaySkillCall legacyStickerCall(String tags) {
+        RoleplaySkillCall call = new RoleplaySkillCall("sticker");
+        call.args.put("tags",tags == null ? "" : tags);
+        return call;
     }
 
     private List<String> splitReply(String text) {
@@ -1348,8 +1457,11 @@ public class RoleplayService {
 
     private boolean canReply(long groupID) {
         long now = System.currentTimeMillis();
-        Long last = lastReplyMap.get(groupID);
-        if (last != null && now - last < config.replyCooldownSecond * 1000L) return false;
+        RoleplayConversationState state = state(groupID);
+        if (state.lastReplyTime > 0
+                && now - state.lastReplyTime < config.replyCooldownSecond * 1000L) {
+            return false;
+        }
         long hour = now / 3600000L;
         long[] rate = replyRateMap.get(groupID);
         if (rate == null || rate[0] != hour) {
@@ -1359,8 +1471,17 @@ public class RoleplayService {
             if (rate[1] >= config.maxRepliesPerHour) return false;
             rate[1]++;
         }
-        lastReplyMap.put(groupID,now);
+        state.lastReplyTime = now;
         return true;
+    }
+
+    private RoleplayConversationState state(long groupID) {
+        RoleplayConversationState existing = conversationStateMap.get(groupID);
+        if (existing != null) return existing;
+        RoleplayConversationState created = new RoleplayConversationState();
+        created.groupID = groupID;
+        RoleplayConversationState previous = conversationStateMap.putIfAbsent(groupID,created);
+        return previous == null ? created : previous;
     }
 
     private boolean isDirect(GroupMessageEvent event,String content,long selfID) {
@@ -1368,7 +1489,7 @@ public class RoleplayService {
         boolean mentionedOther = false;
         JSONArray message = event.getMessage();
         if (message != null) {
-            Long lastBot = lastBotMessageMap.get(event.getGroupID());
+            long lastBot = state(event.getGroupID()).lastBotMessageID;
             for (int i = 0; i < message.size(); i++) {
                 JSONObject segment = message.getJSONObject(i);
                 if (segment == null) continue;
@@ -1378,7 +1499,7 @@ public class RoleplayService {
                     if (atID == selfID) mentionedSelf = true;
                     else if (atID > 0) mentionedOther = true;
                 }
-                if ("reply".equals(segment.getString("type")) && data != null && lastBot != null
+                if ("reply".equals(segment.getString("type")) && data != null && lastBot > 0
                         && data.getLongValue("id") == lastBot) return true;
             }
         }
@@ -1404,8 +1525,8 @@ public class RoleplayService {
     private boolean isQuotingSelf(GroupMessageEvent event,long selfID) {
         JSONArray message = event.getMessage();
         if (message == null) return false;
-        Long lastBot = lastBotMessageMap.get(event.getGroupID());
-        if (lastBot == null || lastBot <= 0) return false;
+        long lastBot = state(event.getGroupID()).lastBotMessageID;
+        if (lastBot <= 0) return false;
         for (int i = 0; i < message.size(); i++) {
             JSONObject segment = message.getJSONObject(i);
             if (segment == null || !"reply".equals(segment.getString("type"))) continue;
@@ -1439,27 +1560,28 @@ public class RoleplayService {
     }
 
     private boolean isContinuation(long groupID,long userID) {
-        Long last = lastReplyMap.get(groupID);
-        Long lastUser = lastReplyUserMap.get(groupID);
-        return last != null && lastUser != null && lastUser == userID
-                && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
+        RoleplayConversationState state = state(groupID);
+        return state.lastReplyTime > 0 && state.lastReplyUser == userID
+                && System.currentTimeMillis() - state.lastReplyTime
+                <= config.conversationWindowSecond * 1000L;
     }
 
     private boolean isGroupActive(long groupID) {
-        Long last = lastReplyMap.get(groupID);
-        return last != null && System.currentTimeMillis() - last <= config.conversationWindowSecond * 1000L;
+        RoleplayConversationState state = state(groupID);
+        return state.lastReplyTime > 0
+                && System.currentTimeMillis() - state.lastReplyTime
+                <= config.conversationWindowSecond * 1000L;
     }
 
     private int updateOtherRoleMessageStreak(long groupID,boolean otherRoleBot) {
+        RoleplayConversationState state = state(groupID);
         if (!otherRoleBot) {
-            otherRoleMessageStreakMap.remove(groupID);
+            state.otherRoleStreak = 0;
+            state.botStreak = 0;
             return 0;
         }
-        Integer streak = otherRoleMessageStreakMap.get(groupID);
-        streak = streak == null ? 0 : streak;
-        streak++;
-        otherRoleMessageStreakMap.put(groupID,streak);
-        return streak;
+        state.otherRoleStreak++;
+        return state.otherRoleStreak;
     }
 
     private boolean isOtherRoleBot(GroupMessageEvent event,long selfID) {
@@ -1624,7 +1746,7 @@ public class RoleplayService {
         return new StickerMarkerResult(false,text.trim(),"");
     }
 
-    private String stickerPrompt() {
+    String stickerPrompt() {
         PluginService sticker = plugin.getServer().getPluginManager().getService("MBB-Sticker");
         if (sticker == null) return "";
         JSONObject result = sticker.call("tags",null);
@@ -1637,7 +1759,8 @@ public class RoleplayService {
             builder.append(tags.getString(i));
         }
         builder.append("\n表情包是可选表达，不是每句话都必须带；只有情绪或场景明显合适时才偶尔使用，")
-                .append("避免连续多条回复都发表情包。适合时可以在回复末尾输出 <sticker>tag1,tag2</sticker>；")
+                .append("避免连续多条回复都发表情包。适合时输出 ")
+                .append("{\"type\":\"sticker\",\"args\":{\"tags\":\"tag1,tag2\"}}；")
                 .append("只能使用上面的标签，没有合适标签时不要输出。");
         return builder.toString();
     }

@@ -66,6 +66,17 @@ public class RoleplayConfig {
     public boolean pokeBackEnable = true;
     public int pokeBackCooldownSecond = 60;
     public boolean quoteReplyEnable = true;
+    public int promptTotalChars = 16000;
+    public boolean routerEnable = true;
+    public String routerProfile = "";
+    public int routerMaxTokens = 400;
+    public String routerReasoningEffort = "low";
+    public boolean styleEnable = true;
+    public int styleMaxChars = 60;
+    public String styleProfile = "";
+    public int styleMaxTokens = 400;
+    public String styleReasoningEffort = "low";
+    public boolean styleProactiveEnable = false;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
@@ -162,6 +173,19 @@ public class RoleplayConfig {
         config.pokeBackEnable = plugin.getConfig().getBoolean("pokeBackEnable",true);
         config.pokeBackCooldownSecond = plugin.getConfig().getInt("pokeBackCooldownSecond",60);
         config.quoteReplyEnable = plugin.getConfig().getBoolean("quoteReplyEnable",true);
+        config.promptTotalChars = plugin.getConfig().getInt("promptTotalChars",16000);
+        config.routerEnable = plugin.getConfig().getBoolean("routerEnable",true);
+        config.routerProfile = plugin.getConfig().getString("routerProfile","");
+        config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",400);
+        config.routerReasoningEffort = normalizeEffort(
+                plugin.getConfig().getString("routerReasoningEffort","low"));
+        config.styleEnable = plugin.getConfig().getBoolean("styleEnable",true);
+        config.styleMaxChars = plugin.getConfig().getInt("styleMaxChars",60);
+        config.styleProfile = plugin.getConfig().getString("styleProfile","");
+        config.styleMaxTokens = plugin.getConfig().getInt("styleMaxTokens",400);
+        config.styleReasoningEffort = normalizeEffort(
+                plugin.getConfig().getString("styleReasoningEffort","low"));
+        config.styleProactiveEnable = plugin.getConfig().getBoolean("styleProactiveEnable",false);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
@@ -254,6 +278,16 @@ public class RoleplayConfig {
         if (config.stickerAttachMaxWaitSecond > 60) config.stickerAttachMaxWaitSecond = 60;
         if (config.pokeBackCooldownSecond < 0) config.pokeBackCooldownSecond = 0;
         if (config.pokeBackCooldownSecond > 3600) config.pokeBackCooldownSecond = 3600;
+        if (config.promptTotalChars < 4000) config.promptTotalChars = 4000;
+        if (config.promptTotalChars > 64000) config.promptTotalChars = 64000;
+        if (config.routerProfile == null) config.routerProfile = "";
+        if (config.routerMaxTokens < 100) config.routerMaxTokens = 100;
+        if (config.routerMaxTokens > 2000) config.routerMaxTokens = 2000;
+        if (config.styleProfile == null) config.styleProfile = "";
+        if (config.styleMaxChars < 20) config.styleMaxChars = 20;
+        if (config.styleMaxChars > 300) config.styleMaxChars = 300;
+        if (config.styleMaxTokens < 100) config.styleMaxTokens = 100;
+        if (config.styleMaxTokens > 2000) config.styleMaxTokens = 2000;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;

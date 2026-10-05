@@ -92,22 +92,38 @@ public class RoleplayPersona {
     }
 
     public String description() {
+        return coreText()+appearanceText()+studentBriefText();
+    }
+
+    /**
+     * 角色核心设定，不含外貌和学生名录
+     * 这两项各自作为独立资料，由预算分配器决定要不要注入
+     */
+    public String coreText() {
         return "角色名："+name+"\n"
                 +"身份："+identity+"\n"
                 +(worldview.isEmpty() ? "" : "世界观："+worldview+"\n")
                 +(school.isEmpty() ? "" : "学园："+school+"\n")
                 +(club.isEmpty() ? "" : "社团："+club+"\n")
-                +(appearance.isEmpty() ? "" : "自己的外貌："+appearance+"\n")
                 +"性格："+personality+"\n"
                 +"说话方式："+speechStyle+"\n"
                 +(catchphrases.isEmpty() ? "" : "口癖："+String.join("、",catchphrases)+"\n")
                 +(aliases.isEmpty() ? "" : "称呼："+String.join("、",aliases)+"\n")
                 +(memes.isEmpty() ? "" : "了解的梗："+String.join("；",memes)+"\n")
                 +(relationships.isEmpty() ? "" : "关系："+String.join("；",relationships)+"\n")
-                +(otherStudents.isEmpty() ? "" : "了解的学生："+String.join("；",otherStudents)+"\n")
                 +(terminology.isEmpty() ? "" : "专有名词："+String.join("；",terminology)+"\n")
                 +(storyMemory.isEmpty() ? "" : "剧情记忆："+String.join("；",storyMemory)+"\n")
-                +"行为规则："+behavior;
+                +"行为规则："+behavior+"\n";
+    }
+
+    /** 角色自己的外貌 */
+    public String appearanceText() {
+        return appearance.isEmpty() ? "" : "自己的外貌："+appearance+"\n";
+    }
+
+    /** 学生名录，只有一句话印象，完整外貌由 studentDetailText 按需提供 */
+    public String studentBriefText() {
+        return otherStudents.isEmpty() ? "" : "了解的学生："+String.join("；",otherStudents)+"\n";
     }
 
     /**

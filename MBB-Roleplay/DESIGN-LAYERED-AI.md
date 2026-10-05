@@ -394,15 +394,24 @@ interface Material {
 
 每一步都能独立验证，不需要一次性重写。
 
-1. **抽象**（部分完成）：已落地 RouteDecision、ReplyDraft 和规则决策器，行为保持不变；
-   发送层已支持引用。ConversationState 推迟到 AI 路由阶段一并做，因为现阶段规则决策
-   仍直接读原有状态，先合并状态只会增加回归面。
-2. **技能与表达动作**（部分完成）：已落地戳一戳事件、戳回去动作、引用回复和结构化输出。
-   技能注册表本身与 reminder / sticker / remember 的迁移仍未做。
-3. **资料注册表**：persona 字段、记忆、学生图鉴、语料全部改为 Material；用预算分配器
-   替换硬拼接。
-4. **AI 路由**：上线路由层替换概率门，规则保留否决权。
-5. **风格层**：本地 AI 味检测器加条件触发的风格调用。
+1. **抽象**（已完成）：RouteDecision、DecisionEngine、ReplyDraft、ConversationState 均已落地。
+   原先散在各处的 lastReply / lastBotMessage / otherRoleStreak 等状态合并进 ConversationState，
+   由路由层、执行层和技能共用。
+2. **技能注册表**（已完成）：RoleplaySkill 接口 + RoleplaySkillRegistry，注册 reminder、
+   memory、global-memory、sticker、poke-back 五个技能。旧的 `<reminder>` / `<remember>` /
+   `<global_remember>` / `<sticker>` 标签仍兼容，会转换成同一批技能调用。
+3. **资料注册表**（已完成）：RoleplayMaterial + RoleplayMaterialBudget，persona 核心、外貌、
+   学生名录、学生详细设定、长期/全局/短期记忆、最近发言、台词示例各自独立成项，
+   总量受 `promptTotalChars` 限制。
+4. **AI 路由**（已完成）：RoleplayRouter 替换概率门，规则保留否决权；路由失败回退规则决策。
+5. **风格层**（已完成）：RoleplayStyleDetector 本地判定 + RoleplayStyler 条件改写，
+   默认只在超长、破折号、Markdown 残留、AI 味词、列点、成对引号时触发。
+
+## 后续可选项
+
+- 目前所有技能都是表达类（POST）。提醒时间解析仍走独立调用，等哪天要做"路由先建提醒、
+  执行层只负责转述"时，把 reminder 改成 PRE 技能即可，接口已经预留。
+- 路由层已经能返回 skills 与 materials，但 skills 目前只进日志，因为还没有 PRE 技能。
 
 ## 已定与待定
 
