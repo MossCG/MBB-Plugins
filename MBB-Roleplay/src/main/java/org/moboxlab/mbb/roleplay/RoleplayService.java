@@ -1158,6 +1158,7 @@ public class RoleplayService {
                         + "WHERE `groupID`=? ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
                 groupID,Math.max(total,config.maxLongMemories));
         if (rows == null || rows.size() < 2) return;
+        backupAllMemories("long-term-merge");
         JSONArray source = new JSONArray();
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);
@@ -1210,7 +1211,6 @@ public class RoleplayService {
                     +rows.size()+" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
             return;
         }
-        backupAllMemories("long-term-merge");
         storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
         int saved = 0;
         long now = System.currentTimeMillis();

@@ -98,6 +98,7 @@ public class RoleplayGlobalMemoryService {
                 plugin.getLogger().sendWarn("[永久记忆] 合并跳过：MBB-AI 未启用");
                 return;
             }
+            service.backupAllMemories("global-memory-merge");
             JSONArray messages = new JSONArray();
             messages.add(message("system","你是永久记忆整理器。请合并重复或高度相似的记忆，"
                     +"保留所有有价值的信息，不要因为压缩而丢失关键内容。只输出 JSON，不要 Markdown："
@@ -138,7 +139,6 @@ public class RoleplayGlobalMemoryService {
                         +" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
                 return;
             }
-            service.backupAllMemories("global-memory-merge");
             storage().update("DELETE FROM `"+TABLE+"`");
             int saved = 0;
             long now = System.currentTimeMillis();

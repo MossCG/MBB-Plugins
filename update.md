@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.4.49.1.2358 | 2026-10-05 | `MBB-Roleplay` 调整全量记忆备份时机：长期记忆与永久记忆合并改为在调用 AI 之前先写 `backup/` 快照，确保合并开始前就已有可恢复文件 |
 | V0.4.49.0.2357 | 2026-10-05 | `MBB-Roleplay` 新增 `backup/` 全量记忆快照：每次长期记忆或永久记忆合并前自动备份短期、长期、永久记忆；新增 `/role memory backup`、`/role memory backups`、`/role memory restore <文件名>`，恢复仅 owner 可用，恢复前也会自动备份当前状态 |
 | V0.4.48.7.2345 | 2026-10-05 | `MBB-Roleplay` 修复长期记忆合并被截断后仍从 reasoning 结果执行破坏性合并的问题：`finish=length` 直接放弃，合并后条目少于原有 10% 时判定异常并放弃；合并前自动备份原长期记忆，永久记忆合并也加同样保护 |
 | V0.4.48.6.2337 | 2026-10-05 | `MBB-Roleplay` 长期记忆合并新增 `memoryMergeMaxTokens`（默认 32000），避免 reasoning 耗尽 12000 Token 后正文为空；合并结果支持从 `reasoningContent` 回退解析 JSON，输出被截断时给出提高预算或改用非 reasoning profile 的提示 |
