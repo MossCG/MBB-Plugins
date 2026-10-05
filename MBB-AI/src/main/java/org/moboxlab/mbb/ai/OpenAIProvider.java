@@ -11,11 +11,37 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * OpenAI 兼容协议提供方
  */
 public class OpenAIProvider {
+    private static final X509TrustManager INSECURE_TRUST_MANAGER = new X509TrustManager() {
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain,String authType) {}
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain,String authType) {}
+        @Override
+        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+    };
+
+    private static final HostnameVerifier INSECURE_VERIFIER = new HostnameVerifier() {
+        @Override
+        public boolean verify(String hostname,SSLSession session) { return true; }
+    };
+
+    private static volatile SSLSocketFactory insecureFactory;
+
     public static JSONObject chat(AIProfile profile,JSONArray messages,JSONObject params,
                                   boolean logRequestContent,PluginLogger logger) {
         if (profile == null) return error("没有找到 AI 模型配置！","profile");
@@ -77,6 +103,11 @@ public class OpenAIProvider {
         try {
             URL url = new URL(buildEndpoint(profile.baseUrl));
             connection = (HttpURLConnection) url.openConnection();
+            if (profile.insecureTls && connection instanceof HttpsURLConnection) {
+                HttpsURLConnection https = (HttpsURLConnection) connection;
+                https.setSSLSocketFactory(insecureSocketFactory());
+                https.setHostnameVerifier(INSECURE_VERIFIER);
+            }
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(profile.timeoutSeconds * 1000);
             connection.setReadTimeout(profile.timeoutSeconds * 1000);
@@ -113,9 +144,16 @@ public class OpenAIProvider {
             if (json == null) return error("AI 返回内容不是合法 JSON！","response",true);
             return success(json,profile);
         } catch (java.net.SocketTimeoutException e) {
-            return error("AI 服务请求超时！","timeout",true);
+            return error("AI 服务请求超时（"+host(profile.baseUrl)+"，"+profile.timeoutSeconds+" 秒）！","timeout",true);
         } catch (Exception e) {
-            return error("AI 服务请求失败："+e.getMessage(),"network",true);
+            String detail = describe(e);
+            boolean hostnameMismatch = detail.contains("No name matching");
+            if (logger != null && hostnameMismatch) {
+                logger.sendWarn("目标 "+host(profile.baseUrl)+" 的 HTTPS 证书与主机名不匹配，"
+                        +"可改用证书实际覆盖的域名，或在 profiles.json 里把该 profile 的 insecureTls 设为 true。");
+            }
+            // 证书主机名不匹配重试也没有意义，直接失败，避免白等两个超时
+            return error("AI 服务请求失败："+detail+"（目标 "+host(profile.baseUrl)+"）","network",!hostnameMismatch);
         } finally {
             if (connection != null) connection.disconnect();
         }
@@ -123,6 +161,47 @@ public class OpenAIProvider {
 
     private static String trim(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static String host(String baseUrl) {
+        try {
+            return new URL(baseUrl.trim()).getHost();
+        } catch (Exception e) {
+            return baseUrl == null ? "" : baseUrl.trim();
+        }
+    }
+
+    // 把异常链上的类型和消息拼出来，方便区分 DNS、代理、TLS 还是超时
+    private static String describe(Throwable error) {
+        StringBuilder builder = new StringBuilder();
+        Throwable current = error;
+        int depth = 0;
+        while (current != null && depth < 3) {
+            if (depth > 0) builder.append(" <- ");
+            builder.append(current.getClass().getSimpleName());
+            String message = current.getMessage();
+            if (message != null && !message.trim().isEmpty()) {
+                builder.append(": ").append(message.trim());
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return builder.toString();
+    }
+
+    private static SSLSocketFactory insecureSocketFactory() {
+        if (insecureFactory != null) return insecureFactory;
+        synchronized (OpenAIProvider.class) {
+            if (insecureFactory != null) return insecureFactory;
+            try {
+                SSLContext context = SSLContext.getInstance("TLS");
+                context.init(null,new TrustManager[]{INSECURE_TRUST_MANAGER},new SecureRandom());
+                insecureFactory = context.getSocketFactory();
+            } catch (Exception e) {
+                throw new IllegalStateException("无法创建跳过校验的 TLS 上下文："+e.getMessage(),e);
+            }
+            return insecureFactory;
+        }
     }
 
     private static JSONObject success(JSONObject json,AIProfile profile) {

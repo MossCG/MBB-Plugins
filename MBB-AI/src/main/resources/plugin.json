@@ -1,6 +1,6 @@
 {
   "name": "MBB-AI",
-  "version": "V0.2.1.0.1529",
+  "version": "V0.2.2.0.1556",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.ai.AIPlugin",
   "author": "MoBoxLab",

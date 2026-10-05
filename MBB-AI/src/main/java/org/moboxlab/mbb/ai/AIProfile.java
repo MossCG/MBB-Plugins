@@ -17,6 +17,8 @@ public class AIProfile {
     public int timeoutSeconds = 60;
     /** 思考强度，留空表示不向接口发送该字段 */
     public String reasoningEffort = "";
+    /** 跳过 HTTPS 证书与主机名校验，仅在自建网关或代理环境使用 */
+    public boolean insecureTls = false;
     public Map<String,String> headers = new LinkedHashMap<>();
 
     public String resolveApiKey() {

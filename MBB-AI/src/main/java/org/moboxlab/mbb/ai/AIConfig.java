@@ -82,6 +82,7 @@ public class AIConfig {
                 if (profile.timeoutSeconds <= 0) profile.timeoutSeconds = 60;
                 profile.reasoningEffort = json.getString("reasoningEffort") == null
                         ? "" : json.getString("reasoningEffort").trim();
+                profile.insecureTls = json.getBooleanValue("insecureTls");
                 JSONObject headers = json.getJSONObject("headers");
                 if (headers != null) {
                     for (String header : headers.keySet()) {
