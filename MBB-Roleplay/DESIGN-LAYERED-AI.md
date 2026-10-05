@@ -394,10 +394,11 @@ interface Material {
 
 每一步都能独立验证，不需要一次性重写。
 
-1. **抽象**：落地 ConversationState、SkillResult、RouteDecision；规则决策器产出
-   RouteDecision，行为保持不变；发送层支持引用。
-2. **技能注册表**：迁移 reminder、sticker、remember、global-memory；新增戳一戳技能与
-   NoticeEvent 监听；提醒解析并入路由。
+1. **抽象**（部分完成）：已落地 RouteDecision、ReplyDraft 和规则决策器，行为保持不变；
+   发送层已支持引用。ConversationState 推迟到 AI 路由阶段一并做，因为现阶段规则决策
+   仍直接读原有状态，先合并状态只会增加回归面。
+2. **技能与表达动作**（部分完成）：已落地戳一戳事件、戳回去动作、引用回复和结构化输出。
+   技能注册表本身与 reminder / sticker / remember 的迁移仍未做。
 3. **资料注册表**：persona 字段、记忆、学生图鉴、语料全部改为 Material；用预算分配器
    替换硬拼接。
 4. **AI 路由**：上线路由层替换概率门，规则保留否决权。

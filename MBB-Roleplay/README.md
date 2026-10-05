@@ -46,6 +46,9 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 学生图鉴不会整份塞进每条请求：常驻的「了解的学生」只保留一句话印象，被点名的学生才按需注入完整外貌，省下的上下文留给聊天本身
 - 安装 `MBB-Sticker` 后，角色可以按当前真实标签集输出 `<sticker>tag</sticker>` 发送匹配表情包，不会调用不存在的标签
 - 表情包是可选表达，提示词会要求低频自然使用，不会每句话都携带
+- 响应戳一戳：被人戳时由角色自己决定是回一句话、戳回去、还是两者都做，戳回去对同一用户有冷却
+- 被艾特或被直接回复时自动引用原消息，模型也可以自己判断引用是否更自然
+- 回复由执行层以结构化结果返回，正文和动作在同一次生成里决定，标签不会再漏到聊天里
 
 ## 指令
 
@@ -178,6 +181,10 @@ imageContextTimeoutSecond: 300
 stickerAttachEnable: true
 stickerAttachWindowSecond: 5
 stickerAttachMaxWaitSecond: 15
+pokeReplyEnable: true
+pokeBackEnable: true
+pokeBackCooldownSecond: 60
+quoteReplyEnable: true
 replyImageMaxTokens: 4000
 maxLongMemories: 150
 recentReplyCheckCount: 8
@@ -204,6 +211,40 @@ minMessageLength: 2
 `timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
 
 `shortContextMessages` 控制注入的即时群聊条数，默认 `120`，上限 `300`。学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，所以扩大这个窗口不会把整份图鉴重复带进每条请求。
+
+## 戳一戳与引用
+
+被人戳一戳时，插件走和群消息同一条处理链路，只是把当前消息换成「有人戳了你」。
+角色可以只回一句话、只戳回去、两者都做，或者干脆不理会，由执行层自己判断。
+
+```yaml
+pokeReplyEnable: true       #是否响应戳一戳
+pokeBackEnable: true        #是否允许戳回去
+pokeBackCooldownSecond: 60  #对同一用户戳回去的最小间隔
+```
+
+`MBB-Poke` 已经在处理戳一戳，所以本插件检测到它处于启用状态时会自动跳过戳一戳事件，
+避免同一件事回两次。
+
+被艾特或被直接回复时，插件会引用原消息：
+
+```yaml
+quoteReplyEnable: true   #回复被艾特或被直接回复的消息时是否引用原消息
+```
+
+引用由规则强制，模型可以额外建议引用，但无法取消规则要求的引用。
+
+## 结构化输出
+
+执行层按约定返回结构化结果，正文和表达动作在同一次生成里决定：
+
+```json
+{"text":"戳你哦！","actions":[{"type":"poke_back"}],"quote":true}
+```
+
+`actions` 只能从本轮开放的动作里选，未开放的动作会被丢弃。解析失败时退化为「整段内容
+当正文、不带任何动作」，不会因为格式问题丢掉回复。动作发出前还会校验冷却与目标，
+校验失败只丢弃该动作，正文照常发送。
 
 ## 自然语言提醒
 

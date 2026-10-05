@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "6";
+    private static final String CURRENT_VERSION = "7";
 
     private static class ConfigEntry {
         private final String key;
@@ -81,6 +81,10 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("stickerAttachEnable","true","是否等待用户补发表情包后再生成一次回复"),
             new ConfigEntry("stickerAttachWindowSecond","5","文字回合等待同用户补发表情包的秒数"),
             new ConfigEntry("stickerAttachMaxWaitSecond","15","表情包已开始识别时，最多额外等待多少秒"),
+            new ConfigEntry("pokeReplyEnable","true","是否响应戳一戳；MBB-Poke 启用时本插件自动跳过"),
+            new ConfigEntry("pokeBackEnable","true","被戳时是否允许角色戳回去"),
+            new ConfigEntry("pokeBackCooldownSecond","60","对同一用户戳回去的最小间隔秒数"),
+            new ConfigEntry("quoteReplyEnable","true","回复被艾特或被直接回复的消息时是否引用原消息"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
@@ -121,7 +125,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 6) {
+        if (version < 7) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -138,7 +142,7 @@ public class RoleplayConfigMigrator {
             config.set("stickerAttachWindowSecond","5");
             changed++;
         }
-        if (version < 6 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow) {
+        if (version < 7 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow) {
             if (config.save()) {
                 config.load();
             } else {

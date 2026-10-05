@@ -62,6 +62,10 @@ public class RoleplayConfig {
     public boolean stickerAttachEnable = true;
     public int stickerAttachWindowSecond = 5;
     public int stickerAttachMaxWaitSecond = 15;
+    public boolean pokeReplyEnable = true;
+    public boolean pokeBackEnable = true;
+    public int pokeBackCooldownSecond = 60;
+    public boolean quoteReplyEnable = true;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
@@ -154,6 +158,10 @@ public class RoleplayConfig {
         config.stickerAttachEnable = plugin.getConfig().getBoolean("stickerAttachEnable",true);
         config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",5);
         config.stickerAttachMaxWaitSecond = plugin.getConfig().getInt("stickerAttachMaxWaitSecond",15);
+        config.pokeReplyEnable = plugin.getConfig().getBoolean("pokeReplyEnable",true);
+        config.pokeBackEnable = plugin.getConfig().getBoolean("pokeBackEnable",true);
+        config.pokeBackCooldownSecond = plugin.getConfig().getInt("pokeBackCooldownSecond",60);
+        config.quoteReplyEnable = plugin.getConfig().getBoolean("quoteReplyEnable",true);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
@@ -244,6 +252,8 @@ public class RoleplayConfig {
             config.stickerAttachMaxWaitSecond = config.stickerAttachWindowSecond;
         }
         if (config.stickerAttachMaxWaitSecond > 60) config.stickerAttachMaxWaitSecond = 60;
+        if (config.pokeBackCooldownSecond < 0) config.pokeBackCooldownSecond = 0;
+        if (config.pokeBackCooldownSecond > 3600) config.pokeBackCooldownSecond = 3600;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;
