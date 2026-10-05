@@ -176,11 +176,11 @@ public class RoleplayPlugin extends Plugin {
             String text = new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8);
             JSONObject json = JSONObject.parseObject(text);
             int version = json == null ? 0 : json.getIntValue("version");
-            if (version >= 4) return;
+            if (version >= 5) return;
             File backup = new File(getDataFolder(),"students.json.bak-"+System.currentTimeMillis());
             Files.copy(file.toPath(),backup.toPath());
             Files.write(Paths.get(file.getAbsolutePath()),bytes);
-            getLogger().sendInfo("共享学生图鉴已升级到结构化外貌版本，旧文件已备份："+backup.getName());
+            getLogger().sendInfo("共享学生图鉴已升级到全身立绘外貌版本，旧文件已备份："+backup.getName());
         } catch (Exception e) {
             getLogger().sendException(e);
         }

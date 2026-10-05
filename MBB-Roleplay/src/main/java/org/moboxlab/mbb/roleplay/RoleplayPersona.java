@@ -8,9 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
  * 角色设定
@@ -31,6 +31,7 @@ public class RoleplayPersona {
     public String worldview = "";
     public String school = "";
     public String club = "";
+    public String appearance = "";
     public String personality = "";
     public String speechStyle = "";
     public String behavior = "";
@@ -56,6 +57,7 @@ public class RoleplayPersona {
             persona.worldview = safe(json.getString("worldview"),"");
             persona.school = safe(json.getString("school"),"");
             persona.club = safe(json.getString("club"),"");
+            persona.appearance = safe(json.getString("appearance"),"");
             persona.personality = safe(json.getString("personality"),"");
             persona.speechStyle = safe(json.getString("speechStyle"),"");
             persona.behavior = safe(json.getString("behavior"),"");
@@ -95,6 +97,7 @@ public class RoleplayPersona {
                 +(worldview.isEmpty() ? "" : "世界观："+worldview+"\n")
                 +(school.isEmpty() ? "" : "学园："+school+"\n")
                 +(club.isEmpty() ? "" : "社团："+club+"\n")
+                +(appearance.isEmpty() ? "" : "自己的外貌："+appearance+"\n")
                 +"性格："+personality+"\n"
                 +"说话方式："+speechStyle+"\n"
                 +(catchphrases.isEmpty() ? "" : "口癖："+String.join("、",catchphrases)+"\n")
@@ -111,6 +114,15 @@ public class RoleplayPersona {
         if (studentProfiles.isEmpty()) return "";
         StringBuilder builder = new StringBuilder("蔚蓝档案学生外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
         int count = 0;
+        if (!appearance.isEmpty()) {
+            String selfLine = "- 本人："+name;
+            if (!school.isEmpty() || !club.isEmpty()) {
+                selfLine += "（"+school+"/"+club+"）";
+            }
+            selfLine += "："+appearance+"\n";
+            builder.append(selfLine);
+            count++;
+        }
         for (StudentProfile profile : studentProfiles) {
             if (profile == null || profile.name.isEmpty()) continue;
             String appearance = safe(profile.appearance,"");
@@ -126,7 +138,7 @@ public class RoleplayPersona {
             if (!description.isEmpty()) line += description;
             if (!profile.visualTags.isEmpty()) line += "；视觉标签："+String.join(",",profile.visualTags);
             line += "\n";
-            if (builder.length()+line.length() > 32000) break;
+            if (builder.length()+line.length() > 64000) break;
             builder.append(line);
             count++;
         }
@@ -153,16 +165,26 @@ public class RoleplayPersona {
             if (json == null) return;
             JSONArray shared = json.getJSONArray("students");
             if (shared == null) return;
-            Set<String> names = new HashSet<>();
-            for (String item : persona.otherStudents) names.add(studentKey(item));
+            Map<String,Integer> index = new HashMap<>();
+            for (int i=0;i<persona.otherStudents.size();i++) {
+                String key = studentKey(persona.otherStudents.get(i));
+                if (!key.isEmpty() && !index.containsKey(key)) index.put(key,i);
+            }
             for (Object value : shared) {
                 StudentProfile profile = parseStudentProfile(value);
                 if (profile == null || profile.name.isEmpty()) continue;
                 String key = studentKey(profile.name);
-                if (key.isEmpty() || names.contains(key)) continue;
-                persona.otherStudents.add(profileText(profile));
+                if (key.isEmpty()) continue;
+                String line = profileText(profile);
+                Integer existing = index.get(key);
+                if (existing != null) {
+                    // 角色自带的学生条目比较简短，用共享图鉴的完整外貌与别名覆盖它
+                    persona.otherStudents.set(existing,line);
+                } else {
+                    persona.otherStudents.add(line);
+                    index.put(key,persona.otherStudents.size()-1);
+                }
                 persona.studentProfiles.add(profile);
-                names.add(key);
             }
         } catch (Exception e) {
             plugin.getLogger().sendWarn("读取共享学生设定失败："+e.getMessage());
@@ -219,6 +241,7 @@ public class RoleplayPersona {
         }
         builder.append("：").append(safe(profile.description,""));
         if (!profile.appearance.isEmpty()) builder.append("；外貌：").append(profile.appearance);
+        if (!profile.aliases.isEmpty()) builder.append("；别名：").append(String.join("、",profile.aliases));
         return builder.toString();
     }
 
