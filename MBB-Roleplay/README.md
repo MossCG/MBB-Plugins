@@ -39,7 +39,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 用户先发送图片再追问时，会在时间窗口内把原图作为多模态上下文传给模型，图片本身不会单独触发回复
 - 同一图片已经识别过时会复用摘要，后续追问不会重复调用识图
 - 多个角色同时处理同一图片时，识图请求会按图片哈希合并，避免重复调用视觉模型
-- 文字回合默认等待 7 秒，把用户随后补发的表情包语气合并进同一次回复；表情包先到也能被后续文字吸收
+- 文字回合默认等待 5 秒，把用户随后补发的表情包语气合并进同一次回复；表情包先到也能被后续文字吸收
 - 表情包已开始识别时会暂停回合，识别完成后立即合并；最多额外等待 15 秒，超时按无表情包继续
 - 学生图鉴已升级为全身立绘外貌索引，69 个学生补齐下装、腿部、鞋履、尾巴与武器细节；角色识图时会把完整外貌参考传给 `MBB-Vision`
 - 角色知道自己的外貌设定；被问起某位学生是谁或长什么样时，会结合共享图鉴的外貌、社团、性格和关系作答
@@ -176,7 +176,7 @@ imageUnderstandingProfile: ""
 imageUnderstandingMaxChars: 600
 imageContextTimeoutSecond: 300
 stickerAttachEnable: true
-stickerAttachWindowSecond: 7
+stickerAttachWindowSecond: 5
 stickerAttachMaxWaitSecond: 15
 replyImageMaxTokens: 4000
 maxLongMemories: 150

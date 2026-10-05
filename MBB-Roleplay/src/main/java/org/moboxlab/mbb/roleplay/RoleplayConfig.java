@@ -60,7 +60,7 @@ public class RoleplayConfig {
     public int imageUnderstandingMaxChars = 600;
     public int imageContextTimeoutSecond = 300;
     public boolean stickerAttachEnable = true;
-    public int stickerAttachWindowSecond = 7;
+    public int stickerAttachWindowSecond = 5;
     public int stickerAttachMaxWaitSecond = 15;
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
@@ -152,7 +152,7 @@ public class RoleplayConfig {
         config.imageUnderstandingMaxChars = plugin.getConfig().getInt("imageUnderstandingMaxChars",600);
         config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
         config.stickerAttachEnable = plugin.getConfig().getBoolean("stickerAttachEnable",true);
-        config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",7);
+        config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",5);
         config.stickerAttachMaxWaitSecond = plugin.getConfig().getInt("stickerAttachMaxWaitSecond",15);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
@@ -238,7 +238,7 @@ public class RoleplayConfig {
         if (config.imageUnderstandingMaxChars > 3000) config.imageUnderstandingMaxChars = 3000;
         if (config.imageContextTimeoutSecond < 10) config.imageContextTimeoutSecond = 10;
         if (config.imageContextTimeoutSecond > 3600) config.imageContextTimeoutSecond = 3600;
-        if (config.stickerAttachWindowSecond < 7) config.stickerAttachWindowSecond = 7;
+        if (config.stickerAttachWindowSecond < 3) config.stickerAttachWindowSecond = 3;
         if (config.stickerAttachWindowSecond > 15) config.stickerAttachWindowSecond = 15;
         if (config.stickerAttachMaxWaitSecond < config.stickerAttachWindowSecond) {
             config.stickerAttachMaxWaitSecond = config.stickerAttachWindowSecond;

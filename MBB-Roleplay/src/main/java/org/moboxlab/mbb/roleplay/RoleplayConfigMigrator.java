@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "5";
+    private static final String CURRENT_VERSION = "6";
 
     private static class ConfigEntry {
         private final String key;
@@ -79,7 +79,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("imageUnderstandingMaxChars","600","图片理解结果注入角色的最大字符数"),
             new ConfigEntry("imageContextTimeoutSecond","300","用户发送图片后，后续提问可复用原图作为上下文的时间窗口秒数"),
             new ConfigEntry("stickerAttachEnable","true","是否等待用户补发表情包后再生成一次回复"),
-            new ConfigEntry("stickerAttachWindowSecond","7","文字回合等待同用户补发表情包的秒数"),
+            new ConfigEntry("stickerAttachWindowSecond","5","文字回合等待同用户补发表情包的秒数"),
             new ConfigEntry("stickerAttachMaxWaitSecond","15","表情包已开始识别时，最多额外等待多少秒"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
@@ -106,6 +106,8 @@ public class RoleplayConfigMigrator {
                 config.getString("otherRoleBotReplyChance",""));
         boolean legacyPersonaFile = version < 3 && "persona.json".equals(
                 config.getString("personaFile",""));
+        boolean legacyStickerWindow = version < 6 && "7".equals(
+                config.getString("stickerAttachWindowSecond",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -119,7 +121,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 5) {
+        if (version < 6) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -132,7 +134,11 @@ public class RoleplayConfigMigrator {
             config.set("personaFile","persona-aris.json");
             changed++;
         }
-        if (version < 5 || legacyRoleBotChance || legacyPersonaFile) {
+        if (legacyStickerWindow) {
+            config.set("stickerAttachWindowSecond","5");
+            changed++;
+        }
+        if (version < 6 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow) {
             if (config.save()) {
                 config.load();
             } else {
