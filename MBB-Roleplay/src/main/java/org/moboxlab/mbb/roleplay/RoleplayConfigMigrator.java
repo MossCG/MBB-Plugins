@@ -59,6 +59,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("memoryExtractMaxChars","16000","每次记忆整理最多送入模型的字符数，避免上下文过长"),
             new ConfigEntry("memoryExtractBatches","3","单次自动整理最多连续处理的批次，避免积压消息一次消耗过多"),
             new ConfigEntry("memoryMaxTokens","12000","记忆整理输出 Token 上限，reasoning 模型建议不低于 12000"),
+            new ConfigEntry("memoryMergeMaxTokens","32000","长期记忆合并输出 Token 上限，reasoning 模型建议不低于 32000"),
             new ConfigEntry("memoryTimeoutSecond","300","记忆整理单次请求超时秒数，长上下文和 reasoning 模型建议不低于 300"),
             new ConfigEntry("globalMemoryEnable","true","是否启用所有群共享的永久记忆"),
             new ConfigEntry("globalMemoryLearnGroups","","允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习"),

@@ -113,7 +113,7 @@ public class RoleplayGlobalMemoryService {
             String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
                     ? config.aiProfile : config.memoryProfile.trim();
             params.put("profile",profile);
-            params.put("maxTokens",Math.min(32000,Math.max(4000,config.memoryMaxTokens)));
+            params.put("maxTokens",config.memoryMergeMaxTokens);
             params.put("temperature",0.1);
             params.put("reasoningEffort",config.memoryReasoningEffort);
             params.put("timeoutSeconds",config.memoryTimeoutSecond);
@@ -125,8 +125,13 @@ public class RoleplayGlobalMemoryService {
             RoleplayAiLog.log(plugin.getLogger(),"永久记忆合并",0L,result,System.currentTimeMillis() - startTime);
             if (result == null || !result.getBooleanValue("status")) return;
             JSONObject parsed = parseJson(result.getString("content"));
+            if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
             JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
             if (merged == null || merged.isEmpty()) {
+                if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
+                    plugin.getLogger().sendWarn("[永久记忆] 合并输出被截断，可提高 memoryMergeMaxTokens "
+                            +"或给 memoryProfile 配非 reasoning 模型");
+                }
                 plugin.getLogger().sendWarn("[永久记忆] 合并失败：模型没有返回有效 memories");
                 return;
             }

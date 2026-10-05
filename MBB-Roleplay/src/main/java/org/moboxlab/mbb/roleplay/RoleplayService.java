@@ -1173,7 +1173,7 @@ public class RoleplayService {
         String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
                 ? config.aiProfile : config.memoryProfile.trim();
         params.put("profile",profile);
-        params.put("maxTokens",config.memoryMaxTokens);
+        params.put("maxTokens",config.memoryMergeMaxTokens);
         params.put("temperature",0.1);
         params.put("reasoningEffort",config.memoryReasoningEffort);
         params.put("timeoutSeconds",config.memoryTimeoutSecond);
@@ -1189,8 +1189,13 @@ public class RoleplayService {
             return;
         }
         JSONObject parsed = parseJson(result.getString("content"));
+        if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
         JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
         if (merged == null || merged.isEmpty()) {
+            if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
+                plugin.getLogger().sendWarn("[记忆] 群"+groupID
+                        +" 长期记忆合并输出被截断，可提高 memoryMergeMaxTokens 或给 memoryProfile 配非 reasoning 模型");
+            }
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败：模型没有返回有效 memories");
             return;
         }

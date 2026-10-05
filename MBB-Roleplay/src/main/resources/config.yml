@@ -51,6 +51,8 @@ memoryExtractMaxChars: 16000
 memoryExtractBatches: 3
 #记忆整理输出 Token 上限，reasoning 模型建议不低于 12000
 memoryMaxTokens: 12000
+#长期记忆合并输出 Token 上限，reasoning 模型建议不低于 32000
+memoryMergeMaxTokens: 32000
 #是否启用所有群共享的永久记忆
 globalMemoryEnable: true
 #允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习
