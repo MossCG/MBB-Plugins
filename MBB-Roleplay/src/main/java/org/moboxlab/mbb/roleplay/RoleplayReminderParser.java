@@ -72,7 +72,8 @@ public class RoleplayReminderParser {
                     colon.group(4),null,colon.end());
         }
 
-        result.error = "没有识别出具体时间，可以试试“下午三点提醒我干活”。";
+        // 规则解析只在关闭 AI 识别时使用；找不到具体时间就当作不是提醒，不再提示用户
+        result.intent = false;
         return result;
     }
 

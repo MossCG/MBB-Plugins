@@ -115,9 +115,12 @@ public class RoleplayGlobalMemoryService {
             params.put("profile",profile);
             params.put("maxTokens",Math.min(32000,Math.max(4000,config.memoryMaxTokens)));
             params.put("temperature",0.1);
+            params.put("reasoningEffort",config.memoryReasoningEffort);
             params.put("sessionId","roleplay-global-memory-merge");
             params.put("messages",messages);
+            long startTime = System.currentTimeMillis();
             JSONObject result = ai.call("chat",params);
+            RoleplayAiLog.log(plugin.getLogger(),"永久记忆合并",0L,result,System.currentTimeMillis() - startTime);
             if (result == null || !result.getBooleanValue("status")) return;
             JSONObject parsed = parseJson(result.getString("content"));
             JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");

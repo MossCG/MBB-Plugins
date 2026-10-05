@@ -29,6 +29,27 @@ public class OpenAIProvider {
             return error("messages 不能为空！","params");
         }
 
+        String reasoningEffort = params == null ? "" : trim(params.getString("reasoningEffort"));
+        if (reasoningEffort.isEmpty()) reasoningEffort = trim(profile.reasoningEffort);
+
+        JSONObject request = buildRequest(profile,messages,params,reasoningEffort);
+        JSONObject result = send(profile,request,params,logRequestContent,logger);
+        // 有些网关不认识 reasoning_effort，被拒绝时去掉该字段再试一次，避免整条回复失败
+        String errorType = result.getString("errorType");
+        if (!result.getBooleanValue("status")
+                && !reasoningEffort.isEmpty()
+                && ("http_400".equals(errorType) || "http_422".equals(errorType))) {
+            if (logger != null) {
+                logger.sendWarn("模型不接受 reasoning_effort="+reasoningEffort+"，已去掉该参数重试一次。");
+            }
+            request.remove("reasoning_effort");
+            result = send(profile,request,params,logRequestContent,logger);
+        }
+        return result;
+    }
+
+    private static JSONObject buildRequest(AIProfile profile,JSONArray messages,JSONObject params,
+                                           String reasoningEffort) {
         JSONObject request = new JSONObject(true);
         request.put("model",profile.model);
         request.put("messages",messages);
@@ -38,13 +59,18 @@ public class OpenAIProvider {
                 ? params.getIntValue("maxTokens") : profile.maxTokens;
         request.put("temperature",temperature);
         request.put("max_tokens",maxTokens);
+        if (!reasoningEffort.isEmpty()) request.put("reasoning_effort",reasoningEffort);
+        return request;
+    }
 
+    private static JSONObject send(AIProfile profile,JSONObject request,JSONObject params,
+                                   boolean logRequestContent,PluginLogger logger) {
         String apiKey = profile.resolveApiKey();
         if (apiKey.isEmpty()) return error("模型配置缺少 apiKey！","config");
 
-        if (logRequestContent) {
+        if (logRequestContent && logger != null) {
             logger.sendInfo("AI 请求：profile="+profile.name+" model="+profile.model
-                    +" messages="+messages.toJSONString());
+                    +" messages="+request.getJSONArray("messages").toJSONString());
         }
 
         HttpURLConnection connection = null;
@@ -93,6 +119,10 @@ public class OpenAIProvider {
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    private static String trim(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static JSONObject success(JSONObject json,AIProfile profile) {

@@ -59,6 +59,7 @@ logRequestContent: false
       "temperature": 0.7,
       "maxTokens": 1024,
       "timeoutSeconds": 60,
+      "reasoningEffort": "",
       "headers": {
         "User-Agent": "MoBoxBot/0.1 (+https://github.com/MossCG/MoBoxBot)",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
@@ -76,6 +77,8 @@ logRequestContent: false
 
 `headers` 可以覆盖或追加请求头，适合不同服务端网关、代理或反向代理环境。`x-opencode-session` 由调用方传入 `sessionId` 后动态设置，优先级高于静态请求头。
 
+`reasoningEffort` 控制思考强度，可选 `low`、`medium`、`high`，留空表示不向接口发送该字段。调用方也可以在 `chat` 参数里传 `reasoningEffort` 覆盖配置。如果模型或网关不认识这个字段并返回 HTTP 400 / 422，插件会自动去掉它重试一次，不会让整条回复失败。
+
 不要把真实密钥提交到仓库。
 
 ## 调用约定
@@ -92,6 +95,7 @@ logRequestContent: false
 {
   "profile": "default",
   "sessionId": "moboxbot-user-123456",
+  "reasoningEffort": "low",
   "messages": [
     {"role": "system", "content": "你是一个 QQ 聊天助手。"},
     {"role": "user", "content": "你好"}

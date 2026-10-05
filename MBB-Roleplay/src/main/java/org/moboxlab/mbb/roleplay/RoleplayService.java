@@ -546,9 +546,13 @@ public class RoleplayService {
         params.put("maxTokens",imageContext == null
                 ? config.replyMaxTokens
                 : Math.max(config.replyMaxTokens,config.replyImageMaxTokens));
+        params.put("reasoningEffort",config.replyReasoningEffort);
         params.put("sessionId","roleplay-"+groupID+"-"+contextToken(groupID));
         params.put("messages",messages);
-        return ai.call("chat",params);
+        long startTime = System.currentTimeMillis();
+        JSONObject response = ai.call("chat",params);
+        RoleplayAiLog.log(plugin.getLogger(),"回复",groupID,response,System.currentTimeMillis() - startTime);
+        return response;
     }
 
     private String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,
@@ -691,9 +695,12 @@ public class RoleplayService {
         params.put("profile",profile);
         params.put("maxTokens",maxTokens);
         params.put("temperature",retry ? 0.0 : 0.2);
+        params.put("reasoningEffort",config.memoryReasoningEffort);
         params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken+(retry ? "-retry" : ""));
         params.put("messages",messages);
+        long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
+        RoleplayAiLog.log(plugin.getLogger(),"记忆整理",groupID,result,System.currentTimeMillis() - startTime);
         if (result == null || !result.getBooleanValue("status")) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败："
                     +safe(result == null ? "" : result.getString("message")));
@@ -881,9 +888,12 @@ public class RoleplayService {
         params.put("profile",profile);
         params.put("maxTokens",config.memoryMaxTokens);
         params.put("temperature",0.1);
+        params.put("reasoningEffort",config.memoryReasoningEffort);
         params.put("sessionId","roleplay-memory-merge-"+groupID);
         params.put("messages",messages);
+        long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
+        RoleplayAiLog.log(plugin.getLogger(),"长期记忆合并",groupID,result,System.currentTimeMillis() - startTime);
         if (result == null || !result.getBooleanValue("status")) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败："
                     +safe(result == null ? "" : result.getString("message")));

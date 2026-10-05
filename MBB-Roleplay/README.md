@@ -19,7 +19,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 小绿不再把“嗯”当作固定开场，连续使用会被重复检测拦截
 - 每轮回复动态注入当前日期、时间、星期和时区，角色不会自行猜日期
 - 支持自然语言定时提醒，到点主动艾特用户，并在控制台输出创建、恢复和触发日志
-- 提醒识别默认优先调用 AI，AI 不可用或返回异常时回退到内置中文时间规则
+- 提醒识别只调用 AI，识别失败时安静忽略，不再回退到内置中文时间规则，也不会提示“没有识别出具体时间”
 - 中文相对时间支持“一分钟后”“十分钟后”等写法，不再只支持阿拉伯数字
 - 同一群多角色部署时，识别到消息明确指向其他角色会跳过，不争抢提醒创建
 - 提醒创建确认和到点提醒正文都由当前角色 AI 生成，模板仅作为兜底
@@ -163,6 +163,8 @@ memoryExtractMessages: 300
 memoryExtractMaxChars: 16000
 memoryExtractBatches: 3
 memoryProfile: ""
+replyReasoningEffort: "low"
+memoryReasoningEffort: "low"
 timeZone: "Asia/Shanghai"
 memoryMaxTokens: 12000
 activeMemory: true
@@ -189,13 +191,23 @@ minMessageLength: 2
 
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。
 
+`replyReasoningEffort` 和 `memoryReasoningEffort` 控制思考强度，默认都是 `low`，可选 `low`、`medium`、`high`，留空表示不向接口发送该字段。reasoning 模型在思考上消耗的 Token 会挤占输出预算，角色回复设成 `low` 后更不容易出现“思考写满、正文为空”的情况。
+
+每次调用 AI 都会在控制台输出一行 `[角色]` 日志，格式与 `MBB-Vision` 的识图日志一致：
+
+```text
+[角色] 回复 群623069084 profile=default model=deepseek-v4.1-flash 耗时=1840ms finish=stop token=5210/96 缓存=否 长度=42 内容=...
+```
+
+标签包括 `回复`、`记忆整理`、`长期记忆合并`、`永久记忆合并`、`提醒识别`、`提醒确认生成`、`提醒内容生成`。调用失败时输出 `sendWarn`，包含错误类型和耗时。
+
 `timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
 
 `shortContextMessages` 控制注入的即时群聊条数，默认 `120`，上限 `300`。学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，所以扩大这个窗口不会把整份图鉴重复带进每条请求。
 
 ## 自然语言提醒
 
-角色会优先调用 AI 识别提醒意图和时间，并把任务写入 SQLite，重启后仍会恢复。AI 不可用或返回异常时，回退到内置中文时间规则：
+角色会调用 AI 识别提醒意图和时间，并把任务写入 SQLite，重启后仍会恢复。识别失败时安静忽略，不再回退到内置时间规则，也不会再发“没有识别出具体时间”的提示：
 
 ```text
 下午三点提醒我干活
@@ -210,7 +222,7 @@ minMessageLength: 2
 @用户 该干活了
 ```
 
-AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。创建时保存的角色关系和任务信息也会一起提供给 AI。
+AI 不可用或返回空内容时，会回退到固定模板。创建时保存的角色关系和任务信息也会一起提供给 AI。
 
 控制台会输出：
 
@@ -223,7 +235,7 @@ AI 不可用或返回空内容时，会回退到固定模板 `该<任务>了`。
 [提醒] 发送成功 #12 群xxx 用户xxx
 ```
 
-`reminderEnable` 控制是否启用，`reminderAiParse` 控制是否优先使用 AI 识别，`reminderMaxDays` 控制最长提前天数，默认 30 天。
+`reminderEnable` 控制是否启用，`reminderAiParse` 控制是否使用 AI 识别（关闭时改用内置规则解析），`reminderMaxDays` 控制最长提前天数，默认 30 天。
 
 提醒消息会携带不可见标记。其他角色机器人识别到该标记时会跳过，避免两个角色互相抢答，但 QQ 消息中不会出现固定文字前缀。角色名识别会同时参考配置和内置的桃井/绿/爱丽丝名称。
 

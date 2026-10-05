@@ -15,6 +15,8 @@ public class AIProfile {
     public double temperature = 0.7;
     public int maxTokens = 1024;
     public int timeoutSeconds = 60;
+    /** 思考强度，留空表示不向接口发送该字段 */
+    public String reasoningEffort = "";
     public Map<String,String> headers = new LinkedHashMap<>();
 
     public String resolveApiKey() {

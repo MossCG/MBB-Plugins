@@ -80,6 +80,8 @@ public class AIConfig {
                 if (profile.maxTokens <= 0) profile.maxTokens = 1024;
                 profile.timeoutSeconds = json.getIntValue("timeoutSeconds");
                 if (profile.timeoutSeconds <= 0) profile.timeoutSeconds = 60;
+                profile.reasoningEffort = json.getString("reasoningEffort") == null
+                        ? "" : json.getString("reasoningEffort").trim();
                 JSONObject headers = json.getJSONObject("headers");
                 if (headers != null) {
                     for (String header : headers.keySet()) {

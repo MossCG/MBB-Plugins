@@ -63,14 +63,14 @@ public class RoleplayReminderService {
         if (event == null || !config.reminderEnable) return false;
         long now = System.currentTimeMillis();
         RoleplayReminderParser.Result result = null;
-        if (config.reminderAiParse && mightBeReminder(content)) {
+        if (config.reminderAiParse) {
+            // 只在看起来像提醒时才调用 AI；识别失败直接忽略，不再回退规则解析
+            if (!mightBeReminder(content)) return false;
             result = parseWithAi(event.getGroupID(),event.getUserID(),content,now);
-            if (result != null && !result.intent) return false;
-        }
-        if (result == null) {
+        } else {
             result = RoleplayReminderParser.parse(content,config,now);
         }
-        if (!result.intent) return false;
+        if (result == null || !result.intent) return false;
         long groupID = event.getGroupID();
         long userID = event.getUserID();
         String userName = senderName(event);
@@ -290,19 +290,22 @@ public class RoleplayReminderService {
             messages.add(message("user",content));
             JSONObject params = new JSONObject(true);
             params.put("profile",config.aiProfile);
-            params.put("maxTokens",300);
+            params.put("maxTokens",800);
             params.put("temperature",0.1);
+            params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-parse-"+groupID+"-"+userID);
             params.put("messages",messages);
+            long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);
+            RoleplayAiLog.log(plugin.getLogger(),"提醒识别",groupID,response,System.currentTimeMillis() - startTime);
             if (response == null || !response.getBooleanValue("status")) {
-                plugin.getLogger().sendWarn("[提醒] AI识别失败，回退规则解析："
+                plugin.getLogger().sendWarn("[提醒] AI识别失败，本次忽略："
                         +safe(response == null ? "" : response.getString("message")));
                 return null;
             }
             JSONObject parsed = parseJson(response.getString("content"));
             if (parsed == null) {
-                plugin.getLogger().sendWarn("[提醒] AI识别没有返回合法 JSON，回退规则解析："
+                plugin.getLogger().sendWarn("[提醒] AI识别没有返回合法 JSON，本次忽略："
                         +shortText(response.getString("content"),160));
                 return null;
             }
@@ -314,7 +317,7 @@ public class RoleplayReminderService {
             long remindTime = parseReminderTime(parsed.getString("time"));
             String task = safe(parsed.getString("task")).trim();
             if (remindTime <= 0) {
-                plugin.getLogger().sendWarn("[提醒] AI识别时间格式无效，回退规则解析："
+                plugin.getLogger().sendWarn("[提醒] AI识别时间格式无效，本次忽略："
                         +safe(parsed.getString("time")));
                 return null;
             }
@@ -338,7 +341,7 @@ public class RoleplayReminderService {
                     +" 时间="+formatTime(remindTime)+" 内容="+task);
             return result;
         } catch (Exception e) {
-            plugin.getLogger().sendWarn("[提醒] AI识别异常，回退规则解析："
+            plugin.getLogger().sendWarn("[提醒] AI识别异常，本次忽略："
                     +safe(e.getMessage()));
             return null;
         }
@@ -443,11 +446,14 @@ public class RoleplayReminderService {
             messages.add(message("user","请生成提醒创建成功的确认。"));
             JSONObject params = new JSONObject(true);
             params.put("profile",config.aiProfile);
-            params.put("maxTokens",300);
+            params.put("maxTokens",800);
             params.put("temperature",0.7);
+            params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-create-"+id+"-"+groupID);
             params.put("messages",messages);
+            long startTime = System.currentTimeMillis();
             JSONObject result = ai.call("chat",params);
+            RoleplayAiLog.log(plugin.getLogger(),"提醒确认生成",groupID,result,System.currentTimeMillis() - startTime);
             if (result == null || !result.getBooleanValue("status")) {
                 return formatTime(remindTime)+" 提醒你："+task;
             }
@@ -485,11 +491,14 @@ public class RoleplayReminderService {
             messages.add(message("user","请生成到点提醒内容。"));
             JSONObject params = new JSONObject(true);
             params.put("profile",config.aiProfile);
-            params.put("maxTokens",300);
+            params.put("maxTokens",800);
             params.put("temperature",0.7);
+            params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-"+id+"-"+groupID);
             params.put("messages",messages);
+            long startTime = System.currentTimeMillis();
             JSONObject result = ai.call("chat",params);
+            RoleplayAiLog.log(plugin.getLogger(),"提醒内容生成",groupID,result,System.currentTimeMillis() - startTime);
             if (result == null || !result.getBooleanValue("status")) return triggerText(task);
             String text = cleanAiText(result.getString("content"));
             if (text.isEmpty() || "<SKIP>".equalsIgnoreCase(text)) return triggerText(task);

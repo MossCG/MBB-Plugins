@@ -120,6 +120,7 @@ public class AIService implements PluginService {
         chatParams.put("profile",params.getString("profile"));
         chatParams.put("temperature",params.get("temperature"));
         chatParams.put("maxTokens",params.get("maxTokens"));
+        chatParams.put("reasoningEffort",params.get("reasoningEffort"));
         JSONArray messages = new JSONArray();
         messages.add(message("user",prompt));
         chatParams.put("messages",messages);
@@ -223,8 +224,10 @@ public class AIService implements PluginService {
         int maxTokens = params != null && params.getIntValue("maxTokens") > 0
                 ? params.getIntValue("maxTokens") : profile.maxTokens;
         String sessionId = params == null ? "" : params.getString("sessionId");
+        String reasoningEffort = params == null || params.getString("reasoningEffort") == null
+                ? "" : params.getString("reasoningEffort");
         return profile.name+"|"+(sessionId == null ? "" : sessionId)+"|"
-                +temperature+"|"+maxTokens+"|"+messages.toJSONString();
+                +temperature+"|"+maxTokens+"|"+reasoningEffort+"|"+messages.toJSONString();
     }
 
     private JSONObject message(String role,String content) {

@@ -2,6 +2,8 @@ package org.moboxlab.mbb.roleplay;
 
 import org.moboxlab.moboxbot.API.Plugin;
 
+import java.util.Locale;
+
 /**
  * MBB-Roleplay 配置
  */
@@ -14,6 +16,8 @@ public class RoleplayConfig {
     public boolean enable = true;
     public String aiProfile = "default";
     public String memoryProfile = "";
+    public String replyReasoningEffort = "low";
+    public String memoryReasoningEffort = "low";
     public String timeZone = "Asia/Shanghai";
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
@@ -76,6 +80,8 @@ public class RoleplayConfig {
         config.enable = plugin.getConfig().getBoolean("enable",true);
         config.aiProfile = plugin.getConfig().getString("aiProfile","default");
         config.memoryProfile = plugin.getConfig().getString("memoryProfile","");
+        config.replyReasoningEffort = normalizeEffort(plugin.getConfig().getString("replyReasoningEffort","low"));
+        config.memoryReasoningEffort = normalizeEffort(plugin.getConfig().getString("memoryReasoningEffort","low"));
         config.timeZone = plugin.getConfig().getString("timeZone","Asia/Shanghai");
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
@@ -257,5 +263,13 @@ public class RoleplayConfig {
         if (config.minMessageLength < 1) config.minMessageLength = 1;
         if (config.commandPrefixes == null) config.commandPrefixes = "/,!,＃,#";
         return config;
+    }
+
+    // 思考强度只允许 low/medium/high，留空表示不向接口发送该字段
+    private static String normalizeEffort(String value) {
+        if (value == null) return "";
+        String text = value.trim().toLowerCase(Locale.ROOT);
+        if ("low".equals(text) || "medium".equals(text) || "high".equals(text)) return text;
+        return "";
     }
 }
