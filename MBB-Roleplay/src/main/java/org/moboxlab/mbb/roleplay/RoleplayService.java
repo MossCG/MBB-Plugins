@@ -1375,7 +1375,8 @@ public class RoleplayService {
                 continue;
             }
             if (!allowed.contains(skill.id())) {
-                plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未开放的技能："+skill.id());
+                plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未开放的技能："
+                        +skill.id()+" 当前开放="+allowed);
                 continue;
             }
             RoleplaySkillContext context = new RoleplaySkillContext();

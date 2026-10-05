@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 执行层输出
@@ -85,13 +86,25 @@ public class RoleplayReplyDraft {
     }
 
     private static RoleplaySkillCall parseCall(Object item) {
-        if (item instanceof String) return new RoleplaySkillCall(String.valueOf(item));
+        if (item instanceof String) {
+            return new RoleplaySkillCall(normalizeActionType(String.valueOf(item)));
+        }
         if (!(item instanceof JSONObject)) return null;
         JSONObject json = (JSONObject) item;
-        RoleplaySkillCall call = new RoleplaySkillCall(json.getString("type"));
+        RoleplaySkillCall call = new RoleplaySkillCall(normalizeActionType(json.getString("type")));
         JSONObject args = json.getJSONObject("args");
         if (args != null) call.args = args;
         return call;
+    }
+
+    private static String normalizeActionType(String type) {
+        if (type == null) return "";
+        String value = type.trim().toLowerCase(Locale.ROOT);
+        if ("poke".equals(value) || "poke_back".equals(value) || "poke-back".equals(value)
+                || "戳回去".equals(value)) {
+            return "poke-back";
+        }
+        return value;
     }
 
     private static JSONObject tryParse(String raw) {
