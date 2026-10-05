@@ -336,6 +336,8 @@ public class RoleplayService {
             return;
         }
         if (!otherRoleBot && reminderService.handle(event,content)) return;
+        // 冷却或超频时直接跳过，不必再花一次路由调用
+        if (rateLimited(groupID)) return;
         RoleplayRouteDecision decision = routeDecision(signals,event,groupID,selfID,content);
         if (decision == null || !decision.reply) return;
         if (decision.chance < 1.0 && Math.random() >= decision.chance) return;
@@ -1453,6 +1455,21 @@ public class RoleplayService {
         count++;
         messageCountMap.put(groupID,count);
         return count;
+    }
+
+    /**
+     * 只读的限流判断，用于在调用路由之前提前跳过，避免冷却期还去请求模型
+     */
+    private boolean rateLimited(long groupID) {
+        long now = System.currentTimeMillis();
+        RoleplayConversationState state = state(groupID);
+        if (state.lastReplyTime > 0
+                && now - state.lastReplyTime < config.replyCooldownSecond * 1000L) {
+            return true;
+        }
+        long hour = now / 3600000L;
+        long[] rate = replyRateMap.get(groupID);
+        return rate != null && rate[0] == hour && rate[1] >= config.maxRepliesPerHour;
     }
 
     private boolean canReply(long groupID) {
