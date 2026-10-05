@@ -116,6 +116,8 @@ public class RoleplayGlobalMemoryService {
             params.put("maxTokens",Math.min(32000,Math.max(4000,config.memoryMaxTokens)));
             params.put("temperature",0.1);
             params.put("reasoningEffort",config.memoryReasoningEffort);
+            params.put("timeoutSeconds",config.memoryTimeoutSecond);
+            params.put("retryCount",0);
             params.put("sessionId","roleplay-global-memory-merge");
             params.put("messages",messages);
             long startTime = System.currentTimeMillis();

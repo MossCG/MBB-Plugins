@@ -85,8 +85,9 @@ public class AIService implements PluginService {
         }
 
         boolean acquired = false;
+        int timeoutSeconds = timeoutSeconds(profile,params);
         try {
-            acquired = semaphore.tryAcquire(profile.timeoutSeconds,TimeUnit.SECONDS);
+            acquired = semaphore.tryAcquire(timeoutSeconds,TimeUnit.SECONDS);
             if (!acquired) {
                 stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,null);
                 return error("AI 服务当前并发已满，请稍后再试！","busy",true);
@@ -121,6 +122,8 @@ public class AIService implements PluginService {
         chatParams.put("temperature",params.get("temperature"));
         chatParams.put("maxTokens",params.get("maxTokens"));
         chatParams.put("reasoningEffort",params.get("reasoningEffort"));
+        chatParams.put("timeoutSeconds",params.get("timeoutSeconds"));
+        chatParams.put("retryCount",params.get("retryCount"));
         JSONArray messages = new JSONArray();
         messages.add(message("user",prompt));
         chatParams.put("messages",messages);
@@ -128,7 +131,7 @@ public class AIService implements PluginService {
     }
 
     private JSONObject callWithRetry(AIProfile profile,JSONArray messages,JSONObject params) {
-        int attempts = config.retryCount + 1;
+        int attempts = retryCount(params) + 1;
         JSONObject result = null;
         for (int i = 0; i < attempts; i++) {
             if (!"openai".equalsIgnoreCase(profile.provider)) {
@@ -226,8 +229,27 @@ public class AIService implements PluginService {
         String sessionId = params == null ? "" : params.getString("sessionId");
         String reasoningEffort = params == null || params.getString("reasoningEffort") == null
                 ? "" : params.getString("reasoningEffort");
+        int timeoutSeconds = timeoutSeconds(profile,params);
+        int retryCount = retryCount(params);
         return profile.name+"|"+(sessionId == null ? "" : sessionId)+"|"
-                +temperature+"|"+maxTokens+"|"+reasoningEffort+"|"+messages.toJSONString();
+                +temperature+"|"+maxTokens+"|"+reasoningEffort+"|"+timeoutSeconds+"|"
+                +retryCount+"|"+messages.toJSONString();
+    }
+
+    private int timeoutSeconds(AIProfile profile,JSONObject params) {
+        int timeout = params == null ? 0 : params.getIntValue("timeoutSeconds");
+        if (timeout <= 0) timeout = profile.timeoutSeconds;
+        if (timeout < 1) timeout = 1;
+        if (timeout > 600) timeout = 600;
+        return timeout;
+    }
+
+    private int retryCount(JSONObject params) {
+        int retry = params != null && params.get("retryCount") != null
+                ? params.getIntValue("retryCount") : config.retryCount;
+        if (retry < 0) retry = 0;
+        if (retry > 3) retry = 3;
+        return retry;
     }
 
     private JSONObject message(String role,String content) {

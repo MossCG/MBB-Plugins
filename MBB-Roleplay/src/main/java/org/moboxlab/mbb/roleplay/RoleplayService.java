@@ -12,8 +12,10 @@ import org.moboxlab.moboxbot.API.PluginService;
 import org.moboxlab.moboxbot.API.Storage.StorageService;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -47,16 +49,20 @@ public class RoleplayService {
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,RoleplayConversationState> conversationStateMap = new ConcurrentHashMap<>();
-    private final Map<Long,Integer> messageCountMap = new HashMap<>();
-    private final Map<Long,long[]> replyRateMap = new HashMap<>();
-    private final Map<Long,Boolean> memoryUpdatingMap = new HashMap<>();
-    private final Map<Long,String> pendingMemoryMap = new HashMap<>();
-    private final Map<Long,Boolean> memoryMergingMap = new HashMap<>();
-    private final Map<Long,long[]> imageVisionRateMap = new HashMap<>();
+    private final Map<Long,Integer> messageCountMap = new ConcurrentHashMap<>();
+    private final Map<Long,long[]> replyRateMap = new ConcurrentHashMap<>();
+    private final Map<Long,Boolean> memoryUpdatingMap = new ConcurrentHashMap<>();
+    private final Map<Long,String> pendingMemoryMap = new ConcurrentHashMap<>();
+    private final Map<Long,String> memoryErrorTypeMap = new ConcurrentHashMap<>();
+    private final Map<Long,Boolean> memoryMergingMap = new ConcurrentHashMap<>();
+    private final Map<Long,long[]> imageVisionRateMap = new ConcurrentHashMap<>();
     private final Map<String,RecentImage> recentImageMap = new ConcurrentHashMap<>();
     private final Map<String,PendingTurn> pendingTurnMap = new ConcurrentHashMap<>();
     private final Map<String,RecentSticker> recentStickerMap = new ConcurrentHashMap<>();
     private final Map<String,Integer> pendingGenerationMap = new ConcurrentHashMap<>();
+    private final Object groupQueueLock = new Object();
+    private final Map<Long,Boolean> groupBusyMap = new HashMap<>();
+    private final Map<Long,Deque<GroupMessageEvent>> groupQueueMap = new HashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
@@ -268,7 +274,53 @@ public class RoleplayService {
         speechCorpusService.reload(config);
     }
 
+    /**
+     * 群消息入口
+     * 同一个群按到达顺序串行处理，避免旧消息还在路由时新消息已经插队，导致过期回复。
+     */
     public void handle(GroupMessageEvent event) {
+        if (event == null || !config.enable) return;
+        long groupID = event.getGroupID();
+        if (groupID <= 0) {
+            processGroupMessage(event);
+            return;
+        }
+        synchronized (groupQueueLock) {
+            if (Boolean.TRUE.equals(groupBusyMap.get(groupID))) {
+                Deque<GroupMessageEvent> queue = groupQueueMap.get(groupID);
+                if (queue == null) {
+                    queue = new ArrayDeque<>();
+                    groupQueueMap.put(groupID,queue);
+                }
+                queue.addLast(event);
+                return;
+            }
+            groupBusyMap.put(groupID,true);
+        }
+        processGroupQueue(groupID,event);
+    }
+
+    private void processGroupQueue(long groupID,GroupMessageEvent first) {
+        GroupMessageEvent event = first;
+        while (event != null) {
+            try {
+                processGroupMessage(event);
+            } catch (Exception e) {
+                plugin.getLogger().sendException(e);
+            }
+            synchronized (groupQueueLock) {
+                Deque<GroupMessageEvent> queue = groupQueueMap.get(groupID);
+                event = queue == null ? null : queue.pollFirst();
+                if (event == null) {
+                    groupQueueMap.remove(groupID);
+                    groupBusyMap.remove(groupID);
+                    return;
+                }
+            }
+        }
+    }
+
+    private void processGroupMessage(GroupMessageEvent event) {
         if (event == null || !config.enable) return;
         long groupID = event.getGroupID();
         if (!isGroupEnabled(groupID)) return;
@@ -279,22 +331,32 @@ public class RoleplayService {
         if (content == null || content.trim().isEmpty()) return;
         if (isCommand(content)) return;
         boolean otherRoleBot = isOtherRoleBot(event,selfID);
+        boolean hasImage = hasImageContent(event.getMessage());
+        boolean hasSticker = hasStickerContent(event.getMessage());
+        //另一个角色机器人的图片和表情不进入识图与回复链路，避免两个机器人围着同一张图互聊
+        if (otherRoleBot && (hasImage || hasSticker)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 忽略其他角色机器人的图片或表情消息");
+            return;
+        }
         int otherRoleStreak = updateOtherRoleMessageStreak(groupID,otherRoleBot);
-        boolean direct = isDirect(event,content,selfID);
+        boolean addressedToOtherRole = isAddressedToOtherRole(event,content,selfID);
+        boolean multiRoleAddress = isMultiRoleAddress(event,content,selfID);
+        boolean direct = isDirect(event,content,selfID) || multiRoleAddress;
         boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
         boolean groupActive = isGroupActive(groupID);
         boolean interest = persona.matchesInterest(content);
-        boolean hasImage = hasImageContent(event.getMessage());
         boolean hasText = hasMeaningfulText(event.getMessage());
         RecentImage currentImage = null;
         if (hasImage) {
-            if (hasStickerContent(event.getMessage())) {
+            if (hasSticker) {
                 markStickerRecognitionPending(groupID,event.getUserID());
             }
             currentImage = rememberImageContext(event,groupID);
             if (shouldUnderstandImages(event,content,direct,sameUserContinuation)) {
                 content = enrichImageContent(event,content,groupID,currentImage);
-                direct = isDirect(event,content,selfID);
+                addressedToOtherRole = isAddressedToOtherRole(event,content,selfID);
+                multiRoleAddress = isMultiRoleAddress(event,content,selfID);
+                direct = isDirect(event,content,selfID) || multiRoleAddress;
                 interest = persona.matchesInterest(content);
             }
         }
@@ -308,7 +370,7 @@ public class RoleplayService {
             triggerMemory(groupID,"定时整理");
         }
         if (hasImage && !hasText) {
-            if (hasStickerContent(event.getMessage())) {
+            if (hasSticker) {
                 String emotion = content == null || content.trim().isEmpty() ? "[表情包]" : content.trim();
                 finishStickerRecognition(groupID,event.getUserID(),emotion);
             }
@@ -317,7 +379,7 @@ public class RoleplayService {
         RoleplayDecisionEngine.Signals signals = new RoleplayDecisionEngine.Signals();
         signals.otherRoleBot = otherRoleBot;
         signals.otherRoleStreak = otherRoleStreak;
-        signals.addressedToOtherRole = isAddressedToOtherRole(event,content,selfID);
+        signals.addressedToOtherRole = addressedToOtherRole;
         signals.reminderNotification = isReminderNotification(content);
         signals.direct = direct;
         signals.quotingSelf = isQuotingSelf(event,selfID);
@@ -882,6 +944,11 @@ public class RoleplayService {
     private JSONObject callMemoryAi(PluginService ai,long groupID,String source,String contextToken) {
         JSONObject parsed = callMemoryAiOnce(ai,groupID,source,contextToken,false);
         if (parsed != null) return parsed;
+        String errorType = safe(memoryErrorTypeMap.get(groupID));
+        if ("timeout".equals(errorType) || "network".equals(errorType) || "busy".equals(errorType)) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 首次调用失败（"+errorType+"），不再重试");
+            return null;
+        }
         plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 首次输出解析失败，使用严格 JSON 提示重试");
         return callMemoryAiOnce(ai,groupID,source,contextToken,true);
     }
@@ -901,12 +968,15 @@ public class RoleplayService {
         params.put("maxTokens",maxTokens);
         params.put("temperature",retry ? 0.0 : 0.2);
         params.put("reasoningEffort",config.memoryReasoningEffort);
+        params.put("timeoutSeconds",config.memoryTimeoutSecond);
+        params.put("retryCount",0);
         params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken+(retry ? "-retry" : ""));
         params.put("messages",messages);
         long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),"记忆整理",groupID,result,System.currentTimeMillis() - startTime);
         if (result == null || !result.getBooleanValue("status")) {
+            memoryErrorTypeMap.put(groupID,safe(result == null ? "empty" : result.getString("errorType")));
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 整理失败："
                     +safe(result == null ? "" : result.getString("message")));
             return null;
@@ -917,12 +987,15 @@ public class RoleplayService {
         JSONObject parsed = parseJson(content);
         if (parsed == null && !reasoning.isEmpty()) parsed = parseJson(reasoning);
         if (parsed == null) {
+            memoryErrorTypeMap.put(groupID,"parse");
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" "
                     +(retry ? "重试" : "模型")+"没有返回合法 JSON，原始输出："
                     +shortText(content,240)
                     +(finishReason.isEmpty() ? "" : "，finishReason="+finishReason)
                     +(reasoning.isEmpty() ? "" : "，reasoning长度="+reasoning.length())
                     +"，profile="+profile+", maxTokens="+maxTokens);
+        } else {
+            memoryErrorTypeMap.remove(groupID);
         }
         return parsed;
     }
@@ -934,8 +1007,11 @@ public class RoleplayService {
                 +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
                 +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
                 +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
+                +"当前时间："+currentTimeText()+"。"
                 +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
+                +"如果一条记忆对应明确发生的事件，content 里必须带上发生时间，例如“2026-10-05 22:28 老师提到...”；"
+                +"shortTerm 也按时间顺序概括近几天发生的事，不要写成没有时间线索的流水账。"
                 +"如果输入中包含“角色主动标记的记忆内容”，必须优先把其中的长期价值整理进 longTerm。"
                 +(globalMemoryService.isLearnGroup(groupID) ? "同时返回 globalMemory 数组："
                 +"[{\"type\":\"speech_style|tone|habit|knowledge|meme|note\","
@@ -953,10 +1029,12 @@ public class RoleplayService {
         }
         StringBuilder source = new StringBuilder();
         if (directMemory != null && !directMemory.trim().isEmpty()) {
-            source.append("角色主动标记的记忆内容：").append(directMemory.trim()).append("\n");
+            source.append("角色主动标记的记忆内容：[").append(currentTimeText()).append("] ")
+                    .append(directMemory.trim()).append("\n");
         }
         for (JSONObject row : rows) {
-            source.append(safe(row.getString("userName"))).append("：")
+            source.append("[").append(formatMemoryTime(row.getLongValue("messageTime"))).append("] ")
+                    .append(safe(row.getString("userName"))).append("：")
                     .append(safe(row.getString("content"))).append("\n");
         }
         JSONObject parsed = callMemoryAi(ai,groupID,source.toString(),contextToken);
@@ -1094,6 +1172,8 @@ public class RoleplayService {
         params.put("maxTokens",config.memoryMaxTokens);
         params.put("temperature",0.1);
         params.put("reasoningEffort",config.memoryReasoningEffort);
+        params.put("timeoutSeconds",config.memoryTimeoutSecond);
+        params.put("retryCount",0);
         params.put("sessionId","roleplay-memory-merge-"+groupID);
         params.put("messages",messages);
         long startTime = System.currentTimeMillis();
@@ -1401,6 +1481,23 @@ public class RoleplayService {
         }
     }
 
+    private String formatMemoryTime(long time) {
+        if (time <= 0) return "未知时间";
+        try {
+            String zoneName = config.timeZone == null || config.timeZone.trim().isEmpty()
+                    ? "Asia/Shanghai" : config.timeZone.trim();
+            TimeZone zone = TimeZone.getTimeZone(zoneName);
+            if ("GMT".equals(zone.getID()) && !"GMT".equalsIgnoreCase(zoneName)) {
+                zone = TimeZone.getTimeZone("Asia/Shanghai");
+            }
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.CHINA);
+            format.setTimeZone(zone);
+            return format.format(new Date(time));
+        } catch (Exception e) {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.CHINA).format(new Date(time));
+        }
+    }
+
     private String relationshipLabel(GroupMessageEvent event,boolean otherRoleBot) {
         if (otherRoleBot) return "其他角色机器人";
         JSONObject sender = event == null ? null : event.getSender();
@@ -1423,6 +1520,24 @@ public class RoleplayService {
     }
 
     private boolean isAddressedToOtherRole(GroupMessageEvent event,String content,long selfID) {
+        return mentionsOtherRole(event,content,selfID) && !mentionsSelfRole(event,content,selfID);
+    }
+
+    private boolean isMultiRoleAddress(GroupMessageEvent event,String content,long selfID) {
+        return mentionsOtherRole(event,content,selfID) && mentionsSelfRole(event,content,selfID);
+    }
+
+    private boolean mentionsSelfRole(GroupMessageEvent event,String content,long selfID) {
+        if (isMentioningSelf(event,selfID)) return true;
+        String text = normalizeAddressText(content);
+        if (containsRoleAlias(text,persona.name)) return true;
+        for (String alias : persona.aliases) {
+            if (containsRoleAlias(text,alias)) return true;
+        }
+        return containsRoleAlias(text,plugin.getServer().getBotName());
+    }
+
+    private boolean mentionsOtherRole(GroupMessageEvent event,String content,long selfID) {
         if (event != null && event.getMessage() != null) {
             JSONArray message = event.getMessage();
             for (int i = 0; i < message.size(); i++) {
@@ -1433,17 +1548,31 @@ public class RoleplayService {
                 if (atID > 0 && atID != selfID) return true;
             }
         }
-        String text = content == null ? "" : content.trim();
-        if (text.startsWith("@")) {
-            text = text.replaceFirst("^@[0-9]+\\s*","").trim();
-        }
+        String text = normalizeAddressText(content);
         String names = config.otherRoleBotNames+","+RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES;
         for (String item : names.split(",")) {
             String name = item.trim();
             if (name.isEmpty() || isOwnRoleName(name)) continue;
-            if (startsWithAlias(text,name)) return true;
+            if (containsRoleAlias(text,name)) return true;
         }
         return false;
+    }
+
+    private String normalizeAddressText(String content) {
+        String text = content == null ? "" : content.trim();
+        if (text.startsWith("@")) {
+            text = text.replaceFirst("^@[0-9]+\\s*","").trim();
+        }
+        return text;
+    }
+
+    private boolean containsRoleAlias(String text,String alias) {
+        if (text == null || alias == null || alias.trim().isEmpty()) return false;
+        String value = text.trim();
+        String name = alias.trim();
+        //单字别名容易误伤普通词，只在句首或显式艾特时生效
+        if (name.length() == 1) return value.startsWith(name) || value.contains("@"+name);
+        return value.contains(name) || value.contains("@"+name);
     }
 
     private boolean isOwnRoleName(String name) {

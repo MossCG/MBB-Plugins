@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "9";
+    private static final String CURRENT_VERSION = "10";
 
     private static class ConfigEntry {
         private final String key;
@@ -59,6 +59,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("memoryExtractMaxChars","16000","每次记忆整理最多送入模型的字符数，避免上下文过长"),
             new ConfigEntry("memoryExtractBatches","3","单次自动整理最多连续处理的批次，避免积压消息一次消耗过多"),
             new ConfigEntry("memoryMaxTokens","12000","记忆整理输出 Token 上限，reasoning 模型建议不低于 12000"),
+            new ConfigEntry("memoryTimeoutSecond","300","记忆整理单次请求超时秒数，长上下文和 reasoning 模型建议不低于 300"),
             new ConfigEntry("globalMemoryEnable","true","是否启用所有群共享的永久记忆"),
             new ConfigEntry("globalMemoryLearnGroups","","允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习"),
             new ConfigEntry("globalMemoryMaxItems","300","最多加载多少条全局永久记忆"),
@@ -138,7 +139,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 9) {
+        if (version < 10) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -159,7 +160,7 @@ public class RoleplayConfigMigrator {
             config.set("routerMaxTokens","1200");
             changed++;
         }
-        if (version < 9 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 10 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens) {
             if (config.save()) {
                 config.load();

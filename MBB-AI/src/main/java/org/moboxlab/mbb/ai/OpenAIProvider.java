@@ -109,8 +109,9 @@ public class OpenAIProvider {
                 https.setHostnameVerifier(INSECURE_VERIFIER);
             }
             connection.setRequestMethod("POST");
-            connection.setConnectTimeout(profile.timeoutSeconds * 1000);
-            connection.setReadTimeout(profile.timeoutSeconds * 1000);
+            int timeoutSeconds = timeoutSeconds(profile,params);
+            connection.setConnectTimeout(timeoutSeconds * 1000);
+            connection.setReadTimeout(timeoutSeconds * 1000);
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type","application/json; charset=UTF-8");
             connection.setRequestProperty("Accept","application/json");
@@ -144,7 +145,8 @@ public class OpenAIProvider {
             if (json == null) return error("AI 返回内容不是合法 JSON！","response",true);
             return success(json,profile);
         } catch (java.net.SocketTimeoutException e) {
-            return error("AI 服务请求超时（"+host(profile.baseUrl)+"，"+profile.timeoutSeconds+" 秒）！","timeout",true);
+            return error("AI 服务请求超时（"+host(profile.baseUrl)+"，"
+                    +timeoutSeconds(profile,params)+" 秒）！","timeout",true);
         } catch (Exception e) {
             String detail = describe(e);
             boolean hostnameMismatch = detail.contains("No name matching");
@@ -161,6 +163,14 @@ public class OpenAIProvider {
 
     private static String trim(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static int timeoutSeconds(AIProfile profile,JSONObject params) {
+        int timeout = params == null ? 0 : params.getIntValue("timeoutSeconds");
+        if (timeout <= 0) timeout = profile.timeoutSeconds;
+        if (timeout < 1) timeout = 1;
+        if (timeout > 600) timeout = 600;
+        return timeout;
     }
 
     private static String host(String baseUrl) {

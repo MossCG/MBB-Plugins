@@ -80,6 +80,8 @@ logRequestContent: false
 
 `reasoningEffort` 控制思考强度，可选 `low`、`medium`、`high`，留空表示不向接口发送该字段。调用方也可以在 `chat` 参数里传 `reasoningEffort` 覆盖配置。如果模型或网关不认识这个字段并返回 HTTP 400 / 422，插件会自动去掉它重试一次，不会让整条回复失败。
 
+`timeoutSeconds` 是 profile 的默认请求超时时间。调用方也可以在 `chat` 参数里单独传 `timeoutSeconds` 覆盖，适合记忆整理、长上下文总结这类耗时明显更长的请求；单次覆盖范围是 1 到 600 秒。调用方还可以传 `retryCount` 覆盖 `config.yml` 的默认重试次数，范围是 0 到 3；长耗时记忆整理建议传 `0`，避免超时后再等一整轮重试。
+
 `insecureTls` 默认 `false`。置为 `true` 后跳过 HTTPS 证书链和主机名校验，只用于自建网关、TLS 拦截代理或证书与域名不匹配的服务器环境。遇到 `No name matching <域名> found` 这类报错时，优先改用证书实际覆盖的域名；确实没有别的办法再打开它，因为它会让中间人攻击无法被发现。
 
 不要把真实密钥提交到仓库。
@@ -99,6 +101,8 @@ logRequestContent: false
   "profile": "default",
   "sessionId": "moboxbot-user-123456",
   "reasoningEffort": "low",
+  "timeoutSeconds": 180,
+  "retryCount": 0,
   "messages": [
     {"role": "system", "content": "你是一个 QQ 聊天助手。"},
     {"role": "user", "content": "你好"}

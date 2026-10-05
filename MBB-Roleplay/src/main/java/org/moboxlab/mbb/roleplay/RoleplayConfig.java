@@ -40,6 +40,7 @@ public class RoleplayConfig {
     public int memoryExtractMaxChars = 16000;
     public int memoryExtractBatches = 3;
     public int memoryMaxTokens = 12000;
+    public int memoryTimeoutSecond = 300;
     public boolean globalMemoryEnable = true;
     public String globalMemoryLearnGroups = "";
     public int globalMemoryMaxItems = 300;
@@ -137,6 +138,7 @@ public class RoleplayConfig {
         config.memoryExtractMaxChars = plugin.getConfig().getInt("memoryExtractMaxChars",16000);
         config.memoryExtractBatches = plugin.getConfig().getInt("memoryExtractBatches",3);
         config.memoryMaxTokens = plugin.getConfig().getInt("memoryMaxTokens",12000);
+        config.memoryTimeoutSecond = plugin.getConfig().getInt("memoryTimeoutSecond",300);
         config.globalMemoryEnable = plugin.getConfig().getBoolean("globalMemoryEnable",true);
         config.globalMemoryLearnGroups = plugin.getConfig().getString("globalMemoryLearnGroups","");
         config.globalMemoryMaxItems = plugin.getConfig().getInt("globalMemoryMaxItems",300);
@@ -237,6 +239,8 @@ public class RoleplayConfig {
         if (config.memoryExtractBatches > 10) config.memoryExtractBatches = 10;
         if (config.memoryMaxTokens < 2000) config.memoryMaxTokens = 2000;
         if (config.memoryMaxTokens > 32000) config.memoryMaxTokens = 32000;
+        if (config.memoryTimeoutSecond < 30) config.memoryTimeoutSecond = 30;
+        if (config.memoryTimeoutSecond > 600) config.memoryTimeoutSecond = 600;
         if (config.globalMemoryLearnGroups == null) config.globalMemoryLearnGroups = "";
         if (config.globalMemoryMaxItems < 20) config.globalMemoryMaxItems = 20;
         if (config.globalMemoryMaxItems > 1000) config.globalMemoryMaxItems = 1000;
