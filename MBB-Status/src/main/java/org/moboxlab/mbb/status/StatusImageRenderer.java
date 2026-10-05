@@ -27,7 +27,7 @@ public class StatusImageRenderer {
         int cardWidth = (WIDTH - PADDING * 2 - GAP) / 2;
         int cardHeight = 118;
         int metricTop = PADDING + 76;
-        int networkTop = metricTop + cardHeight * 2 + GAP + 18;
+        int networkTop = metricTop + cardHeight * 3 + GAP * 2 + 18;
         int configTop = networkTop + 104;
         int configRows = 6;
         int configHeight = 72 + configRows * 30;
@@ -57,6 +57,7 @@ public class StatusImageRenderer {
 
             int firstY = metricTop;
             int secondY = metricTop + cardHeight + GAP;
+            int thirdY = metricTop + (cardHeight + GAP) * 2;
             drawMetric(graphics,PADDING,firstY,cardWidth,cardHeight,
                     "CPU 占用","系统整体",info.cpuLoad);
             drawMetric(graphics,PADDING + cardWidth + GAP,firstY,cardWidth,cardHeight,
@@ -65,6 +66,10 @@ public class StatusImageRenderer {
                     "磁盘占用",SystemStatusService.formatBytes(info.diskUsed)+" / "+SystemStatusService.formatBytes(info.diskTotal),info.diskPercent);
             drawMetric(graphics,PADDING + cardWidth + GAP,secondY,cardWidth,cardHeight,
                     "JVM 堆内存",SystemStatusService.formatBytes(info.jvmUsed)+" / "+SystemStatusService.formatBytes(info.jvmMax),info.jvmPercent);
+            drawMetric(graphics,PADDING,thirdY,cardWidth,cardHeight,
+                    "显卡占用",gpuDetail(info),info.gpuLoad);
+            drawMetric(graphics,PADDING + cardWidth + GAP,thirdY,cardWidth,cardHeight,
+                    "显存占用",gpuMemoryDetail(info),info.gpuMemoryPercent);
 
             drawNetwork(graphics,PADDING,networkTop,WIDTH - PADDING * 2,86,info);
             drawConfig(graphics,PADDING,configTop,WIDTH - PADDING * 2,configHeight,info,refreshSecond);
@@ -167,10 +172,12 @@ public class StatusImageRenderer {
         drawConfigRow(graphics,x + 40 + columnWidth,rowY + 30,"CPU 核心",String.valueOf(info.availableProcessors));
         drawConfigRow(graphics,x + 20,rowY + 60,"处理器",info.cpuName);
         drawConfigRow(graphics,x + 40 + columnWidth,rowY + 60,"Java",info.javaVersion);
-        drawConfigRow(graphics,x + 20,rowY + 90,"物理内存",SystemStatusService.formatBytes(info.memoryTotal));
-        drawConfigRow(graphics,x + 40 + columnWidth,rowY + 90,"磁盘容量",SystemStatusService.formatBytes(info.diskTotal));
-        drawConfigRow(graphics,x + 20,rowY + 120,"运行时长",info.uptime);
-        drawConfigRow(graphics,x + 40 + columnWidth,rowY + 120,"采样间隔",refreshSecond+" 秒");
+        drawConfigRow(graphics,x + 20,rowY + 90,"显卡",info.gpuCount > 0 ? info.gpuName : "未检测到");
+        drawConfigRow(graphics,x + 40 + columnWidth,rowY + 90,"显卡温度",SystemStatusService.formatTemperature(info.gpuTemperature));
+        drawConfigRow(graphics,x + 20,rowY + 120,"物理内存",SystemStatusService.formatBytes(info.memoryTotal));
+        drawConfigRow(graphics,x + 40 + columnWidth,rowY + 120,"磁盘容量",SystemStatusService.formatBytes(info.diskTotal));
+        drawConfigRow(graphics,x + 20,rowY + 150,"运行时长",info.uptime);
+        drawConfigRow(graphics,x + 40 + columnWidth,rowY + 150,"采样间隔",refreshSecond+" 秒");
     }
 
     private static void drawConfigRow(Graphics2D graphics,int x,int y,String label,String value) {
@@ -189,6 +196,18 @@ public class StatusImageRenderer {
 
     private static String percentText(double percent) {
         return percent < 0 ? "不可用" : SystemStatusService.formatPercent(percent);
+    }
+
+    private static String gpuDetail(StatusInfo info) {
+        if (info.gpuCount <= 0) return "未检测到显卡";
+        return info.gpuCount > 1 ? info.gpuName+" 等 "+info.gpuCount+" 张" : info.gpuName;
+    }
+
+    private static String gpuMemoryDetail(StatusInfo info) {
+        if (info.gpuCount <= 0) return "未检测到显卡";
+        if (info.gpuMemoryTotal <= 0) return "显存信息不可用";
+        return SystemStatusService.formatBytes(info.gpuMemoryUsed)+" / "
+                +SystemStatusService.formatBytes(info.gpuMemoryTotal);
     }
 
     private static Color percentColor(double percent) {

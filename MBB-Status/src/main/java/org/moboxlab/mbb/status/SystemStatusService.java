@@ -11,6 +11,7 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +40,14 @@ public class SystemStatusService {
         public double jvmPercent = -1;
         public double networkInKBps = -1;
         public double networkOutKBps = -1;
+        public String gpuName = "";
+        public int gpuCount = 0;
+        public double gpuLoad = -1;
+        public long gpuMemoryUsed = 0L;
+        public long gpuMemoryTotal = 0L;
+        public double gpuMemoryPercent = -1;
+        public double gpuTemperature = -1;
+        public String gpuSource = "";
         public String uptime = "";
         public String cpuName = "";
         public String hostName = "";
@@ -69,6 +78,17 @@ public class SystemStatusService {
 
         info.networkInKBps = networkInKBps;
         info.networkOutKBps = networkOutKBps;
+        GpuSnapshot gpu = readGpu();
+        if (gpu != null) {
+            info.gpuName = gpu.name;
+            info.gpuCount = gpu.count;
+            info.gpuLoad = gpu.load;
+            info.gpuMemoryUsed = gpu.memoryUsed;
+            info.gpuMemoryTotal = gpu.memoryTotal;
+            info.gpuMemoryPercent = percent(gpu.memoryUsed,gpu.memoryTotal);
+            info.gpuTemperature = gpu.temperature;
+            info.gpuSource = gpu.source;
+        }
         info.uptime = readUptimeText();
         info.cpuName = cpuName;
         info.hostName = readHostName();
@@ -94,6 +114,17 @@ public class SystemStatusService {
                 .append("（").append(formatPercent(info.diskPercent)).append("）\n");
         builder.append("JVM：").append(formatBytes(info.jvmUsed)).append(" / ").append(formatBytes(info.jvmMax))
                 .append("（").append(formatPercent(info.jvmPercent)).append("）\n");
+        if (info.gpuCount > 0) {
+            builder.append("显卡：").append(info.gpuName)
+                    .append(info.gpuCount > 1 ? "（共 "+info.gpuCount+" 张）" : "").append("\n");
+            builder.append("显卡占用：").append(formatPercent(info.gpuLoad)).append("\n");
+            builder.append("显存：").append(formatBytes(info.gpuMemoryUsed)).append(" / ")
+                    .append(formatBytes(info.gpuMemoryTotal))
+                    .append("（").append(formatPercent(info.gpuMemoryPercent)).append("）\n");
+            builder.append("显卡温度：").append(formatTemperature(info.gpuTemperature)).append("\n");
+        } else {
+            builder.append("显卡：未检测到\n");
+        }
         builder.append("网络：").append(readNetworkText()).append("\n");
         builder.append("运行时长：").append(info.uptime);
         return builder.toString();
@@ -119,6 +150,159 @@ public class SystemStatusService {
         }
         lastNetworkBytes = current;
         lastNetworkTime = now;
+    }
+
+    private static final long GPU_CACHE_MILLIS = 5000L;
+    private static volatile String gpuCommand = "nvidia-smi";
+    private static volatile GpuSnapshot gpuSnapshot = null;
+    private static volatile long gpuSnapshotTime = 0L;
+
+    private static class GpuSnapshot {
+        String name = "";
+        int count = 0;
+        double load = -1;
+        long memoryUsed = 0L;
+        long memoryTotal = 0L;
+        double temperature = -1;
+        String source = "";
+    }
+
+    public static void setGpuCommand(String command) {
+        gpuCommand = command == null || command.trim().isEmpty() ? "nvidia-smi" : command.trim();
+        gpuSnapshot = null;
+        gpuSnapshotTime = 0L;
+    }
+
+    // nvidia-smi 启动一次要几百毫秒，状态图短时间内重复生成时复用上一次结果
+    private static GpuSnapshot readGpu() {
+        long now = System.currentTimeMillis();
+        GpuSnapshot cached = gpuSnapshot;
+        if (cached != null && now - gpuSnapshotTime < GPU_CACHE_MILLIS) return cached;
+        GpuSnapshot snapshot = queryNvidiaSmi();
+        if (snapshot == null) snapshot = queryGpuNameOnly();
+        if (snapshot == null) snapshot = new GpuSnapshot();
+        gpuSnapshot = snapshot;
+        gpuSnapshotTime = now;
+        return snapshot;
+    }
+
+    private static GpuSnapshot queryNvidiaSmi() {
+        try {
+            Process process = new ProcessBuilder(gpuCommand,
+                    "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
+                    "--format=csv,noheader,nounits")
+                    .redirectErrorStream(true)
+                    .start();
+            if (!process.waitFor(4,TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return null;
+            }
+            List<String> lines = new ArrayList<>();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8));
+            String line;
+            while ((line = reader.readLine()) != null) lines.add(line);
+            reader.close();
+
+            GpuSnapshot snapshot = new GpuSnapshot();
+            snapshot.source = "nvidia-smi";
+            double loadSum = 0;
+            int loadCount = 0;
+            double temperatureSum = 0;
+            int temperatureCount = 0;
+            for (String item : lines) {
+                if (item == null || item.trim().isEmpty()) continue;
+                String[] parts = item.split(",");
+                if (parts.length < 5) continue;
+                if (snapshot.count == 0) snapshot.name = parts[0].trim();
+                snapshot.count++;
+                double load = parseDouble(parts[1]);
+                if (load >= 0) {
+                    loadSum += load;
+                    loadCount++;
+                }
+                snapshot.memoryUsed += (long)(Math.max(0,parseDouble(parts[2])) * 1024.0 * 1024.0);
+                snapshot.memoryTotal += (long)(Math.max(0,parseDouble(parts[3])) * 1024.0 * 1024.0);
+                double temperature = parseDouble(parts[4]);
+                if (temperature > 0) {
+                    temperatureSum += temperature;
+                    temperatureCount++;
+                }
+            }
+            if (snapshot.count == 0) return null;
+            snapshot.load = loadCount == 0 ? -1 : loadSum / loadCount;
+            snapshot.temperature = temperatureCount == 0 ? -1 : temperatureSum / temperatureCount;
+            return snapshot;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // 没有 nvidia-smi 时至少拿到显卡型号，占用和显存标记为不可用
+    private static GpuSnapshot queryGpuNameOnly() {
+        String os = System.getProperty("os.name","").toLowerCase();
+        String name = os.contains("win") ? readWindowsGpuName() : readLinuxGpuName();
+        if (name == null || name.trim().isEmpty()) return null;
+        GpuSnapshot snapshot = new GpuSnapshot();
+        snapshot.name = name.trim();
+        snapshot.count = 1;
+        snapshot.source = "名称";
+        return snapshot;
+    }
+
+    private static String readWindowsGpuName() {
+        return readCommandLine(new String[]{
+                "powershell","-NoProfile","-Command",
+                "$ErrorActionPreference='Stop'; "
+                        + "(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch 'Microsoft' } | "
+                        + "Select-Object -First 1 -ExpandProperty Name)"},4);
+    }
+
+    private static String readLinuxGpuName() {
+        String output = readCommandLine(new String[]{
+                "sh","-c","lspci | grep -Ei 'vga|3d|display' | head -n 1"},4);
+        if (output == null || output.trim().isEmpty()) return "";
+        int index = output.indexOf(':');
+        if (index >= 0 && output.length() > index + 2) return output.substring(index + 2).trim();
+        return output.trim();
+    }
+
+    private static String readCommandLine(String[] command,int timeoutSeconds) {
+        try {
+            Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            if (!process.waitFor(timeoutSeconds,TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return "";
+            }
+            // PowerShell 失败时仍会往标准输出写错误文本，靠退出码判断更可靠
+            if (process.exitValue() != 0) return "";
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String text = line.trim();
+                if (text.isEmpty()) continue;
+                // PowerShell 报错会和标准输出混在一起，过滤掉，避免把错误信息当成型号
+                if (text.startsWith("Get-") || text.startsWith("+") || text.contains("ErrorRecord")) continue;
+                reader.close();
+                return text;
+            }
+            reader.close();
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static double parseDouble(String value) {
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    static String formatTemperature(double temperature) {
+        if (temperature < 0) return "不可用";
+        return String.format(Locale.US,"%.1f°C",temperature);
     }
 
     private static double readCpuLoad() {
@@ -208,25 +392,10 @@ public class SystemStatusService {
     }
 
     private static String readWindowsCpuName() {
-        try {
-            Process process = new ProcessBuilder(
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)")
-                    .redirectErrorStream(true)
-                    .start();
-            if (!process.waitFor(3,TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                return "";
-            }
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8));
-            String line = reader.readLine();
-            reader.close();
-            return line == null ? "" : line.trim();
-        } catch (Exception e) {
-            return "";
-        }
+        return readCommandLine(new String[]{
+                "powershell","-NoProfile","-Command",
+                "$ErrorActionPreference='Stop'; "
+                        + "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)"},3);
     }
 
     private static String readLinuxCpuName() {
