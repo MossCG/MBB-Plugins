@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "12";
+    private static final String CURRENT_VERSION = "13";
 
     private static class ConfigEntry {
         private final String key;
@@ -60,6 +60,8 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("memoryExtractBatches","3","单次自动整理最多连续处理的批次，避免积压消息一次消耗过多"),
             new ConfigEntry("memoryMaxTokens","12000","记忆整理输出 Token 上限，reasoning 模型建议不低于 12000"),
             new ConfigEntry("memoryMergeMaxTokens","32000","长期记忆合并输出 Token 上限，reasoning 模型建议不低于 32000"),
+            new ConfigEntry("memoryMergeBatchSize","60","记忆合并单批条数"),
+            new ConfigEntry("memoryMergeMaxRounds","3","记忆合并最多执行多少轮分批压缩"),
             new ConfigEntry("memoryTimeoutSecond","300","记忆整理单次请求超时秒数，长上下文和 reasoning 模型建议不低于 300"),
             new ConfigEntry("globalMemoryEnable","true","是否启用所有群共享的永久记忆"),
             new ConfigEntry("globalMemoryLearnGroups","","允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习"),
@@ -102,7 +104,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
             new ConfigEntry("replySegmentMaxChars","20","单段回复硬上限字符数，提示词默认按 12 字以内生成"),
-            new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:","回复拆分时优先使用的断句符号"),
+            new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~","回复拆分时优先使用的断句符号"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
@@ -130,6 +132,8 @@ public class RoleplayConfigMigrator {
                 config.getString("routerMaxTokens",""));
         boolean legacyReplySegmentMaxChars = version < 12 && "160".equals(
                 config.getString("replySegmentMaxChars",""));
+        boolean legacyReplySplitPunctuation = version < 13
+                && "。！？!?；;，、：,:".equals(config.getString("replySplitPunctuation",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -143,7 +147,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 12) {
+        if (version < 13) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -168,8 +172,13 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","20");
             changed++;
         }
-        if (version < 12 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
-                || legacyRouterMaxTokens || legacyReplySegmentMaxChars) {
+        if (legacyReplySplitPunctuation) {
+            config.set("replySplitPunctuation","。！？!?；;，、：,:～~");
+            changed++;
+        }
+        if (version < 13 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+                || legacyRouterMaxTokens || legacyReplySegmentMaxChars
+                || legacyReplySplitPunctuation) {
             if (config.save()) {
                 config.load();
             } else {

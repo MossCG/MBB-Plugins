@@ -1152,28 +1152,119 @@ public class RoleplayService {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并跳过：MBB-AI 未启用");
             return;
         }
-        int total = memoryCount(groupID);
-        List<JSONObject> rows = storage().query(
-                "SELECT `memoryType`,`subjectID`,`content`,`importance` FROM `"+MEMORY_TABLE+"` "
-                        + "WHERE `groupID`=? ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
-                groupID,Math.max(total,config.maxLongMemories));
-        if (rows == null || rows.size() < 2) return;
+        long snapshotMaxId = maxLongMemoryId(groupID);
+        if (snapshotMaxId <= 0) return;
+        List<JSONObject> snapshot = exportLongMemoriesUpTo(groupID,snapshotMaxId);
+        if (snapshot.size() < 2) return;
         backupAllMemories("long-term-merge");
-        JSONArray source = new JSONArray();
+        List<JSONObject> current = new ArrayList<>(snapshot);
+        int original = current.size();
+        int target = config.maxLongMemories;
+        int maxRounds = config.memoryMergeMaxRounds;
+        int batchSize = config.memoryMergeBatchSize;
+        for (int round = 1; round <= maxRounds && current.size() > target; round++) {
+            List<JSONObject> sorted = MemoryBatchSorter.sortForMerge(current);
+            List<List<JSONObject>> batches = MemoryBatchSorter.batches(sorted,batchSize);
+            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round+"/"+maxRounds
+                    +" 轮开始：输入 "+current.size()+" 条，共 "+batches.size()+" 批");
+            List<JSONObject> mergedAll = new ArrayList<>();
+            for (int i = 0; i < batches.size(); i++) {
+                List<JSONObject> batch = batches.get(i);
+                plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                        +" 轮 批次 "+(i+1)+"/"+batches.size()+" 开始：输入 "+batch.size()+" 条");
+                List<JSONObject> merged = mergeLongMemoryBatch(ai,groupID,batch,round,i+1,batches.size());
+                if (merged == null) {
+                    plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                            +" 轮 批次 "+(i+1)+" 失败，放弃本次合并，原记忆保持不变");
+                    return;
+                }
+                mergedAll.addAll(merged);
+                plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                        +" 轮 批次 "+(i+1)+"/"+batches.size()+" 完成："
+                        +batch.size()+" -> "+merged.size()+" 条");
+            }
+            current = MemoryBatchSorter.sortForMerge(mergedAll);
+            plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                    +" 轮完成：结果 "+current.size()+" 条");
+        }
+        if (!isMergeResultSafe(original,current.size())) {
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并结果异常：原 "
+                    +original+" 条，合并后仅 "+current.size()+" 条，放弃本次合并");
+            return;
+        }
+        int newRows = Math.max(0,memoryCount(groupID) - original);
+        deleteLongMemoriesUpTo(groupID,snapshotMaxId);
+        int saved = insertLongMemories(groupID,current);
+        plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆整理合并完成：原 "+original
+                +" 条，合并后 "+saved+" 条，合并期间新增保留 "+newRows+" 条");
+    }
+
+    private long maxLongMemoryId(long groupID) {
+        JSONObject row = storage().queryOne(
+                "SELECT MAX(`ID`) AS `maxID` FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
+        return row == null ? 0L : row.getLongValue("maxID");
+    }
+
+    private List<JSONObject> exportLongMemoriesUpTo(long groupID,long maxId) {
+        List<JSONObject> result = new ArrayList<>();
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime` "
+                        + "FROM `"+MEMORY_TABLE+"` WHERE `groupID`=? AND `ID`<=? ORDER BY `ID` ASC",
+                groupID,maxId);
+        if (rows == null) return result;
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
             item.put("type",row.getString("memoryType"));
             item.put("subjectID",row.getLongValue("subjectID"));
             item.put("content",row.getString("content"));
             item.put("importance",row.getIntValue("importance"));
-            source.add(item);
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
         }
+        return result;
+    }
+
+    private void deleteLongMemoriesUpTo(long groupID,long maxId) {
+        storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=? AND `ID`<=?",
+                groupID,maxId);
+    }
+
+    private int insertLongMemories(long groupID,List<JSONObject> memories) {
+        if (memories == null) return 0;
+        int saved = 0;
+        long now = System.currentTimeMillis();
+        for (JSONObject item : memories) {
+            if (item == null) continue;
+            String type = safe(item.getString("type")).trim();
+            String content = safe(item.getString("content")).trim();
+            if (content.isEmpty()) continue;
+            if (type.isEmpty()) type = "topic";
+            int importance = item.getIntValue("importance");
+            if (importance < 1) importance = 1;
+            if (importance > 5) importance = 5;
+            long updateTime = item.getLongValue("updateTime");
+            if (updateTime <= 0) updateTime = now;
+            storage().insert("INSERT INTO `"+MEMORY_TABLE+"` "
+                            + "(`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?)",
+                    groupID,type,item.getLongValue("subjectID"),content,importance,updateTime);
+            saved++;
+        }
+        return saved;
+    }
+
+    private List<JSONObject> mergeLongMemoryBatch(PluginService ai,long groupID,
+                                                   List<JSONObject> batch,int round,
+                                                   int batchNo,int batchCount) {
         JSONArray messages = new JSONArray();
-        messages.add(message("system","你是角色扮演插件的长期记忆整理器。请合并重复或高度相似的记忆，"
-                +"保留用户印象、用户信息、群内氛围、群梗、角色行为和重要事件，不要因为压缩而丢失关键内容。"
-                +"只输出 JSON，不要 Markdown：{\"memories\":[{\"type\":\"user_impression|user_info|"
-                +"group_atmosphere|meme|self_action|topic\",\"subjectID\":0,\"content\":\"整理后的内容\","
-                +"\"importance\":1}]}。最多输出 "+config.maxLongMemories+" 条。"));
+        messages.add(message("system","你是角色扮演插件的长期记忆整理器。只处理当前这一批记忆，"
+                +"请合并重复或高度相似的内容，保留用户印象、用户信息、群内氛围、群梗、角色行为和重要事件，"
+                +"不要因为压缩而丢失关键内容。只输出 JSON，不要 Markdown：{\"memories\":["
+                +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
+                +"\"subjectID\":0,\"content\":\"整理后的内容\",\"importance\":1}]}。"));
+        JSONArray source = new JSONArray();
+        source.addAll(batch);
         messages.add(message("user",source.toJSONString()));
         JSONObject params = new JSONObject(true);
         String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
@@ -1184,55 +1275,50 @@ public class RoleplayService {
         params.put("reasoningEffort",config.memoryReasoningEffort);
         params.put("timeoutSeconds",config.memoryTimeoutSecond);
         params.put("retryCount",0);
-        params.put("sessionId","roleplay-memory-merge-"+groupID);
+        params.put("sessionId","roleplay-memory-merge-"+groupID+"-r"+round+"-b"+batchNo);
         params.put("messages",messages);
         long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
-        RoleplayAiLog.log(plugin.getLogger(),"长期记忆合并",groupID,result,System.currentTimeMillis() - startTime);
+        RoleplayAiLog.log(plugin.getLogger(),"长期记忆合并 第"+round+"轮 批次"+batchNo+"/"+batchCount,
+                groupID,result,System.currentTimeMillis() - startTime);
         if (result == null || !result.getBooleanValue("status")) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败："
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 合并批次失败："
                     +safe(result == null ? "" : result.getString("message")));
-            return;
+            return null;
         }
         if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID
-                    +" 长期记忆合并输出被截断，放弃本次合并，原记忆保持不变");
-            return;
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 合并批次输出被截断");
+            return null;
         }
         JSONObject parsed = parseJson(result.getString("content"));
         if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
         JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
         if (merged == null || merged.isEmpty()) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并失败：模型没有返回有效 memories");
-            return;
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 合并批次没有返回有效 memories");
+            return null;
         }
-        if (!isMergeResultSafe(rows.size(),merged.size())) {
-            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并结果异常：原 "
-                    +rows.size()+" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
-            return;
-        }
-        storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
-        int saved = 0;
+        List<JSONObject> resultList = new ArrayList<>();
         long now = System.currentTimeMillis();
         for (Object object : merged) {
             if (!(object instanceof JSONObject)) continue;
-            JSONObject item = (JSONObject)object;
-            String type = safe(item.getString("type")).trim();
+            JSONObject item = (JSONObject) object;
             String content = safe(item.getString("content")).trim();
             if (content.isEmpty()) continue;
+            String type = safe(item.getString("type")).trim();
             if (type.isEmpty()) type = "topic";
-            long subjectID = item.getLongValue("subjectID");
             int importance = item.getIntValue("importance");
             if (importance < 1) importance = 1;
             if (importance > 5) importance = 5;
-            storage().insert("INSERT INTO `"+MEMORY_TABLE+"` "
-                            + "(`groupID`,`memoryType`,`subjectID`,`content`,`importance`,`updateTime`) "
-                            + "VALUES (?,?,?,?,?,?)",
-                    groupID,type,subjectID,content,importance,now);
-            saved++;
+            JSONObject memory = new JSONObject(true);
+            memory.put("type",type);
+            memory.put("subjectID",item.getLongValue("subjectID"));
+            memory.put("content",content);
+            memory.put("importance",importance);
+            memory.put("updateTime",item.getLongValue("updateTime") <= 0
+                    ? now : item.getLongValue("updateTime"));
+            resultList.add(memory);
         }
-        plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆整理合并完成：原 "+rows.size()
-                +" 条，合并后 "+saved+" 条");
+        return resultList.isEmpty() ? null : resultList;
     }
 
     private boolean isMergeResultSafe(int original,int merged) {

@@ -7,6 +7,7 @@ import org.moboxlab.moboxbot.API.PluginService;
 import org.moboxlab.moboxbot.API.Storage.StorageService;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -91,78 +92,138 @@ public class RoleplayGlobalMemoryService {
         if (merging) return;
         merging = true;
         try {
-            JSONArray memories = list(Math.max(count(),config.globalMemoryMaxItems));
-            if (memories.size() < 2) return;
+            long snapshotMaxId = maxId();
+            if (snapshotMaxId <= 0) return;
+            JSONArray snapshot = exportUpTo(snapshotMaxId);
+            if (snapshot.size() < 2) return;
             PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
             if (ai == null) {
                 plugin.getLogger().sendWarn("[永久记忆] 合并跳过：MBB-AI 未启用");
                 return;
             }
             service.backupAllMemories("global-memory-merge");
-            JSONArray messages = new JSONArray();
-            messages.add(message("system","你是永久记忆整理器。请合并重复或高度相似的记忆，"
-                    +"保留所有有价值的信息，不要因为压缩而丢失关键内容。只输出 JSON，不要 Markdown："
-                    +"{\"memories\":[{\"type\":\"speech_style|tone|habit|knowledge|meme|note\","
-                    +"\"content\":\"整理后的内容\",\"importance\":1}]}。最多输出 "
-                    +config.globalMemoryMaxItems+" 条。"));
-            JSONObject source = new JSONObject(true);
-            source.put("memories",memories);
-            messages.add(message("user",source.toJSONString()));
-            JSONObject params = new JSONObject(true);
-            String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
-                    ? config.aiProfile : config.memoryProfile.trim();
-            params.put("profile",profile);
-            params.put("maxTokens",config.memoryMergeMaxTokens);
-            params.put("temperature",0.1);
-            params.put("reasoningEffort",config.memoryReasoningEffort);
-            params.put("timeoutSeconds",config.memoryTimeoutSecond);
-            params.put("retryCount",0);
-            params.put("sessionId","roleplay-global-memory-merge");
-            params.put("messages",messages);
-            long startTime = System.currentTimeMillis();
-            JSONObject result = ai.call("chat",params);
-            RoleplayAiLog.log(plugin.getLogger(),"永久记忆合并",0L,result,System.currentTimeMillis() - startTime);
-            if (result == null || !result.getBooleanValue("status")) return;
-            if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
-                plugin.getLogger().sendWarn("[永久记忆] 合并输出被截断，放弃本次合并，原记忆保持不变");
-                return;
-            }
-            JSONObject parsed = parseJson(result.getString("content"));
-            if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
-            JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
-            if (merged == null || merged.isEmpty()) {
-                plugin.getLogger().sendWarn("[永久记忆] 合并失败：模型没有返回有效 memories");
-                return;
-            }
-            if (!isMergeResultSafe(memories.size(),merged.size())) {
-                plugin.getLogger().sendWarn("[永久记忆] 合并结果异常：原 "+memories.size()
-                        +" 条，合并后仅 "+merged.size()+" 条，放弃本次合并");
-                return;
-            }
-            storage().update("DELETE FROM `"+TABLE+"`");
-            int saved = 0;
-            long now = System.currentTimeMillis();
-            for (Object object : merged) {
+            List<JSONObject> current = new ArrayList<>();
+            for (Object object : snapshot) {
                 if (!(object instanceof JSONObject)) continue;
-                JSONObject item = (JSONObject)object;
-                String type = safe(item.getString("type")).trim();
-                String content = safe(item.getString("content")).trim();
-                if (content.isEmpty()) continue;
-                if (type.isEmpty()) type = "note";
-                int importance = item.getIntValue("importance");
-                if (importance < 1) importance = 1;
-                if (importance > 5) importance = 5;
-                storage().insert("INSERT INTO `"+TABLE+"` "
-                                + "(`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime`) "
-                                + "VALUES (?,?,?,?,?,?)",
-                        type,content,importance,0L,0L,now);
-                saved++;
+                JSONObject item = (JSONObject) object;
+                JSONObject normalized = new JSONObject(true);
+                normalized.put("type",safe(item.getString("memoryType")));
+                normalized.put("content",safe(item.getString("content")));
+                normalized.put("importance",item.getIntValue("importance"));
+                normalized.put("sourceGroupID",item.getLongValue("sourceGroupID"));
+                normalized.put("sourceUserID",item.getLongValue("sourceUserID"));
+                normalized.put("updateTime",item.getLongValue("updateTime"));
+                current.add(normalized);
             }
-            plugin.getLogger().sendInfo("[永久记忆] 整理合并完成：原 "+memories.size()
-                    +" 条，合并后 "+saved+" 条");
+            int original = current.size();
+            int target = config.globalMemoryMaxItems;
+            int maxRounds = config.memoryMergeMaxRounds;
+            int batchSize = config.memoryMergeBatchSize;
+            for (int round = 1; round <= maxRounds && current.size() > target; round++) {
+                List<JSONObject> sorted = MemoryBatchSorter.sortForMerge(current);
+                List<List<JSONObject>> batches = MemoryBatchSorter.batches(sorted,batchSize);
+                plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+"/"+maxRounds
+                        +" 轮开始：输入 "+current.size()+" 条，共 "+batches.size()+" 批");
+                List<JSONObject> mergedAll = new ArrayList<>();
+                for (int i = 0; i < batches.size(); i++) {
+                    List<JSONObject> batch = batches.get(i);
+                    plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
+                            +"/"+batches.size()+" 开始：输入 "+batch.size()+" 条");
+                    List<JSONObject> merged = mergeGlobalBatch(ai,batch,round,i+1,batches.size());
+                    if (merged == null) {
+                        plugin.getLogger().sendWarn("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
+                                +" 失败，放弃本次合并，原记忆保持不变");
+                        return;
+                    }
+                    mergedAll.addAll(merged);
+                    plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
+                            +"/"+batches.size()+" 完成："+batch.size()+" -> "+merged.size()+" 条");
+                }
+                current = MemoryBatchSorter.sortForMerge(mergedAll);
+                plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮完成：结果 "
+                        +current.size()+" 条");
+            }
+            if (!isMergeResultSafe(original,current.size())) {
+                plugin.getLogger().sendWarn("[永久记忆] 合并结果异常：原 "+original
+                        +" 条，合并后仅 "+current.size()+" 条，放弃本次合并");
+                return;
+            }
+            int newRows = Math.max(0,count() - original);
+            JSONArray mergedArray = new JSONArray();
+            mergedArray.addAll(current);
+            deleteUpTo(snapshotMaxId);
+            int saved = insertAll(mergedArray);
+            plugin.getLogger().sendInfo("[永久记忆] 整理合并完成：原 "+original
+                    +" 条，合并后 "+saved+" 条，合并期间新增保留 "+newRows+" 条");
         } finally {
             merging = false;
         }
+    }
+
+    private List<JSONObject> mergeGlobalBatch(PluginService ai,List<JSONObject> batch,
+                                              int round,int batchNo,int batchCount) {
+        JSONArray messages = new JSONArray();
+        messages.add(message("system","你是永久记忆整理器。只处理当前这一批记忆，"
+                +"请合并重复或高度相似的内容，保留所有有价值的信息，不要因为压缩而丢失关键内容。"
+                +"只输出 JSON，不要 Markdown：{\"memories\":[{\"type\":\"speech_style|tone|habit|"
+                +"knowledge|meme|note\",\"content\":\"整理后的内容\",\"importance\":1}]}。"));
+        JSONArray source = new JSONArray();
+        source.addAll(batch);
+        messages.add(message("user",source.toJSONString()));
+        JSONObject params = new JSONObject(true);
+        String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
+                ? config.aiProfile : config.memoryProfile.trim();
+        params.put("profile",profile);
+        params.put("maxTokens",config.memoryMergeMaxTokens);
+        params.put("temperature",0.1);
+        params.put("reasoningEffort",config.memoryReasoningEffort);
+        params.put("timeoutSeconds",config.memoryTimeoutSecond);
+        params.put("retryCount",0);
+        params.put("sessionId","roleplay-global-memory-merge-r"+round+"-b"+batchNo);
+        params.put("messages",messages);
+        long startTime = System.currentTimeMillis();
+        JSONObject result = ai.call("chat",params);
+        RoleplayAiLog.log(plugin.getLogger(),"永久记忆合并 第"+round+"轮 批次"+batchNo+"/"+batchCount,
+                0L,result,System.currentTimeMillis() - startTime);
+        if (result == null || !result.getBooleanValue("status")) {
+            plugin.getLogger().sendWarn("[永久记忆] 合并批次失败："
+                    +safe(result == null ? "" : result.getString("message")));
+            return null;
+        }
+        if ("length".equalsIgnoreCase(safe(result.getString("finishReason")))) {
+            plugin.getLogger().sendWarn("[永久记忆] 合并批次输出被截断");
+            return null;
+        }
+        JSONObject parsed = parseJson(result.getString("content"));
+        if (parsed == null) parsed = parseJson(result.getString("reasoningContent"));
+        JSONArray merged = parsed == null ? null : parsed.getJSONArray("memories");
+        if (merged == null || merged.isEmpty()) {
+            plugin.getLogger().sendWarn("[永久记忆] 合并批次没有返回有效 memories");
+            return null;
+        }
+        List<JSONObject> resultList = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (Object object : merged) {
+            if (!(object instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject) object;
+            String content = safe(item.getString("content")).trim();
+            if (content.isEmpty()) continue;
+            String type = safe(item.getString("type")).trim();
+            if (type.isEmpty()) type = "note";
+            int importance = item.getIntValue("importance");
+            if (importance < 1) importance = 1;
+            if (importance > 5) importance = 5;
+            JSONObject memory = new JSONObject(true);
+            memory.put("type",type);
+            memory.put("content",content);
+            memory.put("importance",importance);
+            memory.put("sourceGroupID",item.getLongValue("sourceGroupID"));
+            memory.put("sourceUserID",item.getLongValue("sourceUserID"));
+            memory.put("updateTime",item.getLongValue("updateTime") <= 0
+                    ? now : item.getLongValue("updateTime"));
+            resultList.add(memory);
+        }
+        return resultList.isEmpty() ? null : resultList;
     }
 
     private boolean isMergeResultSafe(int original,int merged) {
@@ -257,7 +318,42 @@ public class RoleplayGlobalMemoryService {
 
     public boolean replaceAll(JSONArray memories) {
         storage().update("DELETE FROM `"+TABLE+"`");
-        if (memories == null) return true;
+        insertAll(memories);
+        return true;
+    }
+
+    public long maxId() {
+        List<JSONObject> rows = storage().query("SELECT MAX(`ID`) AS `maxID` FROM `"+TABLE+"`");
+        return rows == null || rows.isEmpty() ? 0L : rows.get(0).getLongValue("maxID");
+    }
+
+    public JSONArray exportUpTo(long maxId) {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime` "
+                        + "FROM `"+TABLE+"` WHERE `ID`<=? ORDER BY `ID` ASC",maxId);
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
+            item.put("memoryType",row.getString("memoryType"));
+            item.put("content",row.getString("content"));
+            item.put("importance",row.getIntValue("importance"));
+            item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
+            item.put("sourceUserID",row.getLongValue("sourceUserID"));
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public void deleteUpTo(long maxId) {
+        storage().update("DELETE FROM `"+TABLE+"` WHERE `ID`<=?",maxId);
+    }
+
+    public int insertAll(JSONArray memories) {
+        if (memories == null) return 0;
+        int saved = 0;
         long now = System.currentTimeMillis();
         for (Object object : memories) {
             if (!(object instanceof JSONObject)) continue;
@@ -278,8 +374,9 @@ public class RoleplayGlobalMemoryService {
                             + "(`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime`) "
                             + "VALUES (?,?,?,?,?,?)",
                     type,content,importance,sourceGroupID,sourceUserID,updateTime);
+            saved++;
         }
-        return true;
+        return saved;
     }
 
     public String formatTime(long time) {

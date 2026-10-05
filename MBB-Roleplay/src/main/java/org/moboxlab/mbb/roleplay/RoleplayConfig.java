@@ -41,6 +41,8 @@ public class RoleplayConfig {
     public int memoryExtractBatches = 3;
     public int memoryMaxTokens = 12000;
     public int memoryMergeMaxTokens = 32000;
+    public int memoryMergeBatchSize = 60;
+    public int memoryMergeMaxRounds = 3;
     public int memoryTimeoutSecond = 300;
     public boolean globalMemoryEnable = true;
     public String globalMemoryLearnGroups = "";
@@ -83,7 +85,7 @@ public class RoleplayConfig {
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
     public int replySegmentMaxChars = 20;
-    public String replySplitPunctuation = "。！？!?；;，、：,:";
+    public String replySplitPunctuation = "。！？!?；;，、：,:～~";
     public int replyMaxSegments = 2;
     public int recentReplyCheckCount = 8;
     public double repeatSimilarityThreshold = 0.72;
@@ -141,6 +143,8 @@ public class RoleplayConfig {
         config.memoryExtractBatches = plugin.getConfig().getInt("memoryExtractBatches",3);
         config.memoryMaxTokens = plugin.getConfig().getInt("memoryMaxTokens",12000);
         config.memoryMergeMaxTokens = plugin.getConfig().getInt("memoryMergeMaxTokens",32000);
+        config.memoryMergeBatchSize = plugin.getConfig().getInt("memoryMergeBatchSize",60);
+        config.memoryMergeMaxRounds = plugin.getConfig().getInt("memoryMergeMaxRounds",3);
         config.memoryTimeoutSecond = plugin.getConfig().getInt("memoryTimeoutSecond",300);
         config.globalMemoryEnable = plugin.getConfig().getBoolean("globalMemoryEnable",true);
         config.globalMemoryLearnGroups = plugin.getConfig().getString("globalMemoryLearnGroups","");
@@ -196,7 +200,7 @@ public class RoleplayConfig {
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",20);
         config.replySplitPunctuation = plugin.getConfig().getString(
-                "replySplitPunctuation","。！？!?；;，、：,:");
+                "replySplitPunctuation","。！？!?；;，、：,:～~");
         config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
         config.recentReplyCheckCount = plugin.getConfig().getInt("recentReplyCheckCount",8);
         try {
@@ -246,6 +250,10 @@ public class RoleplayConfig {
         if (config.memoryMaxTokens > 32000) config.memoryMaxTokens = 32000;
         if (config.memoryMergeMaxTokens < 4000) config.memoryMergeMaxTokens = 4000;
         if (config.memoryMergeMaxTokens > 64000) config.memoryMergeMaxTokens = 64000;
+        if (config.memoryMergeBatchSize < 10) config.memoryMergeBatchSize = 10;
+        if (config.memoryMergeBatchSize > 200) config.memoryMergeBatchSize = 200;
+        if (config.memoryMergeMaxRounds < 1) config.memoryMergeMaxRounds = 1;
+        if (config.memoryMergeMaxRounds > 10) config.memoryMergeMaxRounds = 10;
         if (config.memoryTimeoutSecond < 30) config.memoryTimeoutSecond = 30;
         if (config.memoryTimeoutSecond > 600) config.memoryTimeoutSecond = 600;
         if (config.globalMemoryLearnGroups == null) config.globalMemoryLearnGroups = "";
@@ -308,7 +316,7 @@ public class RoleplayConfig {
         if (config.replySegmentMaxChars < 8) config.replySegmentMaxChars = 8;
         if (config.replySegmentMaxChars > 30) config.replySegmentMaxChars = 30;
         if (config.replySplitPunctuation == null || config.replySplitPunctuation.isEmpty()) {
-            config.replySplitPunctuation = "。！？!?；;，、：,:";
+            config.replySplitPunctuation = "。！？!?；;，、：,:～~";
         }
         if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;
         if (config.replyMaxSegments > 2) config.replyMaxSegments = 2;

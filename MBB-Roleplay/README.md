@@ -181,6 +181,8 @@ memoryReasoningEffort: "low"
 timeZone: "Asia/Shanghai"
 memoryMaxTokens: 12000
 memoryMergeMaxTokens: 32000
+memoryMergeBatchSize: 60
+memoryMergeMaxRounds: 3
 memoryTimeoutSecond: 300
 activeMemory: true
 imageUnderstandingEnable: true
@@ -210,7 +212,7 @@ styleReasoningEffort: "low"
 styleProactiveEnable: false
 replyImageMaxTokens: 4000
 replySegmentMaxChars: 20
-replySplitPunctuation: "。！？!?；;，、：,:"
+replySplitPunctuation: "。！？!?；;，、：,:～~"
 replyMaxSegments: 2
 maxLongMemories: 150
 recentReplyCheckCount: 8
@@ -222,7 +224,7 @@ minMessageLength: 2
 
 非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息优先控制在 12 字以内、硬上限 20 字，一条说不完可以在正文里换行，最多分两段；拆分器会优先在 `replySplitPunctuation` 列出的常用符号处断开，再按硬上限拆分。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
 
-`memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。长期记忆合并单独使用 `memoryMergeMaxTokens`，默认 `32000`，避免 reasoning 把输出预算耗尽后返回空正文。`memoryTimeoutSecond` 默认 `300`，用于覆盖 profile 里较短的超时时间，避免长上下文整理频繁超时；可设置范围是 `30` 到 `600` 秒。
+`memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。长期记忆合并单独使用 `memoryMergeMaxTokens`，默认 `32000`，避免 reasoning 把输出预算耗尽后返回空正文。记忆合并按 `memoryMergeBatchSize`（默认 60）分批，最多执行 `memoryMergeMaxRounds`（默认 3）轮；每批开始和结束都会输出控制台进度日志。`memoryTimeoutSecond` 默认 `300`，用于覆盖 profile 里较短的超时时间，避免长上下文整理频繁超时；可设置范围是 `30` 到 `600` 秒。
 
 记忆整理输入会带 `[yyyy-MM-dd HH:mm]` 时间戳，prompt 也要求 longTerm 和 shortTerm 在对应事件里带上发生时间，方便角色之后理解“这是昨天说的”“这是今晚发生的”这类时间关系。
 
@@ -412,9 +414,9 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 
 恢复时先自动备份当前记忆，再用指定文件覆盖三类记忆。恢复操作仅 `OWNER` 可用。
 
-永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是调用 AI 对重复或高度相似的条目进行整理合并。合并失败时保留原数据。
+永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是先做相似排序，再按 `memoryMergeBatchSize` 分批调用 AI 合并。合并读取快照内的全部永久记忆，不会只取前 300 条；合并失败时保留原数据。
 
-当前群的长期记忆超过 `maxLongMemories` 时也会异步调用 AI 做整理合并，保留用户印象、群内氛围、群梗、角色行为和重要事件。合并失败时保留原数据。
+当前群的长期记忆超过 `maxLongMemories` 时也会异步做相似排序和分批 AI 合并，保留用户印象、群内氛围、群梗、角色行为和重要事件。合并开始时记录快照最大 ID，只删除快照内旧记忆；合并期间新增的记忆会保留。合并失败时保留原数据。
 
 ## 台词语料检索
 
