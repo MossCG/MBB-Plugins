@@ -1374,9 +1374,9 @@ public class RoleplayService {
                 plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未注册的技能："+call.type);
                 continue;
             }
-            if (!allowed.contains(skill.id())) {
+            if (!isActionAllowed(allowed,skill.id())) {
                 plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层请求了未开放的技能："
-                        +skill.id()+" 当前开放="+allowed);
+                        +skill.id()+" 当前开放="+canonicalActions(allowed));
                 continue;
             }
             RoleplaySkillContext context = new RoleplaySkillContext();
@@ -1394,6 +1394,34 @@ public class RoleplayService {
                     +" 结果="+(result.success ? "成功" : "失败")
                     +" 摘要="+shortText(result.summary,80));
         }
+    }
+
+    private boolean isActionAllowed(List<String> allowed,String skillID) {
+        if (allowed == null || skillID == null) return false;
+        String target = canonicalAction(skillID);
+        for (String item : allowed) {
+            if (target.equals(canonicalAction(item))) return true;
+        }
+        return false;
+    }
+
+    private List<String> canonicalActions(List<String> actions) {
+        List<String> result = new ArrayList<>();
+        if (actions == null) return result;
+        for (String item : actions) {
+            String value = canonicalAction(item);
+            if (!value.isEmpty() && !result.contains(value)) result.add(value);
+        }
+        return result;
+    }
+
+    private String canonicalAction(String action) {
+        if (action == null) return "";
+        String value = action.trim().toLowerCase(Locale.ROOT);
+        if ("poke".equals(value) || "poke_back".equals(value) || "poke-back".equals(value)) {
+            return "poke-back";
+        }
+        return value;
     }
 
     private RoleplaySkillCall legacyReminderCall(ReminderMarkerResult marker) {
