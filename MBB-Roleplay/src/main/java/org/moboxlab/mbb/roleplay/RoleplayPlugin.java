@@ -41,6 +41,7 @@ public class RoleplayPlugin extends Plugin {
         getServer().getPluginManager().registerListener(this,new RoleplayListener(this,service));
         getServer().getPluginManager().registerCommand(this,new RoleplayCommand(this,service));
         getServer().getPluginManager().registerCommand(this,new RoleplayReminderCommand(service.getReminderService()));
+        logPokeConfigWarning();
         getLogger().sendInfo("MBB-Roleplay 已启用，角色："+persona.name);
     }
 
@@ -61,6 +62,7 @@ public class RoleplayPlugin extends Plugin {
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
         if (service != null) service.reload(roleplayConfig,persona);
+        logPokeConfigWarning();
     }
 
     public int repairConfig() {
@@ -141,6 +143,17 @@ public class RoleplayPlugin extends Plugin {
         if (!getConfig().save()) return false;
         reloadRoleplay();
         return true;
+    }
+
+    private void logPokeConfigWarning() {
+        if (!roleplayConfig.pokeReplyEnable) return;
+        if (!roleplayConfig.pokeBackEnable) {
+            getLogger().sendWarn("戳一戳回复已启用，但 pokeBackEnable=false，角色不会戳回去；"
+                    +"需要戳回去请把该配置改为 true。");
+        }
+        if (getServer().getPluginManager().isEnabled("MBB-Poke")) {
+            getLogger().sendWarn("MBB-Poke 已启用，MBB-Roleplay 将跳过戳一戳事件，由 MBB-Poke 处理。");
+        }
     }
 
     private void saveDefaultPersonas() {
