@@ -23,6 +23,7 @@ public class RoleplayAiLog {
         JSONObject usage = response.getJSONObject("usage");
         int promptTokens = usage == null ? 0 : usage.getIntValue("promptTokens");
         int completionTokens = usage == null ? 0 : usage.getIntValue("completionTokens");
+        int reasoningLength = safe(response.getString("reasoningContent")).length();
         logger.sendInfo("[角色] "+tag+" 群"+groupID
                 +" profile="+safe(response.getString("profile"))
                 +" model="+safe(response.getString("model"))
@@ -30,6 +31,7 @@ public class RoleplayAiLog {
                 +" finish="+safe(response.getString("finishReason"))
                 +" token="+promptTokens+"/"+completionTokens
                 +" 缓存="+(response.getBooleanValue("cached") ? "是" : "否")
+                +(reasoningLength > 0 ? " 思考="+reasoningLength : "")
                 +" 长度="+safe(response.getString("content")).length()
                 +" 内容="+shortText(safe(response.getString("content")),80));
     }

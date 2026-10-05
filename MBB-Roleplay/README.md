@@ -188,7 +188,7 @@ quoteReplyEnable: true
 promptTotalChars: 16000
 routerEnable: true
 routerProfile: ""
-routerMaxTokens: 400
+routerMaxTokens: 1200
 routerReasoningEffort: "low"
 styleEnable: true
 styleMaxChars: 60
@@ -229,12 +229,13 @@ minMessageLength: 2
 
 **路由层**：每条群消息都会先过一遍路由，判断要不要回复、要挂哪些技能、要带哪些资料。
 提示词刻意保持小，不带人设正文。规则保留否决权：被直接艾特必须回复，冷却中必须沉默，
-路由层不能推翻。路由调用失败时自动回退到规则决策，不会因为路由出错而漏掉艾特。
+路由层不能推翻。路由输出被 reasoning 截断时自动提高 Token 重试一次，仍失败则回退到规则决策，
+不会因为路由出错而漏掉艾特。
 
 ```yaml
 routerEnable: true
 routerProfile: ""            #留空则使用 aiProfile
-routerMaxTokens: 400
+routerMaxTokens: 1200
 routerReasoningEffort: "low"
 ```
 

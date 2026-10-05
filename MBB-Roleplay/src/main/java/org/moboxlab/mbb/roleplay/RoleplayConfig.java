@@ -69,7 +69,7 @@ public class RoleplayConfig {
     public int promptTotalChars = 16000;
     public boolean routerEnable = true;
     public String routerProfile = "";
-    public int routerMaxTokens = 400;
+    public int routerMaxTokens = 1200;
     public String routerReasoningEffort = "low";
     public boolean styleEnable = true;
     public int styleMaxChars = 60;
@@ -176,7 +176,7 @@ public class RoleplayConfig {
         config.promptTotalChars = plugin.getConfig().getInt("promptTotalChars",16000);
         config.routerEnable = plugin.getConfig().getBoolean("routerEnable",true);
         config.routerProfile = plugin.getConfig().getString("routerProfile","");
-        config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",400);
+        config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",1200);
         config.routerReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("routerReasoningEffort","low"));
         config.styleEnable = plugin.getConfig().getBoolean("styleEnable",true);
@@ -281,8 +281,8 @@ public class RoleplayConfig {
         if (config.promptTotalChars < 4000) config.promptTotalChars = 4000;
         if (config.promptTotalChars > 64000) config.promptTotalChars = 64000;
         if (config.routerProfile == null) config.routerProfile = "";
-        if (config.routerMaxTokens < 100) config.routerMaxTokens = 100;
-        if (config.routerMaxTokens > 2000) config.routerMaxTokens = 2000;
+        if (config.routerMaxTokens < 200) config.routerMaxTokens = 200;
+        if (config.routerMaxTokens > 4000) config.routerMaxTokens = 4000;
         if (config.styleProfile == null) config.styleProfile = "";
         if (config.styleMaxChars < 20) config.styleMaxChars = 20;
         if (config.styleMaxChars > 300) config.styleMaxChars = 300;

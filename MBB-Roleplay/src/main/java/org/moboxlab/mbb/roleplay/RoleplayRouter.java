@@ -35,6 +35,24 @@ public class RoleplayRouter {
                                        String recentContext) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
+        JSONObject response = callRoute(ai,config,persona,registry,state,content,userName,
+                relationship,recentContext,config.routerMaxTokens,"路由");
+        RoleplayRouteDecision decision = parseResponse(response);
+        if (decision != null) return decision;
+        if (!shouldRetry(response)) return null;
+        int retryMaxTokens = retryMaxTokens(config.routerMaxTokens);
+        if (retryMaxTokens <= config.routerMaxTokens) return null;
+        plugin.getLogger().sendWarn("[角色] 路由 群"+state.groupID+" 输出被截断，使用 "
+                +retryMaxTokens+" Token 重试");
+        response = callRoute(ai,config,persona,registry,state,content,userName,
+                relationship,recentContext,retryMaxTokens,"路由重试");
+        return parseResponse(response);
+    }
+
+    private JSONObject callRoute(PluginService ai,RoleplayConfig config,RoleplayPersona persona,
+                                 RoleplaySkillRegistry registry,RoleplayConversationState state,
+                                 String content,String userName,String relationship,
+                                 String recentContext,int maxTokens,String tag) {
         JSONArray messages = new JSONArray();
         messages.add(message("system",systemPrompt(config,persona,registry,state)));
         messages.add(message("user",userPrompt(content,userName,relationship,recentContext)));
@@ -42,17 +60,33 @@ public class RoleplayRouter {
         String profile = config.routerProfile == null || config.routerProfile.trim().isEmpty()
                 ? config.aiProfile : config.routerProfile.trim();
         params.put("profile",profile);
-        params.put("maxTokens",config.routerMaxTokens);
+        params.put("maxTokens",maxTokens);
         params.put("temperature",0.0);
         params.put("reasoningEffort",config.routerReasoningEffort);
         params.put("sessionId","roleplay-route-"+state.groupID);
         params.put("messages",messages);
         long startTime = System.currentTimeMillis();
         JSONObject response = ai.call("chat",params);
-        RoleplayAiLog.log(plugin.getLogger(),"路由",state.groupID,response,
+        RoleplayAiLog.log(plugin.getLogger(),tag,state.groupID,response,
                 System.currentTimeMillis() - startTime);
+        return response;
+    }
+
+    private RoleplayRouteDecision parseResponse(JSONObject response) {
         if (response == null || !response.getBooleanValue("status")) return null;
-        return parse(response.getString("content"));
+        RoleplayRouteDecision decision = parse(response.getString("content"));
+        if (decision == null) decision = parse(response.getString("reasoningContent"));
+        return decision;
+    }
+
+    private boolean shouldRetry(JSONObject response) {
+        if (response == null || !response.getBooleanValue("status")) return false;
+        return "length".equalsIgnoreCase(safe(response.getString("finishReason"),""));
+    }
+
+    private int retryMaxTokens(int current) {
+        int retry = Math.max(current * 2,1600);
+        return Math.min(retry,4000);
     }
 
     private String systemPrompt(RoleplayConfig config,RoleplayPersona persona,

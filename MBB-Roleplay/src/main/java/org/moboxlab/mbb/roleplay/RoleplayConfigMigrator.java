@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "8";
+    private static final String CURRENT_VERSION = "9";
 
     private static class ConfigEntry {
         private final String key;
@@ -88,7 +88,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("promptTotalChars","16000","注入执行层的资料总字符预算，超出部分按优先级截断"),
             new ConfigEntry("routerEnable","true","是否启用 AI 路由层判断要不要回复、挂哪些技能和资料"),
             new ConfigEntry("routerProfile","","路由层使用的模型配置名，留空则使用 aiProfile"),
-            new ConfigEntry("routerMaxTokens","400","路由层输出 Token 上限"),
+            new ConfigEntry("routerMaxTokens","1200","路由层输出 Token 上限，reasoning 模型建议不低于 1200"),
             new ConfigEntry("routerReasoningEffort","low","路由层思考强度：low / medium / high，留空表示不发送"),
             new ConfigEntry("styleEnable","true","是否在回复带 AI 味时调用风格层改写"),
             new ConfigEntry("styleMaxChars","60","回复超过多少字触发风格层"),
@@ -123,6 +123,8 @@ public class RoleplayConfigMigrator {
                 config.getString("personaFile",""));
         boolean legacyStickerWindow = version < 6 && "7".equals(
                 config.getString("stickerAttachWindowSecond",""));
+        boolean legacyRouterMaxTokens = version < 9 && "400".equals(
+                config.getString("routerMaxTokens",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -136,7 +138,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 8) {
+        if (version < 9) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -153,7 +155,12 @@ public class RoleplayConfigMigrator {
             config.set("stickerAttachWindowSecond","5");
             changed++;
         }
-        if (version < 8 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow) {
+        if (legacyRouterMaxTokens) {
+            config.set("routerMaxTokens","1200");
+            changed++;
+        }
+        if (version < 9 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+                || legacyRouterMaxTokens) {
             if (config.save()) {
                 config.load();
             } else {
