@@ -340,9 +340,14 @@ public class RoleplayService {
         if (rateLimited(groupID)) return;
         RoleplayRouteDecision decision = routeDecision(signals,event,groupID,selfID,content);
         if (decision == null || !decision.reply) return;
-        if (decision.chance < 1.0 && Math.random() >= decision.chance) return;
+        if (decision.chance < 1.0 && Math.random() >= decision.chance) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 概率跳过 概率="
+                    +decision.chance+" 原因="+decision.reason);
+            return;
+        }
         if (!canReply(groupID)) return;
         plugin.getLogger().sendInfo("[角色] 群"+groupID+" 决策 addressed="+decision.addressed
+                +" 概率="+decision.chance
                 +" 技能="+decision.skills
                 +" 资料="+decision.materials
                 +" 引用="+(decision.quoteRequired ? "是" : "否")
@@ -807,6 +812,12 @@ public class RoleplayService {
         routed.quoteRequired = config.quoteReplyEnable
                 && (signals.quotingSelf || signals.mentioningSelf);
         routed.otherRoleBot = signals.otherRoleBot;
+        if (signals.otherRoleBot) {
+            //机器人互聊必须服从规则层概率，AI 路由只能决定“想不想接”，不能把概率抬到 1.0
+            routed.addressed = "ambient";
+            routed.chance = Math.min(routed.chance,config.otherRoleBotReplyChance);
+            routed.confidence = Math.min(routed.confidence,config.otherRoleBotReplyChance);
+        }
         routed.actions = skillRegistry.actionIds(config);
         return routed;
     }

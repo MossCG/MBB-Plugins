@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.4.47.3.2230 | 2026-10-05 | `MBB-Roleplay` 修复 AI 路由绕过机器人互聊概率的问题：另一个角色机器人的消息统一按 `otherRoleBotReplyChance` 判定，AI 不能把概率抬到 1.0；决策日志补充实际概率，概率跳过时输出原因 |
 | V0.4.47.2.2221 | 2026-10-05 | `MBB-Roleplay` 修复路由层被 reasoning 截断后返回空内容的问题：默认 `routerMaxTokens` 提高到 1200，支持从 `reasoningContent` 回退解析 JSON，`finish=length` 时自动提高 Token 重试一次，并在路由日志中补充思考长度 |
 | V0.4.47.1.2205 | 2026-10-05 | `MBB-Roleplay` 冷却或超频时提前跳过，不再为这类消息额外调用一次路由层 |
 | V0.4.47.0.2202 | 2026-10-05 | `MBB-Roleplay` 分层 AI 全部落地：新增路由层（每条消息先判断要不要回复、挂哪些技能、带哪些资料，规则保留否决权）、技能注册表（reminder / memory / global-memory / sticker / poke-back，旧标签仍兼容）、资料预算（16k 字符上限，各项独立预算）、风格层（本地 AI 味检测 + 条件改写）；回复状态合并进 ConversationState |
