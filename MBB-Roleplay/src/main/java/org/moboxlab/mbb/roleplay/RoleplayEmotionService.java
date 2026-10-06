@@ -665,7 +665,7 @@ public class RoleplayEmotionService {
         boolean persistReason = parsed.getBooleanValue("persistReason");
         JSONObject deltas = parsed.getJSONObject("delta");
         LocalEvent event = event("ai".equals(eventType) ? "semantic" : eventType,
-                persistReason ? reason : "", true,
+                reason, true,
                 delta(deltas,"valence"),delta(deltas,"energy"),
                 delta(deltas,"patience"),delta(deltas,"affinity"),
                 delta(deltas,"trust"),delta(deltas,"annoyance"));
