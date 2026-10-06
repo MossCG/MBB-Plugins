@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
@@ -575,7 +576,8 @@ public class RoleplayService {
         long userID = params == null ? 0L : params.getLongValue("userID");
         String prompt = params == null ? "" : safe(params.getString("prompt"));
         String imageName = params == null ? "" : safe(params.getString("imageName"));
-        String text = generateDrawNotifyText(groupID,userID,prompt,imageName,true,"");
+        String imagePath = params == null ? "" : safe(params.getString("imagePath"));
+        String text = generateDrawNotifyText(groupID,userID,prompt,imageName,imagePath,true,"");
         sendDrawNotify(groupID,userID,text);
         JSONObject result = new JSONObject(true);
         result.put("status",true);
@@ -588,7 +590,7 @@ public class RoleplayService {
         long userID = params == null ? 0L : params.getLongValue("userID");
         String prompt = params == null ? "" : safe(params.getString("prompt"));
         String reason = params == null ? "" : safe(params.getString("reason"));
-        String text = generateDrawNotifyText(groupID,userID,prompt,"",false,reason);
+        String text = generateDrawNotifyText(groupID,userID,prompt,"","",false,reason);
         sendDrawNotify(groupID,userID,text);
         JSONObject result = new JSONObject(true);
         result.put("status",true);
@@ -597,7 +599,8 @@ public class RoleplayService {
     }
 
     private String generateDrawNotifyText(long groupID,long userID,String prompt,
-                                          String imageName,boolean success,String reason) {
+                                          String imageName,String imagePath,
+                                          boolean success,String reason) {
         String fallback = success ? "画好啦，快看看。" : "这次没画出来，等下再试试。";
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return fallback;
@@ -606,28 +609,79 @@ public class RoleplayService {
             messages.add(message("system","你是角色 "+persona.name+"。"
                     +(success ? "用户刚才要求生图，图片已经生成并发送到群里。"
                     : "用户刚才要求生图，但生图失败了。")
-                    +"请用角色语气给发起者一句简短提醒，12 到 20 字以内。"
+                    +"请用角色语气给发起者一句简短提醒，12 到 20 字以内，"
+                    +"如果能看到图片，就结合画面里的一个具体细节，不要空泛描述。"
                     +"不要 Markdown，不要解释，不要用“图片已生成”这种机械说法，不要提及系统。"));
             String userText = "发起者QQ："+userID
                     +"\n生图需求："+shortText(prompt,300)
                     +"\n图片文件："+(imageName == null || imageName.isEmpty() ? "无" : imageName)
                     +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160));
-            messages.add(message("user",userText));
-            JSONObject params = new JSONObject(true);
-            params.put("profile",config.aiProfile);
-            params.put("maxTokens",300);
-            params.put("temperature",0.7);
-            params.put("reasoningEffort",config.replyReasoningEffort);
-            params.put("timeoutSeconds",60);
-            params.put("sessionId","roleplay-draw-notify-"+groupID);
-            params.put("messages",messages);
-            JSONObject response = ai.call("chat",params);
+            String imageDataUri = success ? readImageDataUri(imagePath) : "";
+            if (!imageDataUri.isEmpty()) {
+                JSONArray content = new JSONArray();
+                JSONObject textPart = new JSONObject(true);
+                textPart.put("type","text");
+                textPart.put("text",userText);
+                content.add(textPart);
+                JSONObject imageUrl = new JSONObject(true);
+                imageUrl.put("url",imageDataUri);
+                JSONObject imagePart = new JSONObject(true);
+                imagePart.put("type","image_url");
+                imagePart.put("image_url",imageUrl);
+                content.add(imagePart);
+                JSONObject userMessage = new JSONObject(true);
+                userMessage.put("role","user");
+                userMessage.put("content",content);
+                messages.add(userMessage);
+            } else {
+                messages.add(message("user",userText));
+            }
+            JSONObject response = callDrawNotifyAi(ai,groupID,messages);
+            if ((response == null || !response.getBooleanValue("status"))
+                    && !imageDataUri.isEmpty()) {
+                messages.remove(messages.size() - 1);
+                messages.add(message("user",userText));
+                response = callDrawNotifyAi(ai,groupID,messages);
+            }
             if (response == null || !response.getBooleanValue("status")) return fallback;
             String text = safe(response.getString("content")).trim();
             if (text.isEmpty()) return fallback;
             return shortText(text,40);
         } catch (Exception e) {
             return fallback;
+        }
+    }
+
+    private JSONObject callDrawNotifyAi(PluginService ai,long groupID,JSONArray messages) {
+        JSONObject params = new JSONObject(true);
+        params.put("profile",config.aiProfile);
+        params.put("maxTokens",600);
+        params.put("temperature",0.7);
+        params.put("reasoningEffort",config.replyReasoningEffort);
+        params.put("timeoutSeconds",90);
+        params.put("sessionId","roleplay-draw-notify-"+groupID);
+        params.put("messages",messages);
+        return ai.call("chat",params);
+    }
+
+    private String readImageDataUri(String imagePath) {
+        if (imagePath == null || imagePath.trim().isEmpty()) return "";
+        try {
+            File file = new File(imagePath);
+            if (!file.exists() || !file.isFile()) return "";
+            if (file.length() > 8L * 1024L * 1024L) {
+                plugin.getLogger().sendWarn("[角色] 生图回调图片超过 8MB，改为纯文本提醒。");
+                return "";
+            }
+            byte[] bytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
+            String mime = "image/png";
+            String name = file.getName().toLowerCase(Locale.ROOT);
+            if (name.endsWith(".jpg") || name.endsWith(".jpeg")) mime = "image/jpeg";
+            else if (name.endsWith(".webp")) mime = "image/webp";
+            return "data:"+mime+";base64,"+Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[角色] 生图回调读取图片失败："+e.getMessage());
+            return "";
         }
     }
 
