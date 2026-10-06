@@ -428,7 +428,13 @@ public class RoleplayService {
                     +decision.chance+" 原因="+decision.reason);
             return;
         }
-        if (!canReply(groupID)) return;
+        boolean defer = shouldDeferTurn(event,otherRoleBot,hasImage);
+        //延后回合把限流判定留到真正生成回复时，避免这里刚登记的冷却把同一轮的延后执行挡掉
+        if (defer) {
+            if (rateLimited(groupID)) return;
+        } else if (!canReply(groupID)) {
+            return;
+        }
         plugin.getLogger().sendInfo("[角色] 群"+groupID+" 决策 addressed="+decision.addressed
                 +" 概率="+decision.chance
                 +" 技能="+decision.skills
@@ -437,14 +443,17 @@ public class RoleplayService {
                 +" 原因="+decision.reason);
         String userName = senderName(event);
         String relationship = relationshipLabel(event,otherRoleBot);
-        if (shouldDeferTurn(event,otherRoleBot,hasImage)) {
+        if (defer) {
             deferTurn(event,groupID,selfID,userName,relationship,content,replyImage,
                     otherRoleBot,decision,emotionEvent);
             return;
         }
         JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,
                 relationship,replyImage,decision);
-        if (result == null || !result.getBooleanValue("status")) return;
+        if (result == null || !result.getBooleanValue("status")) {
+            plugin.getLogger().sendWarn("[角色] 群"+groupID+" 回复生成失败，本轮不发送");
+            return;
+        }
         processReplyResult(event,groupID,selfID,userName,relationship,content,result,decision,
                 emotionEvent);
     }
@@ -2811,11 +2820,18 @@ public class RoleplayService {
                     +pending.event.getUserID());
             return;
         }
-        if (!canReply(groupID)) return;
+        if (!canReply(groupID)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID
+                    +" 待处理回合被回复冷却或频率限制拦下，本次不回复");
+            return;
+        }
         String content = mergeStickerEmotion(pending.content,pending.stickerEmotion);
         JSONObject result = reply(groupID,pending.event.getUserID(),pending.userName,content,
                 pending.otherRoleBot,pending.relationship,pending.imageContext,pending.decision);
-        if (result == null || !result.getBooleanValue("status")) return;
+        if (result == null || !result.getBooleanValue("status")) {
+            plugin.getLogger().sendWarn("[角色] 群"+groupID+" 待处理回合回复生成失败，本次不发送");
+            return;
+        }
         processReplyResult(pending.event,groupID,pending.selfID,pending.userName,
                 pending.relationship,content,result,pending.decision,pending.emotionEvent);
     }
