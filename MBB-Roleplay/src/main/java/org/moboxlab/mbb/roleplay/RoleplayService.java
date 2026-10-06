@@ -1796,7 +1796,8 @@ public class RoleplayService {
         if (rows == null || rows.isEmpty()) return result;
         List<JSONObject> selected = new ArrayList<>();
         for (JSONObject row : rows) {
-            if (row.getIntValue("isBot") == 1 || isRoleParticipantName(row.getString("userName"))) {
+            if (row.getIntValue("isBot") == 1
+                    || isRoleParticipantUser(row.getLongValue("userID"))) {
                 selected.add(row);
                 if (selected.size() >= config.recentReplyCheckCount) break;
             }
@@ -2378,19 +2379,11 @@ public class RoleplayService {
 
     private boolean isOtherRoleBot(GroupMessageEvent event,long selfID) {
         if (event == null || event.getUserID() <= 0 || event.getUserID() == selfID) return false;
-        if (containsCSVLong(config.otherRoleBotQQs,event.getUserID())) return true;
-        return isRoleParticipantName(senderName(event));
+        return containsCSVLong(config.otherRoleBotQQs,event.getUserID());
     }
 
-    private boolean isRoleParticipantName(String name) {
-        if (name == null || name.trim().isEmpty()) return false;
-        String value = name.trim();
-        for (String item : config.otherRoleBotNames.split(",")) {
-            String key = item.trim();
-            if (!key.isEmpty() && (value.equalsIgnoreCase(key)
-                    || (key.length() >= 2 && value.contains(key)))) return true;
-        }
-        return false;
+    private boolean isRoleParticipantUser(long userID) {
+        return userID > 0 && containsCSVLong(config.otherRoleBotQQs,userID);
     }
 
     private boolean containsCSVLong(String csv,long value) {
