@@ -230,9 +230,10 @@ public class ComfyUIService implements PluginService {
         String subfolder = image.getString("subfolder");
         String type = image.getString("type");
         File file = downloadImage(job,promptId,filename,subfolder,type);
+        String notifyText = prepareDrawNotify(job);
         sendImage(job.groupID,file);
+        sendDrawNotify(job,notifyText);
         markCooldown(job.groupID);
-        callbackSuccess(job,promptId,filename,file);
         plugin.getLogger().sendInfo("[ComfyUI] 生成完成 群"+job.groupID
                 +" 耗时="+(System.currentTimeMillis() - startTime)+"ms 文件="+file.getAbsolutePath());
     }
@@ -457,20 +458,41 @@ public class ComfyUIService implements PluginService {
                 String.valueOf(System.currentTimeMillis()));
     }
 
-    private void callbackSuccess(ComfyUIJob job,String promptId,String filename,File file) {
+    private String prepareDrawNotify(ComfyUIJob job) {
         PluginService roleplay = plugin.getServer().getPluginManager().getService("MBB-Roleplay");
-        if (roleplay == null) return;
+        if (roleplay == null) return "画好啦，快看看。";
         JSONObject params = new JSONObject(true);
         params.put("groupID",job.groupID);
         params.put("userID",job.userID);
         params.put("messageID",job.messageID);
         params.put("prompt",job.prompt);
-        params.put("promptId",promptId);
-        params.put("imageName",filename);
-        params.put("imagePath",file.getAbsolutePath());
-        params.put("imageUri",fileUri(file));
         params.put("model",config.checkpoint);
-        roleplay.call("notify-draw-complete",params);
+        JSONObject result = roleplay.call("prepare-draw-complete",params);
+        if (result == null || !result.getBooleanValue("status")) return "画好啦，快看看。";
+        String text = result.getString("text");
+        return text == null || text.trim().isEmpty() ? "画好啦，快看看。" : text.trim();
+    }
+
+    private void sendDrawNotify(ComfyUIJob job,String text) {
+        PluginService roleplay = plugin.getServer().getPluginManager().getService("MBB-Roleplay");
+        if (roleplay != null) {
+            JSONObject params = new JSONObject(true);
+            params.put("groupID",job.groupID);
+            params.put("userID",job.userID);
+            params.put("text",text);
+            roleplay.call("send-draw-notify",params);
+            return;
+        }
+        sendFallbackNotify(job.groupID,job.userID,text);
+    }
+
+    private void sendFallbackNotify(long groupID,long userID,String text) {
+        OneBotClient client = plugin.getServer().getOneBotClient();
+        if (client == null) return;
+        String value = text == null || text.trim().isEmpty() ? "画好啦，快看看。" : text.trim();
+        JSONArray message = MessageUtil.message(MessageUtil.at(userID),
+                MessageUtil.text(" "+value));
+        client.sendGroupMessage(groupID,message);
     }
 
     private void callbackFail(ComfyUIJob job,String reason) {

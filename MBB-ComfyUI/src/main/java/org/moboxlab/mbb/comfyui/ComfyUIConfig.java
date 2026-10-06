@@ -27,9 +27,9 @@ public class ComfyUIConfig {
     public String sampler = "dpmpp_2m";
     public String scheduler = "karras";
     public double denoise = 1.0;
-    public String negativePrompt = "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature";
+    public String negativePrompt = "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature, duplicate character, clone, twins, multiple views, split screen, extra person";
     public String promptPrefix = "masterpiece, best quality, highly detailed, anime illustration";
-    public String promptSuffix = "detailed background, dynamic composition, cinematic lighting, sharp focus";
+    public String promptSuffix = "detailed background, dynamic composition, cinematic lighting, sharp focus, correct character count, single instance of each character, no duplicate character";
     public int promptMinChars = 4;
     public int promptMaxChars = 2000;
     public String outputDirectory = "images";
@@ -58,11 +58,11 @@ public class ComfyUIConfig {
         config.scheduler = plugin.getConfig().getString("scheduler","karras");
         config.denoise = parseDouble(plugin.getConfig().getString("denoise","1.0"),1.0);
         config.negativePrompt = plugin.getConfig().getString("negativePrompt",
-                "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature");
+                "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature, duplicate character, clone, twins, multiple views, split screen, extra person");
         config.promptPrefix = plugin.getConfig().getString("promptPrefix",
                 "masterpiece, best quality, highly detailed, anime illustration");
         config.promptSuffix = plugin.getConfig().getString("promptSuffix",
-                "detailed background, dynamic composition, cinematic lighting, sharp focus");
+                "detailed background, dynamic composition, cinematic lighting, sharp focus, correct character count, single instance of each character, no duplicate character");
         config.promptMinChars = plugin.getConfig().getInt("promptMinChars",4);
         config.promptMaxChars = plugin.getConfig().getInt("promptMaxChars",2000);
         config.outputDirectory = plugin.getConfig().getString("outputDirectory","images");

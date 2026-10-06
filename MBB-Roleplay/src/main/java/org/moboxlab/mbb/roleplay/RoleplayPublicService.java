@@ -23,6 +23,12 @@ public class RoleplayPublicService implements PluginService {
         if ("notify-draw-complete".equalsIgnoreCase(action)) {
             return service.notifyDrawComplete(params);
         }
+        if ("prepare-draw-complete".equalsIgnoreCase(action)) {
+            return service.prepareDrawComplete(params);
+        }
+        if ("send-draw-notify".equalsIgnoreCase(action)) {
+            return service.sendDrawNotify(params);
+        }
         if ("notify-draw-failed".equalsIgnoreCase(action)) {
             return service.notifyDrawFailed(params);
         }

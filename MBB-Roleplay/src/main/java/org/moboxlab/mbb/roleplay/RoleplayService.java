@@ -571,13 +571,32 @@ public class RoleplayService {
     }
 
     public JSONObject notifyDrawComplete(JSONObject params) {
+        JSONObject prepared = prepareDrawComplete(params);
+        if (!prepared.getBooleanValue("status")) return prepared;
+        JSONObject sendParams = new JSONObject(true);
+        if (params != null) sendParams.putAll(params);
+        sendParams.put("text",prepared.getString("text"));
+        sendDrawNotify(sendParams);
+        return prepared;
+    }
+
+    public JSONObject prepareDrawComplete(JSONObject params) {
         long groupID = params == null ? 0L : params.getLongValue("groupID");
         long userID = params == null ? 0L : params.getLongValue("userID");
         String prompt = params == null ? "" : safe(params.getString("prompt"));
-        String imageName = params == null ? "" : safe(params.getString("imageName"));
-        String imagePath = params == null ? "" : safe(params.getString("imagePath"));
-        String text = generateDrawNotifyText(groupID,userID,prompt,imageName,imagePath,true,"");
-        sendDrawNotify(groupID,userID,text);
+        String text = generateDrawNotifyText(groupID,userID,prompt,true,"");
+        JSONObject result = new JSONObject(true);
+        result.put("status",true);
+        result.put("text",text);
+        result.put("message",text);
+        return result;
+    }
+
+    public JSONObject sendDrawNotify(JSONObject params) {
+        long groupID = params == null ? 0L : params.getLongValue("groupID");
+        long userID = params == null ? 0L : params.getLongValue("userID");
+        String text = params == null ? "" : safe(params.getString("text"));
+        sendAtNotify(groupID,userID,text);
         JSONObject result = new JSONObject(true);
         result.put("status",true);
         result.put("message",text);
@@ -589,8 +608,8 @@ public class RoleplayService {
         long userID = params == null ? 0L : params.getLongValue("userID");
         String prompt = params == null ? "" : safe(params.getString("prompt"));
         String reason = params == null ? "" : safe(params.getString("reason"));
-        String text = generateDrawNotifyText(groupID,userID,prompt,"","",false,reason);
-        sendDrawNotify(groupID,userID,text);
+        String text = generateDrawNotifyText(groupID,userID,prompt,false,reason);
+        sendAtNotify(groupID,userID,text);
         JSONObject result = new JSONObject(true);
         result.put("status",true);
         result.put("message",text);
@@ -598,7 +617,6 @@ public class RoleplayService {
     }
 
     private String generateDrawNotifyText(long groupID,long userID,String prompt,
-                                          String imageName,String imagePath,
                                           boolean success,String reason) {
         String fallback = success ? "画好啦，快看看。" : "这次没画出来，等下再试试。";
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
@@ -606,17 +624,14 @@ public class RoleplayService {
         try {
             JSONArray messages = new JSONArray();
             messages.add(message("system","你是角色 "+persona.name+"。"
-                    +(success ? "用户刚才要求生图，图片已经生成并发送到群里。"
+                    +(success ? "用户刚才要求生图，图片已经生成。"
                     : "用户刚才要求生图，但生图失败了。")
                     +"请用角色语气给发起者一句简短提醒，12 到 20 字以内，"
-                    +"如果能看到图片识别结果，就结合画面里的一个具体细节，不要空泛描述。"
+                    +"提醒只需要表达任务完成，可以结合请求简短提一句画面主题，但不要长篇介绍，不要重复识图。"
                     +"不要 Markdown，不要解释，不要用“图片已生成”这种机械说法，不要提及系统。"));
-            String visual = success ? describeDrawImage(imagePath,prompt) : "";
             String userText = "发起者QQ："+userID
                     +"\n生图需求："+shortText(prompt,300)
-                    +"\n图片文件："+(imageName == null || imageName.isEmpty() ? "无" : imageName)
-                    +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160))
-                    +"\n图片识别结果："+(visual.isEmpty() ? "无" : visual);
+                    +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160));
             messages.add(message("user",userText));
             JSONObject response = callDrawNotifyAi(ai,groupID,messages);
             if (response == null || !response.getBooleanValue("status")) return fallback;
@@ -640,43 +655,7 @@ public class RoleplayService {
         return ai.call("chat",params);
     }
 
-    private String describeDrawImage(String imagePath,String prompt) {
-        if (imagePath == null || imagePath.trim().isEmpty()) return "";
-        PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
-        if (vision == null) return "";
-        try {
-            File file = new File(imagePath);
-            if (!file.exists() || !file.isFile()) return "";
-            JSONObject params = new JSONObject(true);
-            params.put("kind","image");
-            params.put("file",file.getAbsolutePath());
-            params.put("context",shortText(prompt,300));
-            params.put("profile",config.imageUnderstandingProfile);
-            JSONObject result = vision.call("describe",params);
-            if (result == null || !result.getBooleanValue("status")) {
-                plugin.getLogger().sendWarn("[角色] 生图回调识图失败："
-                        +safe(result == null ? "" : result.getString("message")));
-                return "";
-            }
-            String summary = safe(result.getString("summary"));
-            if (summary.isEmpty()) summary = safe(result.getString("description"));
-            String tags = joinArray(result.getJSONArray("emotionTags"));
-            StringBuilder builder = new StringBuilder();
-            if (!summary.isEmpty()) builder.append(shortText(summary,config.imageUnderstandingMaxChars));
-            if (!tags.isEmpty()) {
-                if (builder.length() > 0) builder.append("；");
-                builder.append("画面标签：").append(tags);
-            }
-            plugin.getLogger().sendInfo("[角色] 生图回调识图完成："
-                    +shortText(builder.toString(),120));
-            return builder.toString();
-        } catch (Exception e) {
-            plugin.getLogger().sendWarn("[角色] 生图回调识图异常："+e.getMessage());
-            return "";
-        }
-    }
-
-    private void sendDrawNotify(long groupID,long userID,String text) {
+    private void sendAtNotify(long groupID,long userID,String text) {
         if (groupID <= 0 || userID <= 0) return;
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null) return;
