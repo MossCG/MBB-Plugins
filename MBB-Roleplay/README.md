@@ -59,7 +59,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - `(群号, QQ)` 关系记录支持用户级情绪原因，例如“讨厌这个人，因为他在冒名顶替我”，原因不会直接发送到 QQ
 - 情绪更新分为本地规则和异步语义分析两段，回复结果仍然只有 `text`、`actions`、`quote`，不会携带情绪提示
 - 用户可以随时通过管理命令查看当前群情绪、指定用户关系和原因，owner 可以设置或清空原因
-- 新增按群黑名单，黑名单用户的消息和戳一戳不进入上下文，也不会触发角色回复
+- 新增按群黑名单，黑名单用户的消息和戳一戳不会进入后续上下文，也不会触发角色回复；已有用户记忆和数据不会被删除
 - 初始好感和信任提高，群主/群管理员、botAdmin、botOwner 拥有不同的初始好感倍率
 - botOwner 初始好感直接满值且不会下降，角色会把 botOwner 当作妈妈一样亲近、依赖和听劝
 - 好感度达到阈值后，角色会逐步接受抱抱、牵手、贴贴、摸头和撒娇式互动
@@ -86,7 +86,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role config` | `BOT_ADMIN` | 查看配置文件与补全状态 |
 | `/role config repair` | `BOT_ADMIN` | 手动补全缺失配置项 |
 | `/role blacklist list` | `BOT_ADMIN` | 查看当前群黑名单 |
-| `/role blacklist add <QQ> [原因]` | `BOT_ADMIN` | 将用户加入当前群黑名单并清理其上下文 |
+| `/role blacklist add <QQ> [原因]` | `BOT_ADMIN` | 将用户加入当前群黑名单，后续过滤其消息和戳一戳，不删除已有用户记忆 |
 | `/role blacklist remove <QQ>` | `BOT_ADMIN` | 将用户移出当前群黑名单 |
 | `/role blacklist clear` | `BOT_ADMIN` | 清空当前群黑名单 |
 | `/role mood [页码]` | `BOT_ADMIN` | 以图片查看当前群情绪和情绪事件 |
@@ -139,7 +139,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - `persona-momoi.json`：才羽桃井，游戏开发部剧本作家，更活泼主动、情绪外露。
 - `persona-midori.json`：才羽绿，游戏开发部美术，安静认真、冷幽默式短吐槽。
 
-桃井补充了“不会主动说自己菜，被问游戏水平时会嘴硬装厉害，被揭穿会尴尬害羞”的特点，绿补充了“小绿”别名和“偷跑”等妹妹侧社区梗。
+桃井补充了“不会主动说自己菜，被问游戏水平时会嘴硬装厉害，被揭穿会尴尬害羞”的特点。绿补充了“小绿”别名和轻度“偷跑/卑女”设定：表面安静，实际可能在亲近老师的事情上悄悄先一步，被点破会害羞否认，不会恶意损害伙伴关系。
 
 切换角色：
 
@@ -178,7 +178,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 群主和管理员若不是其他角色机器人，统一视为老师；其他真人成员视为朋友；另一个角色机器人按角色设定中的同伴关系处理，不会因为群权限被误称为老师。
 
-`initialAffinity` 控制所有真人成员的初始好感度，默认 `85/100`；`initialTrust` 控制初始信任度，默认 `70/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。群主和群管理员、botAdmin、botOwner 会分别叠加初始好感倍率。botOwner 会更进一步，初始好感固定为 `100/100`，之后不会下降，角色把 botOwner 当成妈妈一样亲近、依赖和听劝。
+`initialAffinity` 控制所有真人成员的初始好感度，默认 `65/100`；`initialTrust` 控制初始信任度，默认 `60/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。群主和群管理员、botAdmin、botOwner 会分别叠加初始好感倍率。botOwner 会更进一步，初始好感固定为 `100/100`，之后不会下降，角色把 botOwner 当成妈妈一样亲近、依赖和听劝。
 
 普通闲聊只会产生很低的临时变化，明显事件才会写入原因，例如：
 
@@ -202,13 +202,13 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 ```yaml
 emotionEnable: true
-initialAffinity: 85
-initialTrust: 70
+initialAffinity: 65
+initialTrust: 60
 initialGroupAdminMultiplier: 1.05
 initialBotAdminMultiplier: 1.10
 initialBotOwnerMultiplier: 1.15
-intimacyCloseAffinity: 80
-intimacyVeryCloseAffinity: 92
+intimacyCloseAffinity: 75
+intimacyVeryCloseAffinity: 90
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 30
 emotionAnalyzeEnable: true
@@ -240,14 +240,14 @@ emotionReasonDecayDays: 30
 ```yaml
 replyCooldownSecond: 5
 maxRepliesPerHour: 180
-initialAffinity: 85
-initialTrust: 70
+initialAffinity: 65
+initialTrust: 60
 initialGroupAdminMultiplier: 1.05
 initialBotAdminMultiplier: 1.10
 initialBotOwnerMultiplier: 1.15
 relationDailyMaxDelta: 5
-intimacyCloseAffinity: 80
-intimacyVeryCloseAffinity: 92
+intimacyCloseAffinity: 75
+intimacyVeryCloseAffinity: 90
 emotionEnable: true
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 30

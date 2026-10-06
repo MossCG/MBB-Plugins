@@ -21,14 +21,14 @@ public class RoleplayConfig {
     public String timeZone = "Asia/Shanghai";
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
-    public int initialAffinity = 85;
+    public int initialAffinity = 65;
     public int initialTrust = 60;
     public double initialGroupAdminMultiplier = 1.05;
     public double initialBotAdminMultiplier = 1.10;
     public double initialBotOwnerMultiplier = 1.15;
     public int relationDailyMaxDelta = 5;
-    public int intimacyCloseAffinity = 80;
-    public int intimacyVeryCloseAffinity = 92;
+    public int intimacyCloseAffinity = 75;
+    public int intimacyVeryCloseAffinity = 90;
     public boolean emotionEnable = true;
     public int emotionDecayMinute = 30;
     public int emotionEventCooldownSecond = 30;
@@ -130,8 +130,8 @@ public class RoleplayConfig {
         config.timeZone = plugin.getConfig().getString("timeZone","Asia/Shanghai");
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
-        config.initialAffinity = plugin.getConfig().getInt("initialAffinity",85);
-        config.initialTrust = plugin.getConfig().getInt("initialTrust",70);
+        config.initialAffinity = plugin.getConfig().getInt("initialAffinity",65);
+        config.initialTrust = plugin.getConfig().getInt("initialTrust",60);
         try {
             config.initialGroupAdminMultiplier = Double.parseDouble(
                     plugin.getConfig().getString("initialGroupAdminMultiplier","1.05"));
@@ -151,8 +151,8 @@ public class RoleplayConfig {
             config.initialBotOwnerMultiplier = 1.15;
         }
         config.relationDailyMaxDelta = plugin.getConfig().getInt("relationDailyMaxDelta",5);
-        config.intimacyCloseAffinity = plugin.getConfig().getInt("intimacyCloseAffinity",80);
-        config.intimacyVeryCloseAffinity = plugin.getConfig().getInt("intimacyVeryCloseAffinity",92);
+        config.intimacyCloseAffinity = plugin.getConfig().getInt("intimacyCloseAffinity",75);
+        config.intimacyVeryCloseAffinity = plugin.getConfig().getInt("intimacyVeryCloseAffinity",90);
         config.emotionEnable = plugin.getConfig().getBoolean("emotionEnable",true);
         config.emotionDecayMinute = plugin.getConfig().getInt("emotionDecayMinute",30);
         config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",30);

@@ -453,6 +453,11 @@ public class RoleplayService {
                                     String userName,String relationship,String content,
                                     JSONObject result,RoleplayRouteDecision decision,
                                     RoleplayEmotionService.LocalEvent emotionEvent) {
+        if (blacklistService.contains(groupID,event.getUserID())) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过已拉黑用户的回复 "
+                    +event.getUserID());
+            return;
+        }
         RoleplayReplyDraft draft = RoleplayReplyDraft.parse(result.getString("content"));
         if (draft.malformed) {
             plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层结构化结果无法解析，本轮跳过发送："
@@ -802,7 +807,7 @@ public class RoleplayService {
     public JSONObject memoryStats(long groupID) {
         JSONObject result = status(groupID);
         result.put("shortSummary",shortSummary(groupID));
-        result.put("memories",longMemories(groupID));
+        result.put("memories",longMemories(groupID,false));
         return result;
     }
 
@@ -848,19 +853,6 @@ public class RoleplayService {
 
     public void blacklistAdd(long groupID,long userID,String reason,long operatorID) {
         blacklistService.add(groupID,userID,reason,operatorID);
-        removeBlacklistedUserContext(groupID,userID);
-    }
-
-    private void removeBlacklistedUserContext(long groupID,long userID) {
-        storage().update("DELETE FROM `"+MSG_TABLE+"` WHERE `groupID`=? AND `userID`=?",
-                groupID,userID);
-        storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=? AND `subjectID`=?",
-                groupID,userID);
-        String key = recentImageKey(groupID,userID);
-        recentImageMap.remove(key);
-        recentStickerMap.remove(key);
-        pendingTurnMap.remove(key);
-        pendingGenerationMap.remove(key);
     }
 
     /** 技能注册表使用的内部入口，只在本包内可见 */
@@ -1833,7 +1825,7 @@ public class RoleplayService {
     }
 
     private String longMemoryText(long groupID) {
-        JSONArray memories = longMemories(groupID);
+        JSONArray memories = longMemories(groupID,true);
         if (memories.isEmpty()) return "暂无长期记忆。";
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < memories.size(); i++) {
@@ -1845,11 +1837,26 @@ public class RoleplayService {
     }
 
     private JSONArray longMemories(long groupID) {
+        return longMemories(groupID,true);
+    }
+
+    private JSONArray longMemories(long groupID,boolean excludeBlacklisted) {
         JSONArray result = new JSONArray();
-        List<JSONObject> rows = storage().query(
-                "SELECT `memoryType`,`subjectID`,`content`,`importance` FROM `"+MEMORY_TABLE+"` "
-                        + "WHERE `groupID`=? ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
-                groupID,config.maxLongMemories);
+        List<JSONObject> rows;
+        if (excludeBlacklisted) {
+            rows = storage().query(
+                    "SELECT `memoryType`,`subjectID`,`content`,`importance` FROM `"+MEMORY_TABLE+"` "
+                            + "WHERE `groupID`=? AND (`subjectID`=0 OR `subjectID` NOT IN "
+                            + "(SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` "
+                            + "WHERE `groupID`=?)) "
+                            + "ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
+                    groupID,groupID,config.maxLongMemories);
+        } else {
+            rows = storage().query(
+                    "SELECT `memoryType`,`subjectID`,`content`,`importance` FROM `"+MEMORY_TABLE+"` "
+                            + "WHERE `groupID`=? ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
+                    groupID,config.maxLongMemories);
+        }
         if (rows == null) return result;
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);
@@ -2806,6 +2813,11 @@ public class RoleplayService {
         }
         pendingTurnMap.remove(key,pending);
         long groupID = pending.event.getGroupID();
+        if (blacklistService.contains(groupID,pending.event.getUserID())) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过已拉黑用户的待处理回合 "
+                    +pending.event.getUserID());
+            return;
+        }
         if (!canReply(groupID)) return;
         String content = mergeStickerEmotion(pending.content,pending.stickerEmotion);
         JSONObject result = reply(groupID,pending.event.getUserID(),pending.userName,content,

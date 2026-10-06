@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "15";
+    private static final String CURRENT_VERSION = "16";
 
     private static class ConfigEntry {
         private final String key;
@@ -39,14 +39,14 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("timeZone","Asia/Shanghai","角色理解当前时间使用的时区"),
             new ConfigEntry("replyCooldownSecond","5","同一群两次回复的最小间隔秒数"),
             new ConfigEntry("maxRepliesPerHour","180","同一群每小时最多回复次数"),
-            new ConfigEntry("initialAffinity","85","角色对所有真人成员的初始好感度，0 到 100"),
-            new ConfigEntry("initialTrust","70","角色对所有真人成员的初始信任度，0 到 100"),
+            new ConfigEntry("initialAffinity","65","角色对所有真人成员的初始好感度，0 到 100"),
+            new ConfigEntry("initialTrust","60","角色对所有真人成员的初始信任度，0 到 100"),
             new ConfigEntry("initialGroupAdminMultiplier","1.05","群主和群管理员的初始好感倍率"),
             new ConfigEntry("initialBotAdminMultiplier","1.10","botAdmin 的初始好感倍率"),
             new ConfigEntry("initialBotOwnerMultiplier","1.15","botOwner 的初始好感倍率"),
             new ConfigEntry("relationDailyMaxDelta","5","同一用户每天好感、信任和厌烦的最大累计变化值"),
-            new ConfigEntry("intimacyCloseAffinity","80","达到该好感度时，常态允许轻微亲密互动"),
-            new ConfigEntry("intimacyVeryCloseAffinity","92","达到该好感度时，允许明显的撒娇和日常亲密举动"),
+            new ConfigEntry("intimacyCloseAffinity","75","达到该好感度时，常态允许轻微亲密互动"),
+            new ConfigEntry("intimacyVeryCloseAffinity","90","达到该好感度时，允许明显的撒娇和日常亲密举动"),
             new ConfigEntry("emotionEnable","true","是否启用角色情绪与用户关系机制"),
             new ConfigEntry("emotionDecayMinute","30","情绪回落间隔，每隔多少分钟向角色人格基线靠近一次"),
             new ConfigEntry("emotionEventCooldownSecond","30","同一用户同一类情绪事件的规则更新冷却秒数"),
@@ -159,8 +159,15 @@ public class RoleplayConfigMigrator {
                 config.getString("replySegmentMaxChars",""));
         boolean legacyReplySplitPunctuation = version < 13
                 && "。！？!?；;，、：,:".equals(config.getString("replySplitPunctuation",""));
-        boolean legacyInitialAffinity = version < 15
-                && "70".equals(config.getString("initialAffinity",""));
+        boolean legacyInitialAffinity = version < 16
+                && ("70".equals(config.getString("initialAffinity",""))
+                || "85".equals(config.getString("initialAffinity","")));
+        boolean legacyInitialTrust = version < 16
+                && "70".equals(config.getString("initialTrust",""));
+        boolean legacyIntimacyClose = version < 16
+                && "80".equals(config.getString("intimacyCloseAffinity",""));
+        boolean legacyIntimacyVeryClose = version < 16
+                && "92".equals(config.getString("intimacyVeryCloseAffinity",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -174,7 +181,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 15) {
+        if (version < 16) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -204,12 +211,25 @@ public class RoleplayConfigMigrator {
             changed++;
         }
         if (legacyInitialAffinity) {
-            config.set("initialAffinity","85");
+            config.set("initialAffinity","65");
             changed++;
         }
-        if (version < 15 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (legacyInitialTrust) {
+            config.set("initialTrust","60");
+            changed++;
+        }
+        if (legacyIntimacyClose) {
+            config.set("intimacyCloseAffinity","75");
+            changed++;
+        }
+        if (legacyIntimacyVeryClose) {
+            config.set("intimacyVeryCloseAffinity","90");
+            changed++;
+        }
+        if (version < 16 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
-                || legacyReplySplitPunctuation || legacyInitialAffinity) {
+                || legacyReplySplitPunctuation || legacyInitialAffinity
+                || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose) {
             if (config.save()) {
                 config.load();
             } else {
