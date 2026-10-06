@@ -31,7 +31,7 @@ public class ComfyUIConfig {
     public String promptPrefix = "masterpiece, best quality, highly detailed, anime illustration";
     public String promptSuffix = "detailed background, dynamic composition, cinematic lighting, sharp focus";
     public int promptMinChars = 4;
-    public int promptMaxChars = 1000;
+    public int promptMaxChars = 2000;
     public String outputDirectory = "images";
 
     public static ComfyUIConfig load(Plugin plugin) {
@@ -64,7 +64,7 @@ public class ComfyUIConfig {
         config.promptSuffix = plugin.getConfig().getString("promptSuffix",
                 "detailed background, dynamic composition, cinematic lighting, sharp focus");
         config.promptMinChars = plugin.getConfig().getInt("promptMinChars",4);
-        config.promptMaxChars = plugin.getConfig().getInt("promptMaxChars",1000);
+        config.promptMaxChars = plugin.getConfig().getInt("promptMaxChars",2000);
         config.outputDirectory = plugin.getConfig().getString("outputDirectory","images");
         if (config.baseUrl == null || config.baseUrl.trim().isEmpty()) {
             config.baseUrl = "http://192.168.10.10:8188";

@@ -48,6 +48,6 @@ promptSuffix: "detailed background, dynamic composition, cinematic lighting, sha
 #prompt 最少字符数
 promptMinChars: 4
 #prompt 最多字符数
-promptMaxChars: 1000
+promptMaxChars: 2000
 #生成图片保存目录，相对于插件数据目录
 outputDirectory: "images"

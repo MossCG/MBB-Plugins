@@ -156,7 +156,10 @@ public class ComfyUIService implements PluginService {
             return error("生图需求还不够明确，请先补充主体和风格。","prompt");
         }
         if (prompt.length() > config.promptMaxChars) {
-            return error("生图 prompt 过长，最多 "+config.promptMaxChars+" 个字符。","prompt");
+            String original = prompt;
+            prompt = truncatePrompt(prompt,config.promptMaxChars);
+            plugin.getLogger().sendWarn("[ComfyUI] prompt 超长，已从 "+original.length()
+                    +" 字符截断到 "+prompt.length()+" 字符。");
         }
         SizeResult size = resolveSize(params);
         if (!size.success()) return error(size.error,"size");
@@ -498,6 +501,14 @@ public class ComfyUIService implements PluginService {
     private String shortText(String text,int maxChars) {
         String value = safe(text).replace("\n"," ").trim();
         return value.length() <= maxChars ? value : value.substring(0,maxChars)+"...";
+    }
+
+    private String truncatePrompt(String prompt,int maxChars) {
+        if (prompt == null || prompt.length() <= maxChars) return prompt == null ? "" : prompt;
+        String value = prompt.substring(0,maxChars);
+        int comma = value.lastIndexOf(',');
+        if (comma >= maxChars / 2) value = value.substring(0,comma);
+        return value.trim();
     }
 
     private String describe(Throwable error) {
