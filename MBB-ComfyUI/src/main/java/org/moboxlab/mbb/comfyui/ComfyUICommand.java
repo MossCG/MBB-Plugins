@@ -43,6 +43,8 @@ public class ComfyUICommand extends BotCommand {
     public List<String> usage() {
         return Arrays.asList(
                 "/comfyui status [群号]",
+                "/comfyui cd [群号]",
+                "/comfyui cd reset [群号]",
                 "/comfyui test <prompt> [square|landscape|portrait|avatar]");
     }
 
@@ -72,6 +74,35 @@ public class ComfyUICommand extends BotCommand {
                     +"\n队列："+status.getIntValue("queueSize")+"/"+status.getIntValue("queueLimit")
                     +"\n默认尺寸："+status.getIntValue("defaultWidth")+"x"+status.getIntValue("defaultHeight")
                     +"\n最大尺寸："+status.getIntValue("maxWidth")+"x"+status.getIntValue("maxHeight"));
+            return true;
+        }
+        if ("cd".equals(action) || "cooldown".equals(action)) {
+            long groupID = sender.getGroupID();
+            String subAction = args.length > 2 ? args[2].toLowerCase() : "";
+            if ("reset".equals(subAction) || "clear".equals(subAction)) {
+                if (args.length > 3) {
+                    try {
+                        groupID = Long.parseLong(args[3]);
+                    } catch (Exception ignored) {
+                    }
+                }
+                boolean cleared = service.clearCooldown(groupID);
+                sender.sendMessage(cleared
+                        ? "群 "+groupID+" 的生图冷却已刷新。"
+                        : "群号不正确，请输入有效的群号。");
+                return true;
+            }
+            if (args.length > 2) {
+                try {
+                    groupID = Long.parseLong(args[2]);
+                } catch (Exception ignored) {
+                }
+            }
+            JSONObject params = new JSONObject(true);
+            params.put("groupID",groupID);
+            JSONObject status = service.call("status",params);
+            long remaining = status.getLongValue("cooldownRemaining");
+            sender.sendMessage("群 "+groupID+" 生图冷却剩余："+remaining+" 秒。");
             return true;
         }
         if ("test".equals(action)) {

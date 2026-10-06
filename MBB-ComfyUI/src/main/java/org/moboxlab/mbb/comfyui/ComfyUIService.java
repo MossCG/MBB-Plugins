@@ -104,6 +104,13 @@ public class ComfyUIService implements PluginService {
         this.client = new ComfyUIClient(newConfig.baseUrl,newConfig.timeoutSecond,plugin.getLogger());
     }
 
+    public boolean clearCooldown(long groupID) {
+        if (groupID <= 0) return false;
+        plugin.getServer().getStorage().remove(plugin,"draw.cooldown."+groupID);
+        plugin.getLogger().sendInfo("[ComfyUI] 已清除群"+groupID+" 的生图冷却。");
+        return true;
+    }
+
     @Override
     public String getName() {
         return "MBB-ComfyUI";

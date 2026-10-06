@@ -146,6 +146,8 @@ promptId
 | 指令 | 权限 | 说明 |
 |---|---|---|
 | `/comfyui status [群号]` | `BOT_ADMIN` | 查看服务状态和当前群冷却 |
+| `/comfyui cd [群号]` | `BOT_ADMIN` | 查看指定群剩余生图冷却 |
+| `/comfyui cd reset [群号]` | `BOT_ADMIN` | 刷新指定群生图冷却 |
 | `/comfyui reload` | `BOT_ADMIN` | 重载配置 |
 | `/comfyui test <prompt> [尺寸]` | `BOT_ADMIN` | 调试生图 |
 
