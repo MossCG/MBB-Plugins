@@ -45,6 +45,7 @@ public class RoleplayService {
     private final RoleplayReminderService reminderService;
     private final RoleplayGlobalMemoryService globalMemoryService;
     private final RoleplaySpeechCorpusService speechCorpusService;
+    private final RoleplayKnowledgeService knowledgeService;
     private final RoleplayActionService actionService;
     private final RoleplayEmotionService emotionService;
     private final RoleplayBlacklistService blacklistService;
@@ -249,6 +250,7 @@ public class RoleplayService {
         this.reminderService = new RoleplayReminderService(plugin,config,persona);
         this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config,this);
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
+        this.knowledgeService = new RoleplayKnowledgeService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
         this.emotionService = new RoleplayEmotionService(plugin,config,persona);
         this.blacklistService = new RoleplayBlacklistService(plugin);
@@ -298,6 +300,7 @@ public class RoleplayService {
         reminderService.init();
         globalMemoryService.init();
         speechCorpusService.init();
+        knowledgeService.init();
         emotionService.init();
         blacklistService.init();
     }
@@ -308,6 +311,7 @@ public class RoleplayService {
         reminderService.reload(config,persona);
         globalMemoryService.reload(config);
         speechCorpusService.reload(config);
+        knowledgeService.reload(config);
         emotionService.reload(config,persona);
     }
 
@@ -1252,6 +1256,10 @@ public class RoleplayService {
         return speechCorpusService;
     }
 
+    public RoleplayKnowledgeService getKnowledgeService() {
+        return knowledgeService;
+    }
+
     public RoleplayActionService getActionService() {
         return actionService;
     }
@@ -1506,6 +1514,12 @@ public class RoleplayService {
                 () -> "你最近说过的话：\n"+recentReplies));
         materials.add(new RoleplayMaterial("speech.corpus",true,50,1300,
                 () -> speechPrompt == null ? "" : speechPrompt));
+        //知识库按库注册成可选资料，路由点名后才检索并注入命中的小节
+        for (RoleplayKnowledgeLibrary library : knowledgeService.enabledLibraries()) {
+            materials.add(new RoleplayMaterial("kb."+library.id,false,
+                    library.priority,library.maxInjectChars,
+                    () -> knowledgeService.injectText(library.id,messageText)));
+        }
         return RoleplayMaterialBudget.assemble(materials,requested,config.promptTotalChars);
     }
 
@@ -1513,8 +1527,13 @@ public class RoleplayService {
      * 可选资料清单，给路由层点名用
      */
     String materialCatalogue() {
-        return "persona.appearance：角色自己的外貌，被问到长相或外貌时带上\n"
+        String catalogue = "persona.appearance：角色自己的外貌，被问到长相或外貌时带上\n"
                 +"students.detail：被提到的学生的完整外貌，问起某位学生时带上\n";
+        String knowledge = knowledgeService.catalogueText();
+        if (!knowledge.isEmpty()) {
+            catalogue += "可选知识库（问到相关内容时点选，不需要就不要选）：\n"+knowledge;
+        }
+        return catalogue;
     }
 
     String emotionRouterText(long groupID,long userID,boolean otherRoleBot) {

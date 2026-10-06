@@ -75,6 +75,13 @@ public class RoleplayConfig {
     public int globalMemoryInjectItems = 80;
     public boolean speechCorpusEnable = true;
     public String speechCorpusDirectory = "speech-corpus";
+    public boolean knowledgeEnable = true;
+    public String knowledgeDirectory = "knowledge";
+    public int knowledgeMaxEntries = 4;
+    public int knowledgeMaxSectionsPerEntry = 2;
+    public double knowledgeMinScore = 1.0;
+    public int knowledgeInjectMaxChars = 2000;
+    public int knowledgeSpoilerLevel = 0;
     public int speechRetrievalCount = 8;
     public int speechRetrievalMaxChars = 1200;
     public double speechRetrievalMinScore = 0.35;
@@ -254,6 +261,19 @@ public class RoleplayConfig {
         config.globalMemoryInjectItems = plugin.getConfig().getInt("globalMemoryInjectItems",80);
         config.speechCorpusEnable = plugin.getConfig().getBoolean("speechCorpusEnable",true);
         config.speechCorpusDirectory = plugin.getConfig().getString("speechCorpusDirectory","speech-corpus");
+        config.knowledgeEnable = plugin.getConfig().getBoolean("knowledgeEnable",true);
+        config.knowledgeDirectory = plugin.getConfig().getString("knowledgeDirectory","knowledge");
+        config.knowledgeMaxEntries = plugin.getConfig().getInt("knowledgeMaxEntries",4);
+        config.knowledgeMaxSectionsPerEntry =
+                plugin.getConfig().getInt("knowledgeMaxSectionsPerEntry",2);
+        try {
+            config.knowledgeMinScore = Double.parseDouble(
+                    plugin.getConfig().getString("knowledgeMinScore","1.0"));
+        } catch (Exception e) {
+            config.knowledgeMinScore = 1.0;
+        }
+        config.knowledgeInjectMaxChars = plugin.getConfig().getInt("knowledgeInjectMaxChars",2000);
+        config.knowledgeSpoilerLevel = plugin.getConfig().getInt("knowledgeSpoilerLevel",0);
         config.speechRetrievalCount = plugin.getConfig().getInt("speechRetrievalCount",8);
         config.speechRetrievalMaxChars = plugin.getConfig().getInt("speechRetrievalMaxChars",1200);
         try {
@@ -425,6 +445,19 @@ public class RoleplayConfig {
         if (config.speechCorpusDirectory == null || config.speechCorpusDirectory.trim().isEmpty()) {
             config.speechCorpusDirectory = "speech-corpus";
         }
+        if (config.knowledgeDirectory == null || config.knowledgeDirectory.trim().isEmpty()) {
+            config.knowledgeDirectory = "knowledge";
+        }
+        if (config.knowledgeMaxEntries < 1) config.knowledgeMaxEntries = 1;
+        if (config.knowledgeMaxEntries > 20) config.knowledgeMaxEntries = 20;
+        if (config.knowledgeMaxSectionsPerEntry < 1) config.knowledgeMaxSectionsPerEntry = 1;
+        if (config.knowledgeMaxSectionsPerEntry > 6) config.knowledgeMaxSectionsPerEntry = 6;
+        if (config.knowledgeMinScore < 0) config.knowledgeMinScore = 0;
+        if (config.knowledgeMinScore > 20) config.knowledgeMinScore = 20;
+        if (config.knowledgeInjectMaxChars < 200) config.knowledgeInjectMaxChars = 200;
+        if (config.knowledgeInjectMaxChars > 8000) config.knowledgeInjectMaxChars = 8000;
+        if (config.knowledgeSpoilerLevel < 0) config.knowledgeSpoilerLevel = 0;
+        if (config.knowledgeSpoilerLevel > 2) config.knowledgeSpoilerLevel = 2;
         if (config.speechRetrievalCount < 1) config.speechRetrievalCount = 1;
         if (config.speechRetrievalCount > 30) config.speechRetrievalCount = 30;
         if (config.speechRetrievalMaxChars < 200) config.speechRetrievalMaxChars = 200;

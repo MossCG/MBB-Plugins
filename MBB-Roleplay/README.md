@@ -600,6 +600,44 @@ speechSimilarityThreshold: 0.78
 speechSimilarityMinChars: 6
 ```
 
+## 可选知识库
+
+知识库用来回答事实类问题，人设、口癖和关系仍然由 persona 负责。格式标准见 [KNOWLEDGE.md](KNOWLEDGE.md)。
+
+目录结构：
+
+```text
+knowledge/
+├─ ba.students/
+│  ├─ _index.md
+│  ├─ midori.md
+│  └─ hina.md
+└─ REPORT.md
+```
+
+每个条目一个 md 文件，文件头写 `id`、`name`、`summary` 等元信息，正文按 `##` 小节切分。插件启动时建立小节级索引，检索时先按 `name` 和 `aliases` 锁定实体，再按字符 n-gram 打分取小节，只注入命中的摘要和小节，不注入整篇档案。命中实体时只保留被锁定的条目，避免问小绿却把小绿的属性套到别人身上。
+
+知识库由路由层按需点选，不是每条消息都注入；单条、单库和提示词总量三层预算同时生效。命中的库、条目数、小节数和占用字符会打印在控制台日志里。
+
+```text
+/role kb list                查看已加载的库、条目数、小节数与目录
+/role kb reload              改完文件后重建索引，不用重启进程
+/role kb search <文本>        查看命中的条目、小节和分数
+/role kb on | off            开关知识库
+```
+
+相关配置：
+
+```yaml
+knowledgeEnable: true
+knowledgeDirectory: "knowledge"
+knowledgeMaxEntries: 4
+knowledgeMaxSectionsPerEntry: 2
+knowledgeMinScore: 1.0
+knowledgeInjectMaxChars: 2000
+knowledgeSpoilerLevel: 0
+```
+
 角色 AI 可以在普通回复末尾输出结构化标记来主动创建任务：
 
 ```text

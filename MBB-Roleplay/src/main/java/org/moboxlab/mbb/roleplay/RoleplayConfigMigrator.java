@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "19";
+    private static final String CURRENT_VERSION = "20";
 
     private static class ConfigEntry {
         private final String key;
@@ -99,6 +99,13 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("speechRetrievalMinScore","0.35","台词检索最低分数"),
             new ConfigEntry("speechSimilarityThreshold","0.78","回复与台词语料相似度达到多少时视为照抄"),
             new ConfigEntry("speechSimilarityMinChars","6","少于多少字的回复不做照抄检测"),
+            new ConfigEntry("knowledgeEnable","true","是否启用可选知识库"),
+            new ConfigEntry("knowledgeDirectory","knowledge","知识库目录，相对插件数据目录"),
+            new ConfigEntry("knowledgeMaxEntries","4","单次最多注入几个知识库条目"),
+            new ConfigEntry("knowledgeMaxSectionsPerEntry","2","每个条目最多注入几个小节"),
+            new ConfigEntry("knowledgeMinScore","1.0","知识库检索最低分，低于该分数不注入"),
+            new ConfigEntry("knowledgeInjectMaxChars","2000","单次知识库注入的总字符上限"),
+            new ConfigEntry("knowledgeSpoilerLevel","0","允许注入的最高剧透等级：0 只注入无剧透，1 允许轻度，2 全部"),
             new ConfigEntry("activeMemory","true","是否允许角色通过回复末尾的 <remember> 主动触发记忆整理"),
             new ConfigEntry("imageUnderstandingEnable","true","是否允许角色理解群聊图片和表情包"),
             new ConfigEntry("imageUnderstandingMode","addressed","图片理解模式：off 关闭 / addressed 只处理直接提及或连续对话 / all 处理全部图片"),
@@ -197,7 +204,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 19) {
+        if (version < 20) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -258,7 +265,7 @@ public class RoleplayConfigMigrator {
             config.set("emotionAnalyzeMaxDelta","0.8");
             changed++;
         }
-        if (version < 19 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 20 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose

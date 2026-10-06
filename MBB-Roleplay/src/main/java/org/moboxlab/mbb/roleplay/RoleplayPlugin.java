@@ -19,6 +19,8 @@ public class RoleplayPlugin extends Plugin {
             new String[]{"persona-aris.json","persona-momoi.json","persona-midori.json"};
     private static final String[] SPEECH_CORPUS_FILES =
             new String[]{"speech-corpus-aris.jsonl","speech-corpus-momoi.jsonl","speech-corpus-midori.jsonl"};
+    private static final String[] KNOWLEDGE_EXAMPLE_FILES =
+            new String[]{"example/_index.md","example/sample.md"};
 
     private RoleplayConfig roleplayConfig;
     private RoleplayPersona persona;
@@ -33,6 +35,7 @@ public class RoleplayPlugin extends Plugin {
         }
         saveDefaultPersonas();
         saveDefaultSpeechCorpus();
+        saveDefaultKnowledge();
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
     }
@@ -152,6 +155,10 @@ public class RoleplayPlugin extends Plugin {
         return setConfigValue("speechCorpusEnable",enabled ? "true" : "false");
     }
 
+    public boolean setKnowledgeEnable(boolean enabled) {
+        return setConfigValue("knowledgeEnable",enabled ? "true" : "false");
+    }
+
     private boolean setConfigValue(String key,String value) {
         RoleplayConfigMigrator.ensure(this);
         getConfig().set(key,value);
@@ -224,6 +231,27 @@ public class RoleplayPlugin extends Plugin {
                 return;
             }
             Files.write(Paths.get(file.getAbsolutePath()),bytes);
+        } catch (Exception e) {
+            getLogger().sendException(e);
+        }
+    }
+
+    private void saveDefaultKnowledge() {
+        try {
+            File root = new File(getDataFolder(),"knowledge");
+            if (!root.exists()) root.mkdirs();
+            for (String name : KNOWLEDGE_EXAMPLE_FILES) {
+                File file = new File(root,name);
+                if (file.exists()) continue;
+                File parent = file.getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
+                byte[] bytes = readResource("knowledge/"+name);
+                if (bytes == null) {
+                    getLogger().sendWarn("插件 JAR 里没有 knowledge/"+name+"！");
+                    continue;
+                }
+                Files.write(Paths.get(file.getAbsolutePath()),bytes);
+            }
         } catch (Exception e) {
             getLogger().sendException(e);
         }

@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 19
+configVersion: 20
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -129,6 +129,20 @@ speechRetrievalMinScore: 0.35
 speechSimilarityThreshold: 0.78
 #少于多少字的回复不做照抄检测
 speechSimilarityMinChars: 6
+#是否启用可选知识库
+knowledgeEnable: true
+#知识库目录，相对插件数据目录
+knowledgeDirectory: "knowledge"
+#单次最多注入几个知识库条目
+knowledgeMaxEntries: 4
+#每个条目最多注入几个小节
+knowledgeMaxSectionsPerEntry: 2
+#知识库检索最低分，低于该分数不注入
+knowledgeMinScore: 1.0
+#单次知识库注入的总字符上限
+knowledgeInjectMaxChars: 2000
+#允许注入的最高剧透等级：0 只注入无剧透，1 允许轻度，2 全部
+knowledgeSpoilerLevel: 0
 #是否允许角色通过回复末尾的 <remember> 主动触发记忆整理
 activeMemory: true
 #是否允许角色理解群聊图片和表情包
