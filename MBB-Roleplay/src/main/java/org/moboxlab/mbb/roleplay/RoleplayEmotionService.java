@@ -869,6 +869,21 @@ public class RoleplayEmotionService {
 
     private void decayRelation(RelationState relation) {
         long now = System.currentTimeMillis();
+        if (isBotOwner(relation.userID)) {
+            relation.affinity = 100;
+            relation.trust = 100;
+            relation.annoyance = 0;
+            relation.emotionLabel = "妈妈";
+            relation.emotionReason = "";
+            relation.reasonStrength = 0;
+            relation.reasonSource = "";
+            relation.reasonSince = 0L;
+            relation.reasonExpire = 0L;
+            relation.provisionalInitial = false;
+            relation.updateTime = now;
+            saveRelation(relation);
+            return;
+        }
         if (relation.updateTime <= 0) {
             relation.updateTime = now;
             return;
@@ -879,16 +894,9 @@ public class RoleplayEmotionService {
         int oldAffinity = relation.affinity;
         int oldTrust = relation.trust;
         int oldAnnoyance = relation.annoyance;
-        boolean owner = isBotOwner(relation.userID);
-        if (owner) {
-            relation.affinity = 100;
-            relation.trust = 100;
-            relation.annoyance = 0;
-        } else {
-            relation.affinity = moveToward(relation.affinity,config.initialAffinity,steps);
-            relation.trust = moveToward(relation.trust,config.initialTrust,steps);
-            relation.annoyance = Math.max(0,relation.annoyance - steps);
-        }
+        relation.affinity = moveToward(relation.affinity,config.initialAffinity,steps);
+        relation.trust = moveToward(relation.trust,config.initialTrust,steps);
+        relation.annoyance = Math.max(0,relation.annoyance - steps);
         if (relation.reasonStrength > 0) {
             relation.reasonStrength = Math.max(0,relation.reasonStrength - steps * 2);
         }
@@ -904,8 +912,8 @@ public class RoleplayEmotionService {
         relation.emotionLabel = relationLabel(relation);
         relation.updateTime = now;
         saveRelation(relation);
-        if (!owner && (oldAffinity != relation.affinity || oldTrust != relation.trust
-                || oldAnnoyance != relation.annoyance)) {
+        if (oldAffinity != relation.affinity || oldTrust != relation.trust
+                || oldAnnoyance != relation.annoyance) {
             insertEvent(relation.groupID,relation.userID,0L,"decay",
                     0,0,0,
                     relation.affinity - oldAffinity,relation.trust - oldTrust,
