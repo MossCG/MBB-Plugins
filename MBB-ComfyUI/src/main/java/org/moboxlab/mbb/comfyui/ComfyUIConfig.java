@@ -28,6 +28,8 @@ public class ComfyUIConfig {
     public String scheduler = "karras";
     public double denoise = 1.0;
     public String negativePrompt = "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature";
+    public String promptPrefix = "masterpiece, best quality, highly detailed, anime illustration";
+    public String promptSuffix = "detailed background, dynamic composition, cinematic lighting, sharp focus";
     public int promptMinChars = 4;
     public int promptMaxChars = 1000;
     public String outputDirectory = "images";
@@ -57,6 +59,10 @@ public class ComfyUIConfig {
         config.denoise = parseDouble(plugin.getConfig().getString("denoise","1.0"),1.0);
         config.negativePrompt = plugin.getConfig().getString("negativePrompt",
                 "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature");
+        config.promptPrefix = plugin.getConfig().getString("promptPrefix",
+                "masterpiece, best quality, highly detailed, anime illustration");
+        config.promptSuffix = plugin.getConfig().getString("promptSuffix",
+                "detailed background, dynamic composition, cinematic lighting, sharp focus");
         config.promptMinChars = plugin.getConfig().getInt("promptMinChars",4);
         config.promptMaxChars = plugin.getConfig().getInt("promptMaxChars",1000);
         config.outputDirectory = plugin.getConfig().getString("outputDirectory","images");
@@ -74,6 +80,8 @@ public class ComfyUIConfig {
         if (config.outputDirectory == null || config.outputDirectory.trim().isEmpty()) {
             config.outputDirectory = "images";
         }
+        if (config.promptPrefix == null) config.promptPrefix = "";
+        if (config.promptSuffix == null) config.promptSuffix = "";
         if (config.cooldownSecond < 0) config.cooldownSecond = 0;
         if (config.timeoutSecond < 30) config.timeoutSecond = 30;
         if (config.timeoutSecond > 1800) config.timeoutSecond = 1800;

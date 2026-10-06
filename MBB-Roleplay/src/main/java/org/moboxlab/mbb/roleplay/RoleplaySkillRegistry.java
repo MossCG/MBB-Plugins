@@ -403,8 +403,15 @@ public class RoleplaySkillRegistry {
             JSONObject status = comfy.call("status",params);
             long remaining = status.getLongValue("cooldownRemaining");
             boolean busy = status.getBooleanValue("busy");
-            return "draw 表示调用 ComfyUI 生图。只有用户明确要求生图，并且主体、风格、用途、尺寸已经明确时才调用；"
-                    +"不明确时先追问，不要调用。当前群生图冷却剩余 "+remaining+" 秒，"
+            return "draw 表示调用 ComfyUI 生图。只有用户明确要求生图时才调用；"
+                    +"如果用户只给出主体，没给背景、动作、风格、构图或尺寸，可以自己补全这些细节并写入 prompt，"
+                    +"不要每一项都追问；只有主体不明确、可能违规或用户要求变化时再追问。"
+                    +"prompt 要写得具体细腻：主体 + 完整角色名 + 外貌特征 + 服装装备 + 动作 + 表情 + "
+                    +"背景 + 构图镜头 + 风格 + 光线 + 质量词。"
+                    +"如果涉及《蔚蓝档案》角色，必须写完整姓名和特征，例如“天童爱丽丝、才羽桃井、才羽绿、"
+                    +"砂狼白子、小鸟游星野”等，不要只写小桃、小绿这种简称，避免生成偏差。"
+                    +"prompt 使用英文 booru 风格标签为主，必要时保留中文全名。"
+                    +"当前群生图冷却剩余 "+remaining+" 秒，"
                     +"当前群任务中："+(busy ? "是" : "否")+"。冷却中或有任务时不要调用 draw，"
                     +"直接用角色语气说明还需要等多久。尺寸上限 "
                     +status.getIntValue("maxWidth")+"x"+status.getIntValue("maxHeight")

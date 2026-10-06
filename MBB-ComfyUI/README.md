@@ -9,6 +9,7 @@ MoBoxBot 的 ComfyUI 生图插件，通过插件服务向 `MBB-Roleplay` 提供 
 - 角色只需要提供 `prompt` 和尺寸
 - 默认使用 `NoobAI-XL-v1.1.safetensors`
 - 默认直接生成目标尺寸，不做放大和缩放
+- 自动拼接正向提示词前后缀，提升画面细节
 - 生成完成后自动发回群，并回调 `MBB-Roleplay` 让角色提醒发起者
 - 生成图片统一备份到插件目录 `images/`，同时写入同名 JSON 元数据
 - 支持尺寸上限、队列和超时控制
@@ -97,6 +98,14 @@ avatar     1024x1024
 ```
 
 完整默认配置见插件资源文件。
+
+生图时会自动拼接：
+
+```text
+promptPrefix + 角色 prompt + promptSuffix
+```
+
+默认前后缀包含质量词、背景、构图和光线描述。
 
 ## 图片备份
 

@@ -41,6 +41,10 @@ scheduler: "karras"
 denoise: 1.0
 #默认负向提示词
 negativePrompt: "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature"
+#正向提示词前缀，自动拼在角色 prompt 前面
+promptPrefix: "masterpiece, best quality, highly detailed, anime illustration"
+#正向提示词后缀，自动拼在角色 prompt 后面
+promptSuffix: "detailed background, dynamic composition, cinematic lighting, sharp focus"
 #prompt 最少字符数
 promptMinChars: 4
 #prompt 最多字符数

@@ -322,7 +322,7 @@ public class ComfyUIService implements PluginService {
         workflow.put("1",node("CheckpointLoaderSimple",inputs(
                 "ckpt_name",config.checkpoint)));
         workflow.put("2",node("CLIPTextEncode",inputs(
-                "text",job.prompt,
+                "text",buildPositivePrompt(job.prompt),
                 "clip",link(1,1))));
         workflow.put("3",node("CLIPTextEncode",inputs(
                 "text",config.negativePrompt,
@@ -349,6 +349,21 @@ public class ComfyUIService implements PluginService {
                 "filename_prefix","MoBoxBot",
                 "images",link(6,0))));
         return workflow;
+    }
+
+    private String buildPositivePrompt(String prompt) {
+        StringBuilder builder = new StringBuilder();
+        appendPrompt(builder,config.promptPrefix);
+        appendPrompt(builder,prompt);
+        appendPrompt(builder,config.promptSuffix);
+        return builder.toString();
+    }
+
+    private void appendPrompt(StringBuilder builder,String value) {
+        String text = safe(value).trim();
+        if (text.isEmpty()) return;
+        if (builder.length() > 0) builder.append(", ");
+        builder.append(text);
     }
 
     private JSONObject node(String classType,JSONObject inputs) {
