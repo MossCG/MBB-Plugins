@@ -633,10 +633,21 @@ public class RoleplayService {
                     +"\n生图需求："+shortText(prompt,300)
                     +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160));
             messages.add(message("user",userText));
+            long startTime = System.currentTimeMillis();
             JSONObject response = callDrawNotifyAi(ai,groupID,messages);
-            if (response == null || !response.getBooleanValue("status")) return fallback;
+            RoleplayAiLog.log(plugin.getLogger(),"生图提醒",groupID,response,
+                    System.currentTimeMillis() - startTime);
+            if (response == null || !response.getBooleanValue("status")) {
+                plugin.getLogger().sendWarn("[角色] 生图提醒生成失败，使用兜底文案："
+                        +safe(response == null ? "" : response.getString("message")));
+                return fallback;
+            }
             String text = safe(response.getString("content")).trim();
-            if (text.isEmpty()) return fallback;
+            if (text.isEmpty()) {
+                plugin.getLogger().sendWarn("[角色] 生图提醒模型正文为空，使用兜底文案，finish="
+                        +safe(response.getString("finishReason")));
+                return fallback;
+            }
             return shortText(text,40);
         } catch (Exception e) {
             return fallback;
@@ -646,7 +657,7 @@ public class RoleplayService {
     private JSONObject callDrawNotifyAi(PluginService ai,long groupID,JSONArray messages) {
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
-        params.put("maxTokens",600);
+        params.put("maxTokens",2000);
         params.put("temperature",0.7);
         params.put("reasoningEffort",config.replyReasoningEffort);
         params.put("timeoutSeconds",90);

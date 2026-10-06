@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
@@ -36,6 +37,7 @@ public class ComfyUIService implements PluginService {
     private final AtomicLong sequence = new AtomicLong(0L);
     private final String clientId = UUID.randomUUID().toString();
     private final Random random = new Random();
+    private volatile JSONObject deviceInfo = new JSONObject(true);
     private volatile boolean running = false;
     private ExecutorService worker;
 
@@ -92,6 +94,7 @@ public class ComfyUIService implements PluginService {
         });
         worker.submit(this::workerLoop);
         plugin.getLogger().sendInfo("[ComfyUI] 队列已启动，地址："+config.baseUrl);
+        refreshDeviceInfo();
     }
 
     public void stop() {
@@ -102,6 +105,31 @@ public class ComfyUIService implements PluginService {
     public void reload(ComfyUIConfig newConfig) {
         this.config = newConfig;
         this.client = new ComfyUIClient(newConfig.baseUrl,newConfig.timeoutSecond,plugin.getLogger());
+        refreshDeviceInfo();
+    }
+
+    private void refreshDeviceInfo() {
+        try {
+            JSONObject stats = client.systemStats();
+            JSONArray devices = stats == null ? null : stats.getJSONArray("devices");
+            if (devices == null || devices.isEmpty()) return;
+            JSONObject device = devices.getJSONObject(0);
+            if (device == null) return;
+            JSONObject info = new JSONObject(true);
+            info.put("name",device.getString("name"));
+            info.put("vramTotal",device.getLongValue("vram_total"));
+            info.put("vramFree",device.getLongValue("vram_free"));
+            deviceInfo = info;
+            String name = safe(info.getString("name"));
+            plugin.getLogger().sendInfo("[ComfyUI] 当前设备："+name
+                    +" 显存="+formatBytes(info.getLongValue("vramFree"))
+                    +"/"+formatBytes(info.getLongValue("vramTotal")));
+            if (name.toLowerCase(Locale.ROOT).contains("cpu")) {
+                plugin.getLogger().sendWarn("[ComfyUI] 当前设备名包含 CPU，请检查 ComfyUI 是否以 GPU 模式启动。");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[ComfyUI] 读取设备信息失败："+describe(e));
+        }
     }
 
     public boolean clearCooldown(long groupID) {
@@ -147,6 +175,9 @@ public class ComfyUIService implements PluginService {
         result.put("maxPixels",config.maxPixels);
         result.put("checkpoint",config.checkpoint);
         result.put("presets","square,landscape,portrait,avatar");
+        result.put("device",safe(deviceInfo.getString("name")));
+        result.put("vramTotal",deviceInfo.getLongValue("vramTotal"));
+        result.put("vramFree",deviceInfo.getLongValue("vramFree"));
         return result;
     }
 
@@ -220,7 +251,8 @@ public class ComfyUIService implements PluginService {
     private void processJob(ComfyUIJob job) throws Exception {
         long startTime = System.currentTimeMillis();
         plugin.getLogger().sendInfo("[ComfyUI] 开始生成 群"+job.groupID
-                +" 用户"+job.userID+" 尺寸="+job.width+"x"+job.height);
+                +" 用户"+job.userID+" 尺寸="+job.width+"x"+job.height
+                +" 设备="+safe(deviceInfo.getString("name")));
         JSONObject workflow = buildWorkflow(job);
         String promptId = client.queuePrompt(workflow,clientId);
         plugin.getLogger().sendInfo("[ComfyUI] 已提交 promptId="+promptId
@@ -308,6 +340,10 @@ public class ComfyUIService implements PluginService {
             metadata.put("remoteSubfolder",subfolder);
             metadata.put("remoteType",type);
             metadata.put("imageFile",imageFile.getName());
+            metadata.put("baseUrl",config.baseUrl);
+            metadata.put("device",safe(deviceInfo.getString("name")));
+            metadata.put("vramTotal",deviceInfo.getLongValue("vramTotal"));
+            metadata.put("vramFree",deviceInfo.getLongValue("vramFree"));
             String name = imageFile.getName();
             if (name.toLowerCase().endsWith(".png")) {
                 name = name.substring(0,name.length() - 4);
@@ -377,6 +413,8 @@ public class ComfyUIService implements PluginService {
         String value = safe(prompt);
         String[] parts = value.split(",");
         StringBuilder builder = new StringBuilder();
+        Set<String> seen = new HashSet<>();
+        String countTag = "";
         for (String part : parts) {
             String text = part == null ? "" : part.trim();
             if (text.isEmpty()) continue;
@@ -386,10 +424,28 @@ public class ComfyUIService implements PluginService {
                     || "split screen".equals(lower) || "extra person".equals(lower)) {
                 continue;
             }
+            if ("masterpiece".equals(lower) || "best quality".equals(lower)
+                    || "highres".equals(lower) || "high resolution".equals(lower)
+                    || "highly detailed".equals(lower) || "anime illustration".equals(lower)
+                    || "detailed".equals(lower)) {
+                continue;
+            }
+            if ("two girls".equals(lower) || "2girls".equals(lower)) {
+                countTag = "2girls";
+                continue;
+            }
+            if ("one girl".equals(lower) || "1girl".equals(lower)) {
+                countTag = "1girl";
+                continue;
+            }
+            if (seen.contains(lower)) continue;
+            seen.add(lower);
             if (builder.length() > 0) builder.append(", ");
             builder.append(text);
         }
-        return builder.toString();
+        if (countTag.isEmpty()) return builder.toString();
+        if (builder.length() == 0) return countTag;
+        return countTag+", "+builder.toString();
     }
 
     private void appendPrompt(StringBuilder builder,String value) {
@@ -560,6 +616,12 @@ public class ComfyUIService implements PluginService {
         int comma = value.lastIndexOf(',');
         if (comma >= maxChars / 2) value = value.substring(0,comma);
         return value.trim();
+    }
+
+    private String formatBytes(long bytes) {
+        if (bytes <= 0) return "0";
+        double value = bytes / 1024.0 / 1024.0 / 1024.0;
+        return String.format(Locale.ROOT,"%.1fGB",value);
     }
 
     private String describe(Throwable error) {

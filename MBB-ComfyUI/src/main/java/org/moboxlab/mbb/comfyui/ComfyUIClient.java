@@ -40,6 +40,10 @@ public class ComfyUIClient {
         return promptId;
     }
 
+    public JSONObject systemStats() throws Exception {
+        return getJson("/system_stats");
+    }
+
     public JSONObject history(String promptId) throws Exception {
         return getJson("/history/"+urlEncode(promptId));
     }
