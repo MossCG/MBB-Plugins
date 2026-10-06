@@ -95,6 +95,7 @@ public class RoleplayConfig {
     public boolean messageBatchEnable = true;
     public int messageBatchWindowSecond = 2;
     public int messageBatchMaxMessages = 10;
+    public int messageBatchMaxAgeSecond = 20;
     public int batchMaxSegments = 4;
     public boolean pokeReplyEnable = true;
     public boolean pokeBackEnable = true;
@@ -284,6 +285,7 @@ public class RoleplayConfig {
         config.messageBatchEnable = plugin.getConfig().getBoolean("messageBatchEnable",true);
         config.messageBatchWindowSecond = plugin.getConfig().getInt("messageBatchWindowSecond",2);
         config.messageBatchMaxMessages = plugin.getConfig().getInt("messageBatchMaxMessages",10);
+        config.messageBatchMaxAgeSecond = plugin.getConfig().getInt("messageBatchMaxAgeSecond",20);
         config.batchMaxSegments = plugin.getConfig().getInt("batchMaxSegments",4);
         config.pokeReplyEnable = plugin.getConfig().getBoolean("pokeReplyEnable",true);
         config.pokeBackEnable = plugin.getConfig().getBoolean("pokeBackEnable",true);
@@ -458,6 +460,8 @@ public class RoleplayConfig {
         if (config.messageBatchWindowSecond > 10) config.messageBatchWindowSecond = 10;
         if (config.messageBatchMaxMessages < 2) config.messageBatchMaxMessages = 2;
         if (config.messageBatchMaxMessages > 50) config.messageBatchMaxMessages = 50;
+        if (config.messageBatchMaxAgeSecond < 0) config.messageBatchMaxAgeSecond = 0;
+        if (config.messageBatchMaxAgeSecond > 120) config.messageBatchMaxAgeSecond = 120;
         if (config.batchMaxSegments < 1) config.batchMaxSegments = 1;
         if (config.batchMaxSegments > 8) config.batchMaxSegments = 8;
         if (config.pokeBackCooldownSecond < 0) config.pokeBackCooldownSecond = 0;

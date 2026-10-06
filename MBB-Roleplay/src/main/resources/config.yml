@@ -159,6 +159,8 @@ messageBatchEnable: true
 messageBatchWindowSecond: 2
 #单个批次最多合并多少条消息，超出时丢弃最旧的非直接点名消息
 messageBatchMaxMessages: 10
+#合批消息最多等待多少秒，超过且没有点名时直接丢弃，0 表示不丢弃
+messageBatchMaxAgeSecond: 20
 #合批回合最多回复几段，每段可以回应批内不同的消息
 batchMaxSegments: 4
 #最多加载多少条长期记忆

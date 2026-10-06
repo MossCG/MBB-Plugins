@@ -115,6 +115,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("messageBatchEnable","true","是否启用群消息合批：连续快速发言会合并成一个回合处理"),
             new ConfigEntry("messageBatchWindowSecond","2","合批窗口秒数，窗口内到达的新消息会并入同一批"),
             new ConfigEntry("messageBatchMaxMessages","10","单个批次最多合并多少条消息，超出时丢弃最旧的非直接点名消息"),
+            new ConfigEntry("messageBatchMaxAgeSecond","20","合批消息最多等待多少秒，超过且没有点名时直接丢弃，0 表示不丢弃"),
             new ConfigEntry("batchMaxSegments","4","合批回合最多回复几段，每段可以回应批内不同的消息"),
             new ConfigEntry("pokeReplyEnable","true","是否响应戳一戳；MBB-Poke 启用时本插件自动跳过"),
             new ConfigEntry("pokeBackEnable","true","被戳时是否允许角色戳回去"),

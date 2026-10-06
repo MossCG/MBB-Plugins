@@ -313,6 +313,7 @@ stickerAttachWaitUntilNextMessage: true
 messageBatchEnable: true
 messageBatchWindowSecond: 2
 messageBatchMaxMessages: 10
+messageBatchMaxAgeSecond: 20
 batchMaxSegments: 4
 pokeReplyEnable: true
 pokeBackEnable: true
@@ -428,10 +429,13 @@ quoteReplyEnable: true   #回复被艾特或被直接回复的消息时是否引
 群里刷屏时不再逐条排队，而是先按窗口攒批：
 
 - 同一群的消息先进入合批窗口，窗口内到达的新消息会并入同一批，默认窗口 2 秒
-- 窗口结束后整批只做一次路由、一次生成；处理期间到达的消息进入下一批，不会越积越多
+- 窗口结束后整批只做一次路由、一次生成；处理期间到达的消息进入下一批，当前批一结束就立刻接手，不再额外等一个窗口
 - 一批最多合并 10 条消息，超出时优先丢掉最早的非点名消息，被艾特或引用角色的消息优先保留
+- 等待超过 `messageBatchMaxAgeSecond`（默认 20 秒）且没有被点名的消息直接丢弃，避免回复一分钟前已经翻篇的话题
 - 合批回合允许模型返回多段回复，每段用 `to` 指向批内某一条消息，可以分别回应不同的人
 - 合批回合最多回复 `batchMaxSegments` 段，默认 4 段；单条消息仍按原来的最多 2 段拆分
+- `to` 越界、或者指向的消息与主消息不是同一个人时，该段降级为不引用，正文照常发送
+- 批内消息会带上到达时间，提示词要求只回应批内列出的消息，最近群聊仅作为背景
 - 关闭 `messageBatchEnable` 可以退回一条消息一个回合的旧行为
 
 表情包等待同样改成了事件驱动：用户补发的表情包识别完成后立即合并，同一用户又发了新消息也会立刻结束等待，

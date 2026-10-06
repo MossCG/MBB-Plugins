@@ -70,6 +70,7 @@ public class RoleplayService {
     //合批缓冲：同一群在窗口内到达的消息先攒起来，窗口结束后当成一个回合处理
     private final Map<Long,List<GroupMessageEvent>> batchBufferMap = new HashMap<>();
     private final Map<Long,Integer> batchGenerationMap = new HashMap<>();
+    private final Map<Long,Long> batchBufferStartMap = new HashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
@@ -328,6 +329,7 @@ public class RoleplayService {
             if (buffer == null) {
                 buffer = new ArrayList<>();
                 batchBufferMap.put(groupID,buffer);
+                batchBufferStartMap.put(groupID,System.currentTimeMillis());
             }
             if (buffer.size() >= config.messageBatchMaxMessages) {
                 //批内已满：优先丢掉最早的非点名消息，避免刷屏把关键消息挤出去
@@ -344,6 +346,37 @@ public class RoleplayService {
             wakePendingTurnForUser(groupID,event.getUserID());
         }
         if (scheduled) scheduleBatchFlush(groupID);
+    }
+
+    /**
+     * 丢掉等太久又不是点名的消息，避免回复几十秒前已经翻篇的话题
+     */
+    private List<GroupMessageEvent> filterStaleBatchMessages(long groupID,
+                                                             List<GroupMessageEvent> batch) {
+        if (config.messageBatchMaxAgeSecond <= 0) return batch;
+        long now = System.currentTimeMillis();
+        long maxAge = config.messageBatchMaxAgeSecond * 1000L;
+        List<GroupMessageEvent> fresh = new ArrayList<>();
+        int dropped = 0;
+        for (GroupMessageEvent event : batch) {
+            long time = eventTimeMillis(event);
+            if (time <= 0 || now - time <= maxAge || isBatchMessageImportant(event)) {
+                fresh.add(event);
+            } else {
+                dropped++;
+            }
+        }
+        if (dropped > 0) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批丢弃 "+dropped
+                    +" 条等待超过 "+config.messageBatchMaxAgeSecond+" 秒的过期消息");
+        }
+        return fresh;
+    }
+
+    private long eventTimeMillis(GroupMessageEvent event) {
+        if (event == null || event.getRaw() == null) return 0L;
+        long seconds = event.getRaw().getLongValue("time");
+        return seconds <= 0 ? 0L : seconds * 1000L;
     }
 
     /**
@@ -372,15 +405,26 @@ public class RoleplayService {
      */
     private void scheduleBatchFlush(long groupID) {
         int generation;
+        long delaySeconds;
         synchronized (groupQueueLock) {
             Integer current = batchGenerationMap.get(groupID);
             generation = current == null ? 1 : current + 1;
             batchGenerationMap.put(groupID,generation);
+            long window = config.messageBatchEnable ? config.messageBatchWindowSecond * 1000L : 0L;
+            Long start = batchBufferStartMap.get(groupID);
+            if (window <= 0) {
+                delaySeconds = 0;
+            } else if (start == null) {
+                delaySeconds = (window + 999) / 1000;
+            } else {
+                //批内最早的消息可能已经在上一批处理期间等满了窗口，这里只补剩余时间
+                long remain = window - (System.currentTimeMillis() - start);
+                delaySeconds = remain <= 0 ? 0 : (remain + 999) / 1000;
+            }
         }
-        int delay = config.messageBatchEnable ? config.messageBatchWindowSecond : 0;
         final int expected = generation;
         plugin.getServer().getPluginManager().runTaskLater(plugin,
-                () -> flushBatch(groupID,expected),delay);
+                () -> flushBatch(groupID,expected),delaySeconds);
     }
 
     private void flushBatch(long groupID,int generation) {
@@ -396,10 +440,13 @@ public class RoleplayService {
         }
         try {
             if (batch != null && !batch.isEmpty()) {
-                if (batch.size() == 1) {
-                    processGroupMessage(batch.get(0));
+                List<GroupMessageEvent> fresh = filterStaleBatchMessages(groupID,batch);
+                if (fresh.isEmpty()) {
+                    plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批消息全部过期，本轮跳过");
+                } else if (fresh.size() == 1) {
+                    processGroupMessage(fresh.get(0));
                 } else {
-                    processMessageBatch(groupID,batch);
+                    processMessageBatch(groupID,fresh);
                 }
             }
         } catch (Exception e) {
@@ -412,6 +459,7 @@ public class RoleplayService {
                 if (!more) {
                     batchBufferMap.remove(groupID);
                     batchGenerationMap.remove(groupID);
+                    batchBufferStartMap.remove(groupID);
                     groupBusyMap.remove(groupID);
                 }
             }
@@ -613,7 +661,7 @@ public class RoleplayService {
             return;
         }
         plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批 "+messages.size()
-                +" 条 决策 addressed="+decision.addressed
+                +" 条 最早="+batchOldestAgeSecond(messages)+"秒前 决策 addressed="+decision.addressed
                 +" 概率="+decision.chance
                 +" 技能="+decision.skills
                 +" 资料="+decision.materials
@@ -641,10 +689,12 @@ public class RoleplayService {
     private String batchPromptText(List<PreparedMessage> messages) {
         StringBuilder builder = new StringBuilder();
         builder.append("以下 ").append(messages.size())
-                .append(" 条消息在很短时间内连续到达，按时间顺序排列，可能来自不同的人：\n");
+                .append(" 条消息在很短时间内连续到达，按时间顺序排列，可能来自不同的人")
+                .append("（只回应这里列出的消息，最近群聊只是背景，不要接已经翻篇的旧话题）：\n");
         for (int i = 0; i < messages.size(); i++) {
             PreparedMessage message = messages.get(i);
             builder.append("[").append(i + 1).append("] ")
+                    .append(messageTimeText(message.event)).append(" ")
                     .append(message.userName).append("（QQ：").append(message.userID).append("）");
             if (message.otherRoleBot) builder.append("（另一个角色机器人）");
             if (message.direct) builder.append("（直接提到你）");
@@ -656,6 +706,24 @@ public class RoleplayService {
             builder.append("\n");
         }
         return builder.toString();
+    }
+
+    private String messageTimeText(GroupMessageEvent event) {
+        long time = eventTimeMillis(event);
+        if (time <= 0) return "";
+        return new SimpleDateFormat("HH:mm:ss",Locale.CHINA).format(new Date(time));
+    }
+
+    private long batchOldestAgeSecond(List<PreparedMessage> messages) {
+        long now = System.currentTimeMillis();
+        long oldest = 0L;
+        for (PreparedMessage message : messages) {
+            long time = eventTimeMillis(message.event);
+            if (time <= 0) continue;
+            long age = (now - time) / 1000L;
+            if (age > oldest) oldest = age;
+        }
+        return oldest;
     }
 
     private int lastMessageIndexOfUser(List<PreparedMessage> messages,long userID) {
@@ -743,7 +811,21 @@ public class RoleplayService {
             RoleplayReplyDraft.Segment segment = segments.get(i);
             if (segment == null) continue;
             PreparedMessage target = batchTarget(messages,segment.to);
-            if (target == null) target = primary;
+            boolean quoteAllowed = true;
+            if (target == null) {
+                //序号越界或没给序号：正文按主消息处理，但不允许引用，避免挂到无关消息上
+                if (segment.to != 0) {
+                    plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批段落 to="+segment.to
+                            +" 越界，引用已取消");
+                }
+                target = primary;
+                quoteAllowed = false;
+            } else if (target != primary && target.userID != primary.userID) {
+                //引用目标与主消息不是同一个人，降级为不引用
+                quoteAllowed = false;
+                plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批引用降级：目标 "
+                        +target.userID+" 与主消息 "+primary.userID+" 不是同一人");
+            }
             if (blacklistService.contains(groupID,target.userID)) {
                 plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批跳过已拉黑用户 "
                         +target.userID);
@@ -768,7 +850,7 @@ public class RoleplayService {
                 ensurePokeBackAction(segmentDraft,decision,reply);
                 long quoteMessageID = target.event.getMessageID();
                 boolean forceQuote = decision != null && decision.quoteRequired && target == primary;
-                boolean quote = config.quoteReplyEnable
+                boolean quote = config.quoteReplyEnable && quoteAllowed
                         && (forceQuote || segment.quote) && quoteMessageID > 0;
                 sendSingleMessage(client,groupID,selfID,target.userID,reply,quote,quoteMessageID);
                 if (!responded.contains(target)) responded.add(target);
@@ -1368,7 +1450,9 @@ public class RoleplayService {
                 +"最多回 "+config.batchMaxSegments+" 段，也可以只回一段，没人值得回就整轮沉默。"
                 +"不要为了凑段数而回复每一条，也不要对着同一个人反复说同一件事；"
                 +"批内有人只是闲聊、刷表情或没点你时，可以完全不理。"
-                +"每一段用 to 标出你回应的是批内第几条消息；如果想让引用更清楚，把该段的 quote 设为 true。"
+                +"只回应批内列出的消息，最近群聊上下文只是背景，已经翻篇的旧话题不要接，也不要用 to 指代批外消息。"
+                +"每一段用 to 标出你回应的是批内第几条消息（只能填批内序号），"
+                +"如果想让引用更清楚，把该段的 quote 设为 true；to 越界或指向别人时引用会被取消。"
                 : "")
                 +"不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。"
                 +"输出格式：只输出一个 JSON 对象，不要加代码块或额外说明，格式为 "
