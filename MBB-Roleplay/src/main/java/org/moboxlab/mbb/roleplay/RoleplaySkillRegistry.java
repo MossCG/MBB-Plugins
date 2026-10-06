@@ -1,5 +1,7 @@
 package org.moboxlab.mbb.roleplay;
 
+import com.alibaba.fastjson.JSONObject;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -23,6 +25,7 @@ public class RoleplaySkillRegistry {
         register(new GlobalMemorySkill());
         register(new StickerSkill());
         register(new PokeBackSkill());
+        register(new DrawSkill());
     }
 
     private void register(RoleplaySkill skill) {
@@ -76,6 +79,9 @@ public class RoleplaySkillRegistry {
             return service.plugin().getServer().getPluginManager().getService("MBB-Sticker") != null;
         }
         if ("poke-back".equals(id)) return config.pokeBackEnable;
+        if ("draw".equals(id)) {
+            return service.plugin().getServer().getPluginManager().getService("MBB-ComfyUI") != null;
+        }
         return true;
     }
 
@@ -350,6 +356,80 @@ public class RoleplaySkillRegistry {
             return success
                     ? RoleplaySkillResult.ok(id(),"已戳回去")
                     : RoleplaySkillResult.failed(id(),"戳回去被冷却或权限跳过");
+        }
+    }
+
+    /**
+     * 生图：调用 MBB-ComfyUI，角色只提供 prompt 和尺寸
+     */
+    private class DrawSkill implements RoleplaySkill {
+        @Override
+        public String id() {
+            return "draw";
+        }
+
+        @Override
+        public String name() {
+            return "生图";
+        }
+
+        @Override
+        public String description() {
+            return "调用 ComfyUI 按当前群生成一张图片";
+        }
+
+        @Override
+        public List<String> triggers() {
+            return Arrays.asList("画","生图","图片","画一张","生成图","来张图");
+        }
+
+        @Override
+        public RoleplaySkill.Phase phase() {
+            return RoleplaySkill.Phase.POST;
+        }
+
+        @Override
+        public boolean sideEffect() {
+            return true;
+        }
+
+        @Override
+        public String promptFragment(RoleplaySkillContext context) {
+            org.moboxlab.moboxbot.API.PluginService comfy =
+                    service.plugin().getServer().getPluginManager().getService("MBB-ComfyUI");
+            if (comfy == null) return "";
+            JSONObject params = new JSONObject(true);
+            params.put("groupID",context.groupID);
+            JSONObject status = comfy.call("status",params);
+            long remaining = status.getLongValue("cooldownRemaining");
+            boolean busy = status.getBooleanValue("busy");
+            return "draw 表示调用 ComfyUI 生图。只有用户明确要求生图，并且主体、风格、用途、尺寸已经明确时才调用；"
+                    +"不明确时先追问，不要调用。当前群生图冷却剩余 "+remaining+" 秒，"
+                    +"当前群任务中："+(busy ? "是" : "否")+"。冷却中或有任务时不要调用 draw，"
+                    +"直接用角色语气说明还需要等多久。尺寸上限 "
+                    +status.getIntValue("maxWidth")+"x"+status.getIntValue("maxHeight")
+                    +"，默认 "+status.getIntValue("defaultWidth")+"x"+status.getIntValue("defaultHeight")
+                    +"，可用 size：square / landscape / portrait / avatar。"
+                    +"调用格式：{\"type\":\"draw\",\"args\":{\"prompt\":\"...\",\"size\":\"square\"}}；"
+                    +"角色只提供 prompt 和尺寸，不要控制模型、steps、cfg、sampler、seed。";
+        }
+
+        @Override
+        public RoleplaySkillResult execute(RoleplaySkillContext context) {
+            org.moboxlab.moboxbot.API.PluginService comfy =
+                    service.plugin().getServer().getPluginManager().getService("MBB-ComfyUI");
+            if (comfy == null) return RoleplaySkillResult.failed(id(),"MBB-ComfyUI 未启用");
+            JSONObject params = new JSONObject(true);
+            if (context.args != null) params.putAll(context.args);
+            params.put("groupID",context.groupID);
+            params.put("userID",context.userID);
+            params.put("messageID",context.messageID);
+            JSONObject result = comfy.call("generate",params);
+            if (result == null || !result.getBooleanValue("status")) {
+                return RoleplaySkillResult.failed(id(),
+                        result == null ? "生图服务没有返回结果" : result.getString("message"));
+            }
+            return RoleplaySkillResult.ok(id(),"已提交生图任务 "+result.getString("taskID"));
         }
     }
 }

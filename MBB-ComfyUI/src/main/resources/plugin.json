@@ -1,0 +1,13 @@
+{
+  "name": "MBB-ComfyUI",
+  "version": "V0.1.0.0.1910",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.comfyui.ComfyUIPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot ComfyUI 生图插件",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["comfyui"]
+}

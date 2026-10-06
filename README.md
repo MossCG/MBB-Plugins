@@ -13,6 +13,7 @@ MoBoxBot 独立插件仓库。
 | `MBB-AIGuard` | `/guard ...` | `BOT_ADMIN` | AI 群聊风险审查，支持规则、行为画像和白名单 |
 | `MBB-Chat` | `/chat <内容>`、`/chat new`、`/chat persona` | 管理员或白名单 | AI 对话，每人独立上下文与人设 |
 | `MBB-ChatStat` | `/chatstat group/user` | `BOT_ADMIN` | 统计群聊内容或某人在所有可见群的发言，可接 AI 总结 |
+| `MBB-ComfyUI` | `/comfyui status/reload/test` | `BOT_ADMIN` | 按群独立冷却的 ComfyUI 生图服务，供 Roleplay 的 `draw` 技能调用 |
 | `MBB-Help` | `/help` | `EVERYONE` | 按权限分区的命令帮助图片 |
 | `MBB-PigHub` | `来只猪猪` | `EVERYONE` | 随机 PigHub 猪猪图片 |
 | `MBB-Ping` | `/ping` | `BOT_ADMIN` | 测试机器人是否运行中 |

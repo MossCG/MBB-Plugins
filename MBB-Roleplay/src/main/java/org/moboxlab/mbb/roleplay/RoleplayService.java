@@ -570,6 +570,79 @@ public class RoleplayService {
         return result;
     }
 
+    public JSONObject notifyDrawComplete(JSONObject params) {
+        long groupID = params == null ? 0L : params.getLongValue("groupID");
+        long userID = params == null ? 0L : params.getLongValue("userID");
+        String prompt = params == null ? "" : safe(params.getString("prompt"));
+        String imageName = params == null ? "" : safe(params.getString("imageName"));
+        String text = generateDrawNotifyText(groupID,userID,prompt,imageName,true,"");
+        sendDrawNotify(groupID,userID,text);
+        JSONObject result = new JSONObject(true);
+        result.put("status",true);
+        result.put("message",text);
+        return result;
+    }
+
+    public JSONObject notifyDrawFailed(JSONObject params) {
+        long groupID = params == null ? 0L : params.getLongValue("groupID");
+        long userID = params == null ? 0L : params.getLongValue("userID");
+        String prompt = params == null ? "" : safe(params.getString("prompt"));
+        String reason = params == null ? "" : safe(params.getString("reason"));
+        String text = generateDrawNotifyText(groupID,userID,prompt,"",false,reason);
+        sendDrawNotify(groupID,userID,text);
+        JSONObject result = new JSONObject(true);
+        result.put("status",true);
+        result.put("message",text);
+        return result;
+    }
+
+    private String generateDrawNotifyText(long groupID,long userID,String prompt,
+                                          String imageName,boolean success,String reason) {
+        String fallback = success ? "画好啦，快看看。" : "这次没画出来，等下再试试。";
+        PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
+        if (ai == null) return fallback;
+        try {
+            JSONArray messages = new JSONArray();
+            messages.add(message("system","你是角色 "+persona.name+"。"
+                    +(success ? "用户刚才要求生图，图片已经生成并发送到群里。"
+                    : "用户刚才要求生图，但生图失败了。")
+                    +"请用角色语气给发起者一句简短提醒，12 到 20 字以内。"
+                    +"不要 Markdown，不要解释，不要用“图片已生成”这种机械说法，不要提及系统。"));
+            String userText = "发起者QQ："+userID
+                    +"\n生图需求："+shortText(prompt,300)
+                    +"\n图片文件："+(imageName == null || imageName.isEmpty() ? "无" : imageName)
+                    +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160));
+            messages.add(message("user",userText));
+            JSONObject params = new JSONObject(true);
+            params.put("profile",config.aiProfile);
+            params.put("maxTokens",300);
+            params.put("temperature",0.7);
+            params.put("reasoningEffort",config.replyReasoningEffort);
+            params.put("timeoutSeconds",60);
+            params.put("sessionId","roleplay-draw-notify-"+groupID);
+            params.put("messages",messages);
+            JSONObject response = ai.call("chat",params);
+            if (response == null || !response.getBooleanValue("status")) return fallback;
+            String text = safe(response.getString("content")).trim();
+            if (text.isEmpty()) return fallback;
+            return shortText(text,40);
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private void sendDrawNotify(long groupID,long userID,String text) {
+        if (groupID <= 0 || userID <= 0) return;
+        OneBotClient client = plugin.getServer().getOneBotClient();
+        if (client == null) return;
+        JSONArray message = MessageUtil.message(MessageUtil.at(userID),
+                MessageUtil.text(" "+(text == null ? "" : text.trim())));
+        JSONObject response = client.sendGroupMessage(groupID,message);
+        plugin.getLogger().sendInfo("[角色] 生图回调提醒 群"+groupID+" 用户"+userID
+                +" 内容="+shortText(text,80)+" 结果="
+                +(response != null && response.getIntValue("retcode") == 0 ? "成功" : "失败"));
+    }
+
     public boolean isGroupEnabled(long groupID) {
         JSONObject row = storage().queryOne("SELECT `enabled` FROM `"+GROUP_TABLE+"` WHERE `groupID`=?",groupID);
         return row != null && row.getIntValue("enabled") == 1;

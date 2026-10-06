@@ -1,0 +1,49 @@
+#MBB-ComfyUI 插件配置
+
+#是否启用 ComfyUI 生图
+enable: true
+#ComfyUI 地址
+baseUrl: "http://192.168.10.10:8188"
+#每个群的生图冷却秒数
+cooldownSecond: 600
+#单次生图最长等待秒数
+timeoutSecond: 600
+#全局队列上限
+queueLimit: 3
+#轮询任务状态的间隔秒数
+pollIntervalSecond: 2
+#默认 checkpoint
+checkpoint: "NoobAI-XL-v1.1.safetensors"
+#默认尺寸预设：square / landscape / portrait / avatar
+defaultPreset: "square"
+#默认宽高
+defaultWidth: 1280
+defaultHeight: 1280
+#最小宽高
+minWidth: 256
+minHeight: 256
+#最大宽高
+maxWidth: 1536
+maxHeight: 1536
+#最大像素数
+maxPixels: 2360000
+#尺寸对齐倍数
+sizeMultiple: 64
+#采样步数
+steps: 32
+#CFG
+cfg: 5.5
+#采样器
+sampler: "dpmpp_2m"
+#调度器
+scheduler: "karras"
+#去噪强度
+denoise: 1.0
+#默认负向提示词
+negativePrompt: "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature"
+#prompt 最少字符数
+promptMinChars: 4
+#prompt 最多字符数
+promptMaxChars: 1000
+#生成图片保存目录，相对于插件数据目录
+outputDirectory: "images"
