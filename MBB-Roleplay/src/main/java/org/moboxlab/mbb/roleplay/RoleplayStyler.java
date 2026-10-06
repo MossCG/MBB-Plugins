@@ -67,6 +67,7 @@ public class RoleplayStyler {
                     .append("，低频自然使用，不要每句都带\n");
         }
         builder.append("- 去掉书面语连接词、总结式收尾、排比和破折号\n")
+                .append("- 波浪号低频，只在真正拖长音时使用，不要每句结尾都带~\n")
                 .append("- 长度不超过原文，宁短不长\n")
                 .append("- 允许省略主语、允许短句和不完整句\n")
                 .append("触发原因：").append(trigger).append("\n");
