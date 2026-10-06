@@ -56,11 +56,13 @@ public class RoleplayCommand extends BotCommand {
                 "/role groups",
                 "/role reload",
                 "/role config [repair]",
+                "/role blacklist [list|add|remove|clear] [QQ] [原因]",
                 "/role mood",
                 "/role mood reset",
                 "/role emotion [QQ] [页码]",
                 "/role emotion reset [QQ]",
                 "/role emotion log [页码]",
+                "/role emotion affinity set <QQ> <0-100>",
                 "/role emotion reason set <QQ> <原因>",
                 "/role emotion reason clear <QQ>",
                 "/role bot [status]",
@@ -139,6 +141,10 @@ public class RoleplayCommand extends BotCommand {
         }
         if ("emotion".equals(action)) {
             handleEmotion(sender,args);
+            return true;
+        }
+        if ("blacklist".equals(action)) {
+            handleBlacklist(sender,args);
             return true;
         }
         if ("bot".equals(action)) {
@@ -505,6 +511,10 @@ public class RoleplayCommand extends BotCommand {
             handleEmotionReason(sender,args,groupID);
             return;
         }
+        if (args.length > 2 && "affinity".equalsIgnoreCase(args[2])) {
+            handleEmotionAffinity(sender,args,groupID);
+            return;
+        }
         if (args.length > 2 && "log".equalsIgnoreCase(args[2])) {
             int page = parsePage(args,3);
             JSONObject data = emotionService.moodStats(groupID,100);
@@ -597,6 +607,82 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         sender.sendMessage("用法：/role emotion reason set <QQ> <原因> | clear <QQ>");
+    }
+
+    private void handleEmotionAffinity(CommandSender sender,String[] args,long groupID) {
+        if (args.length < 6 || !"set".equalsIgnoreCase(args[3])) {
+            sender.sendMessage("用法：/role emotion affinity set <QQ> <0-100>");
+            return;
+        }
+        long userID = parseUserID(args[4]);
+        int affinity;
+        try {
+            affinity = Integer.parseInt(args[5]);
+        } catch (Exception e) {
+            sender.sendMessage("好感度格式不正确。");
+            return;
+        }
+        if (userID <= 0 || affinity < 0 || affinity > 100) {
+            sender.sendMessage("QQ 或好感度范围不正确。");
+            return;
+        }
+        service.getEmotionService().setRelationAffinity(groupID,userID,affinity);
+        sender.sendMessage("用户 "+userID+" 的好感度已设置为 "+affinity+"。");
+    }
+
+    private void handleBlacklist(CommandSender sender,String[] args) {
+        long groupID = sender.getGroupID();
+        if (groupID <= 0) {
+            sender.sendMessage("请在群聊中使用。");
+            return;
+        }
+        String action = args.length > 2 ? args[2].toLowerCase() : "list";
+        if ("list".equals(action)) {
+            JSONArray entries = service.getBlacklistService().list(groupID);
+            if (entries == null || entries.isEmpty()) {
+                sender.sendMessage("当前群黑名单为空。");
+                return;
+            }
+            StringBuilder builder = new StringBuilder("当前群黑名单：");
+            for (Object object : entries) {
+                JSONObject item = (JSONObject) object;
+                builder.append("\n").append(item.getLongValue("userID"));
+                String reason = item.getString("reason");
+                if (reason != null && !reason.trim().isEmpty()) {
+                    builder.append("  ").append(reason.trim());
+                }
+            }
+            sender.sendMessage(builder.toString());
+            return;
+        }
+        if ("clear".equals(action)) {
+            service.getBlacklistService().clear(groupID);
+            sender.sendMessage("当前群黑名单已清空。");
+            return;
+        }
+        if (args.length < 4) {
+            sender.sendMessage("用法：/role blacklist add <QQ> [原因] | remove <QQ> | clear | list");
+            return;
+        }
+        long userID = parseUserID(args[3]);
+        if (userID <= 0) {
+            sender.sendMessage("QQ 格式不正确。");
+            return;
+        }
+        if ("add".equals(action)) {
+            String reason = joinArgs(args,4);
+            service.blacklistAdd(groupID,userID,reason,sender.getUserID());
+            sender.sendMessage("用户 "+userID+" 已加入当前群黑名单。");
+            return;
+        }
+        if ("remove".equals(action)) {
+            boolean removed = service.getBlacklistService().remove(groupID,userID);
+            sender.sendMessage(removed
+                    ? "用户 "+userID+" 已移出黑名单。"
+                    : "用户 "+userID+" 不在黑名单中。");
+            return;
+        }
+        sender.sendMessage("用法：/role blacklist add <QQ> [原因] | remove <QQ> | clear | list");
     }
 
     private long parseUserID(String value) {

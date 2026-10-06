@@ -65,6 +65,7 @@ public class RoleplayEmotionService {
         public long reasonExpire;
         public long lastInteraction;
         public long updateTime;
+        public boolean provisionalInitial;
     }
 
     public static class LocalEvent {
@@ -180,7 +181,7 @@ public class RoleplayEmotionService {
                                                   boolean direct,boolean otherRoleBot) {
         if (!config.emotionEnable || groupID <= 0 || userID <= 0) return LocalEvent.none();
         MoodState mood = mood(groupID);
-        RelationState relation = otherRoleBot ? null : relation(groupID,userID);
+        RelationState relation = otherRoleBot ? null : relation(groupID,userID,relationship);
         String text = safe(content).trim();
         if (text.isEmpty()) return LocalEvent.none();
 
@@ -284,6 +285,10 @@ public class RoleplayEmotionService {
                     && relation.emotionReason != null && !relation.emotionReason.isEmpty()) {
                 builder.append("对当前发言者的情绪原因：").append(relation.emotionReason).append("\n");
             }
+            builder.append(isBotOwner(userID)
+                    ? "亲密程度：这是 botOwner，角色把他当成妈妈，亲近、依赖、听劝，可以用撒娇和撒娇式抱怨，"
+                    +"但不要往恋爱或性意味方向表达。\n"
+                    : intimacyPrompt(relation)).append("\n");
         }
         builder.append("情绪只影响语气和参与意愿，不能取消被直接提及时的回复，也不能违反权限、安全或事实规则。\n");
         return builder.toString();
@@ -379,8 +384,8 @@ public class RoleplayEmotionService {
 
     public synchronized void resetRelation(long groupID,long userID) {
         RelationState relation = relation(groupID,userID);
-        relation.affinity = clamp(config.initialAffinity,0,100);
-        relation.trust = 50;
+        relation.affinity = isBotOwner(userID) ? 100 : clamp(config.initialAffinity,0,100);
+        relation.trust = clamp(config.initialTrust,0,100);
         relation.annoyance = 0;
         relation.emotionLabel = "普通";
         relation.emotionReason = "";
@@ -390,6 +395,7 @@ public class RoleplayEmotionService {
         relation.reasonExpire = 0L;
         relation.lastInteraction = System.currentTimeMillis();
         relation.updateTime = System.currentTimeMillis();
+        relation.provisionalInitial = false;
         saveRelation(relation);
         plugin.getLogger().sendInfo("[情绪] 群"+groupID+" 用户"+userID+" 关系已重置");
     }
@@ -404,7 +410,25 @@ public class RoleplayEmotionService {
         relation.reasonExpire = relation.reasonSince + config.emotionReasonDecayDays * DAY_MILLIS;
         relation.emotionLabel = labelForReason(value);
         relation.updateTime = System.currentTimeMillis();
+        relation.provisionalInitial = false;
         saveRelation(relation);
+    }
+
+    public synchronized void setRelationAffinity(long groupID,long userID,int affinity) {
+        RelationState relation = relation(groupID,userID);
+        relation.affinity = isBotOwner(userID) ? 100 : clamp(affinity,0,100);
+        relation.emotionLabel = relationLabel(relation);
+        relation.updateTime = System.currentTimeMillis();
+        relation.provisionalInitial = false;
+        saveRelation(relation);
+    }
+
+    public synchronized int affinity(long groupID,long userID) {
+        return relation(groupID,userID).affinity;
+    }
+
+    public synchronized int patience(long groupID) {
+        return mood(groupID).patience;
     }
 
     public synchronized void clearRelationReason(long groupID,long userID) {
@@ -416,6 +440,7 @@ public class RoleplayEmotionService {
         relation.reasonExpire = 0L;
         relation.emotionLabel = relationLabel(relation);
         relation.updateTime = System.currentTimeMillis();
+        relation.provisionalInitial = false;
         saveRelation(relation);
     }
 
@@ -481,6 +506,7 @@ public class RoleplayEmotionService {
         int annoyance = event.annoyanceDelta;
         if (relation != null) {
             affinity = applyDailyDelta(groupID,userID,now,"affinityDelta",affinity);
+            if (isBotOwner(userID) && affinity < 0) affinity = 0;
             trust = applyDailyDelta(groupID,userID,now,"trustDelta",trust);
             annoyance = applyDailyDelta(groupID,userID,now,"annoyanceDelta",annoyance);
             relation.affinity = clamp(relation.affinity + affinity,0,100);
@@ -738,14 +764,28 @@ public class RoleplayEmotionService {
     }
 
     private synchronized RelationState relation(long groupID,long userID) {
+        return relation(groupID,userID,"");
+    }
+
+    private synchronized RelationState relation(long groupID,long userID,String relationship) {
         String key = relationKey(groupID,userID);
         RelationState state = relationCache.get(key);
         if (state == null) {
             JSONObject row = storage().queryOne("SELECT * FROM `"+RELATION_TABLE
                     +"` WHERE `groupID`=? AND `userID`=?",groupID,userID);
-            state = row == null ? defaultRelation(groupID,userID) : relationFromJson(row);
+            state = row == null ? defaultRelation(groupID,userID,relationship) : relationFromJson(row);
             RelationState previous = relationCache.putIfAbsent(key,state);
             if (previous != null) state = previous;
+            if (row == null && !state.provisionalInitial) saveRelation(state);
+        }
+        if (state.provisionalInitial && !safe(relationship).isEmpty()) {
+            RelationState initialized = defaultRelation(groupID,userID,relationship);
+            state.affinity = initialized.affinity;
+            state.trust = initialized.trust;
+            state.annoyance = initialized.annoyance;
+            state.emotionLabel = relationLabel(state);
+            state.provisionalInitial = false;
+            saveRelation(state);
         }
         decayRelation(state);
         return state;
@@ -780,8 +820,12 @@ public class RoleplayEmotionService {
         long days = (now - relation.updateTime) / DAY_MILLIS;
         if (days <= 0) return;
         int steps = (int) Math.min(60,days);
-        relation.affinity = moveToward(relation.affinity,config.initialAffinity,steps);
-        relation.trust = moveToward(relation.trust,50,steps);
+        if (isBotOwner(relation.userID)) {
+            relation.affinity = 100;
+        } else {
+            relation.affinity = moveToward(relation.affinity,config.initialAffinity,steps);
+        }
+        relation.trust = moveToward(relation.trust,config.initialTrust,steps);
         relation.annoyance = Math.max(0,relation.annoyance - steps);
         if (relation.reasonStrength > 0) {
             relation.reasonStrength = Math.max(0,relation.reasonStrength - steps * 2);
@@ -821,17 +865,41 @@ public class RoleplayEmotionService {
         return mood;
     }
 
-    private RelationState defaultRelation(long groupID,long userID) {
+    private RelationState defaultRelation(long groupID,long userID,String relationship) {
         RelationState relation = new RelationState();
         relation.groupID = groupID;
         relation.userID = userID;
-        relation.affinity = clamp(config.initialAffinity,0,100);
-        relation.trust = 50;
+        double multiplier = initialMultiplier(userID,relationship);
+        relation.affinity = isBotOwner(userID)
+                ? 100 : clamp((int) Math.round(config.initialAffinity * multiplier),0,100);
+        relation.trust = clamp((int) Math.round(config.initialTrust
+                * Math.min(1.25,multiplier)),0,100);
         relation.annoyance = 0;
         relation.emotionLabel = relationLabel(relation);
         relation.lastInteraction = System.currentTimeMillis();
         relation.updateTime = relation.lastInteraction;
+        relation.provisionalInitial = safe(relationship).isEmpty();
         return relation;
+    }
+
+    private double initialMultiplier(long userID,String relationship) {
+        double multiplier = 1.0;
+        if ("老师".equals(safe(relationship))) {
+            multiplier *= config.initialGroupAdminMultiplier;
+        }
+        if (isBotAdmin(userID)) multiplier *= config.initialBotAdminMultiplier;
+        if (isBotOwner(userID)) multiplier *= config.initialBotOwnerMultiplier;
+        return Math.max(1.0,multiplier);
+    }
+
+    private boolean isBotAdmin(long userID) {
+        List<Long> admins = plugin.getServer().getAdminList();
+        return admins != null && admins.contains(userID);
+    }
+
+    private boolean isBotOwner(long userID) {
+        List<Long> owners = plugin.getServer().getOwnerList();
+        return owners != null && owners.contains(userID);
     }
 
     private MoodState moodFromJson(JSONObject json) {
@@ -1036,6 +1104,7 @@ public class RoleplayEmotionService {
     }
 
     private String relationLabel(RelationState relation) {
+        if (isBotOwner(relation.userID)) return "妈妈";
         if (relation.annoyance >= 70) return "讨厌";
         if (relation.affinity >= 85 && relation.annoyance < 40) return "亲近";
         if (relation.trust >= 75 && relation.annoyance < 50) return "信任";
@@ -1054,6 +1123,21 @@ public class RoleplayEmotionService {
         }
         if (text.contains("信任")) return "信任";
         return "在意";
+    }
+
+    private String intimacyPrompt(RelationState relation) {
+        if (relation.affinity >= config.intimacyVeryCloseAffinity) {
+            return "亲密程度：非常亲近。对方提出抱抱、牵手、贴贴、靠肩、摸头、膝枕等日常亲密举动时，"
+                    +"可以自然接受、害羞回应或反过来撒娇，不要本能拒绝；只有露骨性内容或现实隐私需要明确挡住。";
+        }
+        if (relation.affinity >= config.intimacyCloseAffinity) {
+            return "亲密程度：关系亲近。可以接受轻微亲密和暧昧互动，例如靠近、牵手、抱一下、摸头，"
+                    +"可以害羞、别扭或吐槽，但不要冷冰冰地拒绝。";
+        }
+        if (relation.affinity >= 60) {
+            return "亲密程度：熟悉。可以接住普通玩笑和轻微暧昧，但明显亲密举动要先表现出害羞、犹豫或转移话题。";
+        }
+        return "亲密程度：还不算亲近。亲密举动要保持距离，先害羞、吐槽或转移话题，不要表现成恋人式亲近。";
     }
 
     private String levelText(int value) {

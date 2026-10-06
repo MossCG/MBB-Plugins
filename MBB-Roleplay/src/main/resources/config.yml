@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 14
+configVersion: 15
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -15,9 +15,21 @@ replyCooldownSecond: 5
 #同一群每小时最多回复次数
 maxRepliesPerHour: 180
 #角色对所有真人成员的初始好感度，0 到 100
-initialAffinity: 70
+initialAffinity: 85
+#角色对所有真人成员的初始信任度，0 到 100
+initialTrust: 70
+#群主和群管理员的初始好感倍率
+initialGroupAdminMultiplier: 1.05
+#botAdmin 的初始好感倍率
+initialBotAdminMultiplier: 1.10
+#botOwner 的初始好感倍率
+initialBotOwnerMultiplier: 1.15
 #同一用户每天好感、信任和厌烦的最大累计变化值
 relationDailyMaxDelta: 5
+#达到该好感度时，常态允许轻微亲密互动
+intimacyCloseAffinity: 80
+#达到该好感度时，允许明显的撒娇和日常亲密举动
+intimacyVeryCloseAffinity: 92
 #是否启用角色情绪与用户关系机制
 emotionEnable: true
 #情绪回落间隔，每隔多少分钟向角色人格基线靠近一次

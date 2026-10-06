@@ -21,4 +21,6 @@ public class RoleplayConversationState {
     public long lastAddressedTime = 0L;
     /** 最近一次路由给出的主题，仅用于日志与后续判断 */
     public String topic = "";
+    /** 戳一戳回复策略轮换计数，避免每次固定戳回去 */
+    public int pokeVariant = 0;
 }

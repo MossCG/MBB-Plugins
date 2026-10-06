@@ -49,6 +49,7 @@ public class RoleplayService {
     private final RoleplaySpeechCorpusService speechCorpusService;
     private final RoleplayActionService actionService;
     private final RoleplayEmotionService emotionService;
+    private final RoleplayBlacklistService blacklistService;
     private final RoleplaySkillRegistry skillRegistry;
     private final RoleplayRouter router;
     private final RoleplayStyler styler;
@@ -228,6 +229,7 @@ public class RoleplayService {
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
         this.emotionService = new RoleplayEmotionService(plugin,config,persona);
+        this.blacklistService = new RoleplayBlacklistService(plugin);
         this.skillRegistry = new RoleplaySkillRegistry(this);
         this.router = new RoleplayRouter(plugin,this);
         this.styler = new RoleplayStyler(plugin);
@@ -275,6 +277,7 @@ public class RoleplayService {
         globalMemoryService.init();
         speechCorpusService.init();
         emotionService.init();
+        blacklistService.init();
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
@@ -338,6 +341,11 @@ public class RoleplayService {
         if (!isGroupEnabled(groupID)) return;
         long selfID = event.getRaw().getLongValue("self_id");
         if (selfID > 0 && selfID == event.getUserID()) return;
+        if (blacklistService.contains(groupID,event.getUserID())) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 忽略黑名单用户 "
+                    +event.getUserID()+" 的消息");
+            return;
+        }
         if (containsIgnoredContent(event.getMessage())) return;
         String content = extractContent(event.getMessage());
         if (content == null || content.trim().isEmpty()) return;
@@ -403,10 +411,6 @@ public class RoleplayService {
         signals.contentLength = content.length();
         String skipReason = RoleplayDecisionEngine.skipReason(config,signals);
         if (skipReason != null) {
-            if (signals.addressedToOtherRole) {
-                plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过指向其他角色的消息："
-                        +shortText(content,80));
-            }
             return;
         }
         RoleplayEmotionService.LocalEvent emotionEvent = emotionService.observeMessage(
@@ -519,6 +523,11 @@ public class RoleplayService {
         if (groupID <= 0 || userID <= 0 || selfID <= 0) return;
         if (event.getTargetID() != selfID || userID == selfID) return;
         if (!isGroupEnabled(groupID)) return;
+        if (blacklistService.contains(groupID,userID)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 忽略黑名单用户 "
+                    +userID+" 的戳一戳");
+            return;
+        }
         if (!canReply(groupID)) return;
 
         RoleplayRouteDecision decision = new RoleplayRouteDecision();
@@ -526,13 +535,38 @@ public class RoleplayService {
         decision.reply = true;
         decision.confidence = 1.0;
         decision.chance = 1.0;
-        decision.reason = "被戳一戳";
-        if (config.pokeBackEnable) decision.actions.add("poke_back");
 
         JSONObject member = pokeMember(groupID,userID);
         String userName = pokeMemberName(member,userID);
-        String relationship = pokeRelationship(member);
-        String content = "[戳一戳] "+userName+" 戳了你一下。";
+        String relationship = pokeRelationship(member,userID);
+        RoleplayConversationState pokeState = state(groupID);
+        int pokeVariant = pokeState.pokeVariant++ % 6;
+        int affinity = emotionService.affinity(groupID,userID);
+        int patience = emotionService.patience(groupID);
+        boolean allowPokeBack = config.pokeBackEnable;
+        String hint;
+        if (patience < 35) {
+            hint = pokeVariant % 3 == 0
+                    ? "服务端心情不太好，用一句短促的吐槽回敬，不要长篇解释。"
+                    : "服务端耐心偏低，可以简短回敬；不要连续重复同一句话。";
+        } else if (affinity >= config.intimacyVeryCloseAffinity) {
+            allowPokeBack = pokeVariant % 4 == 1;
+            hint = "你和对方已经非常亲近，可以撒娇、害羞、假装嫌弃，或用亲昵的短句回应。";
+        } else if (affinity >= config.intimacyCloseAffinity) {
+            allowPokeBack = pokeVariant % 3 == 1;
+            hint = "你和对方关系亲近，可以自然吐槽、反戳、装作不耐烦或小声抱怨。";
+        } else {
+            allowPokeBack = pokeVariant % 2 == 1;
+            hint = "按当前关系选择回应方式，不要每次都戳回去，可以只吐槽、反问或假装没反应。";
+        }
+        if (!allowPokeBack) {
+            hint += "这一轮不要戳回去，也不要输出 poke-back 动作。";
+        } else {
+            hint += "如果合适可以戳回去，但正文不要只机械重复“戳回去”，换一句角色化表达。";
+        }
+        decision.reason = "被戳一戳："+hint;
+        if (config.pokeBackEnable && allowPokeBack) decision.actions.add("poke-back");
+        String content = "[戳一戳] "+userName+" 戳了你一下。本轮建议："+hint;
         RoleplayEmotionService.LocalEvent emotionEvent = emotionService.observePoke(
                 groupID,userID,userName);
         JSONObject result = reply(groupID,userID,userName,content,false,relationship,null,decision);
@@ -579,7 +613,8 @@ public class RoleplayService {
         return String.valueOf(userID);
     }
 
-    private String pokeRelationship(JSONObject member) {
+    private String pokeRelationship(JSONObject member,long userID) {
+        if (isOwner(userID)) return "妈妈";
         String role = member == null ? "" : safe(member.getString("role")).trim();
         if ("owner".equals(role) || "admin".equals(role)) return "老师";
         return "朋友";
@@ -807,6 +842,27 @@ public class RoleplayService {
         return emotionService;
     }
 
+    public RoleplayBlacklistService getBlacklistService() {
+        return blacklistService;
+    }
+
+    public void blacklistAdd(long groupID,long userID,String reason,long operatorID) {
+        blacklistService.add(groupID,userID,reason,operatorID);
+        removeBlacklistedUserContext(groupID,userID);
+    }
+
+    private void removeBlacklistedUserContext(long groupID,long userID) {
+        storage().update("DELETE FROM `"+MSG_TABLE+"` WHERE `groupID`=? AND `userID`=?",
+                groupID,userID);
+        storage().update("DELETE FROM `"+MEMORY_TABLE+"` WHERE `groupID`=? AND `subjectID`=?",
+                groupID,userID);
+        String key = recentImageKey(groupID,userID);
+        recentImageMap.remove(key);
+        recentStickerMap.remove(key);
+        pendingTurnMap.remove(key);
+        pendingGenerationMap.remove(key);
+    }
+
     /** 技能注册表使用的内部入口，只在本包内可见 */
     Plugin plugin() {
         return plugin;
@@ -914,6 +970,9 @@ public class RoleplayService {
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
                 +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
                 +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
+                +("妈妈".equals(relationship)
+                ? "当前发言者是 botOwner，角色把他当成妈妈一样亲近、依赖、听话，可以撒娇和撒娇式抱怨，"
+                +"不要用客服口吻，也不要冷淡疏远。" : "")
                 +"所有真人成员的初始好感度为 "+config.initialAffinity+"/100，整体保持较高好感，"
                 +"愿意接话、帮忙和分享，不要冷淡、疏远或无缘无故防备。"
                 +"如果对方提出亲密、暧昧、sexy 或有点过分的要求，不要直接冷冰冰拒绝或长篇说教；"
@@ -1085,9 +1144,12 @@ public class RoleplayService {
                 MemoryCursor cursor = memoryCursor(groupID);
                 List<JSONObject> rows = storage().query(
                         "SELECT `ID`,`userID`,`userName`,`content`,`messageTime` FROM `"+MSG_TABLE+"` "
-                                + "WHERE `groupID`=? AND (`messageTime`>? OR (`messageTime`=? AND `ID`>?)) "
+                                + "WHERE `groupID`=? AND `userID` NOT IN "
+                                + "(SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` WHERE `groupID`=?) "
+                                + "AND (`messageTime`>? OR (`messageTime`=? AND `ID`>?)) "
                                 + "ORDER BY `ID` ASC LIMIT ?",
-                        groupID,cursor.time,cursor.time,cursor.id,config.memoryExtractMessages);
+                        groupID,groupID,cursor.time,cursor.time,cursor.id,
+                        config.memoryExtractMessages);
                 if (rows == null) rows = new ArrayList<>();
                 int queriedRows = rows.size();
                 rows = limitMemoryRows(rows,config.memoryExtractMaxChars);
@@ -1527,6 +1589,7 @@ public class RoleplayService {
             root.put("longTerm",exportLongTerm());
             root.put("globalMemory",globalMemoryService.exportAll());
             root.put("emotion",emotionService.exportState());
+            root.put("blacklist",blacklistService.exportAll());
             String name = "memory-backup-"
                     +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
                     +".json";
@@ -1587,11 +1650,13 @@ public class RoleplayService {
             JSONArray longTerm = root.getJSONArray("longTerm");
             JSONArray globalMemory = root.getJSONArray("globalMemory");
             JSONObject emotion = root.getJSONObject("emotion");
+            JSONArray blacklist = root.getJSONArray("blacklist");
             backupAllMemories("before-restore-"+name);
             storage().update("DELETE FROM `"+MEMORY_TABLE+"`");
             storage().update("DELETE FROM `"+STATE_TABLE+"`");
             globalMemoryService.replaceAll(globalMemory);
             emotionService.restoreState(emotion);
+            blacklistService.restoreAll(blacklist);
             int shortSaved = restoreShortTerm(shortTerm);
             int longSaved = restoreLongTerm(longTerm);
             clearRuntimeMemoryState();
@@ -1601,6 +1666,7 @@ public class RoleplayService {
             result.put("longTerm",longSaved);
             result.put("globalMemory",globalMemory == null ? 0 : globalMemory.size());
             result.put("emotion",emotion != null);
+            result.put("blacklist",blacklist == null ? 0 : blacklist.size());
             plugin.getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
                     +" 条，长期 "+longSaved+" 条，永久 "
                     +(globalMemory == null ? 0 : globalMemory.size())+" 条");
@@ -1730,9 +1796,11 @@ public class RoleplayService {
     private JSONArray recentRoleReplies(long groupID) {
         JSONArray result = new JSONArray();
         List<JSONObject> rows = storage().query(
-                "SELECT `userName`,`content`,`isBot` FROM `"+MSG_TABLE+"` "
-                        + "WHERE `groupID`=? ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?",
-                groupID,Math.max(20,config.recentReplyCheckCount * 3));
+                "SELECT `userName`,`content`,`isBot`,`userID` FROM `"+MSG_TABLE+"` "
+                        + "WHERE `groupID`=? AND (`isBot`=1 OR `userID` NOT IN "
+                        + "(SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` WHERE `groupID`=?)) "
+                        + "ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?",
+                groupID,groupID,Math.max(20,config.recentReplyCheckCount * 3));
         if (rows == null || rows.isEmpty()) return result;
         List<JSONObject> selected = new ArrayList<>();
         for (JSONObject row : rows) {
@@ -1751,8 +1819,10 @@ public class RoleplayService {
 
     private String recentContext(long groupID) {
         List<JSONObject> rows = storage().query(
-                "SELECT `userName`,`content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? ORDER BY `messageTime` DESC LIMIT ?",
-                groupID,config.shortContextMessages);
+                "SELECT `userName`,`content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? "
+                        + "AND `userID` NOT IN (SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` "
+                        + "WHERE `groupID`=?) ORDER BY `messageTime` DESC LIMIT ?",
+                groupID,groupID,config.shortContextMessages);
         if (rows == null || rows.isEmpty()) return "无";
         StringBuilder builder = new StringBuilder();
         for (int i = rows.size() - 1; i >= 0; i--) {
@@ -2057,6 +2127,7 @@ public class RoleplayService {
 
     private String relationshipLabel(GroupMessageEvent event,boolean otherRoleBot) {
         if (otherRoleBot) return "其他角色机器人";
+        if (event != null && isOwner(event.getUserID())) return "妈妈";
         JSONObject sender = event == null ? null : event.getSender();
         String role = sender == null ? "" : safe(sender.getString("role")).trim().toLowerCase(Locale.CHINA);
         if ("owner".equals(role) || "admin".equals(role)) return "老师";

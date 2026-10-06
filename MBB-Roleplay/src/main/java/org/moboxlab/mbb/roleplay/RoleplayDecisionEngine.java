@@ -29,7 +29,6 @@ public class RoleplayDecisionEngine {
      * 返回 null 表示可以继续，返回文本表示跳过原因
      */
     public static String skipReason(RoleplayConfig config,Signals signals) {
-        if (signals.addressedToOtherRole) return "消息指向其他角色";
         if (signals.otherRoleBot && signals.reminderNotification) return "另一个机器人的提醒通知";
         if (signals.otherRoleBot && signals.otherRoleStreak > config.maxConsecutiveOtherRoleMessages) {
             return "与另一个机器人连续往返超过上限";

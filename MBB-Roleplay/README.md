@@ -59,6 +59,12 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - `(群号, QQ)` 关系记录支持用户级情绪原因，例如“讨厌这个人，因为他在冒名顶替我”，原因不会直接发送到 QQ
 - 情绪更新分为本地规则和异步语义分析两段，回复结果仍然只有 `text`、`actions`、`quote`，不会携带情绪提示
 - 用户可以随时通过管理命令查看当前群情绪、指定用户关系和原因，owner 可以设置或清空原因
+- 新增按群黑名单，黑名单用户的消息和戳一戳不进入上下文，也不会触发角色回复
+- 初始好感和信任提高，群主/群管理员、botAdmin、botOwner 拥有不同的初始好感倍率
+- botOwner 初始好感直接满值且不会下降，角色会把 botOwner 当作妈妈一样亲近、依赖和听劝
+- 好感度达到阈值后，角色会逐步接受抱抱、牵手、贴贴、摸头和撒娇式互动
+- 戳一戳回复加入轮换策略，不再每次都机械地戳回去
+- 提及其他角色不再作为硬跳过条件；明确在和小绿聊天时可以自然提到小桃
 - 安装 `MBB-ComfyUI` 后开放 `draw` 技能；需求不完整时角色会自行补全背景、动作、风格和尺寸，并优先写完整角色名
 - 生图完成后角色会基于 prompt 生成简短完成提醒，图片先发、提醒后发，不再二次识图
 - 亲密、暧昧或有点过分的要求会以害羞、别扭、撒娇或转移话题回应，不输出露骨内容
@@ -79,11 +85,16 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role reload` | `BOT_ADMIN` | 重载角色设定和配置 |
 | `/role config` | `BOT_ADMIN` | 查看配置文件与补全状态 |
 | `/role config repair` | `BOT_ADMIN` | 手动补全缺失配置项 |
+| `/role blacklist list` | `BOT_ADMIN` | 查看当前群黑名单 |
+| `/role blacklist add <QQ> [原因]` | `BOT_ADMIN` | 将用户加入当前群黑名单并清理其上下文 |
+| `/role blacklist remove <QQ>` | `BOT_ADMIN` | 将用户移出当前群黑名单 |
+| `/role blacklist clear` | `BOT_ADMIN` | 清空当前群黑名单 |
 | `/role mood [页码]` | `BOT_ADMIN` | 以图片查看当前群情绪和情绪事件 |
 | `/role mood reset` | `OWNER` | 将当前群情绪重置到角色基线 |
 | `/role emotion [QQ] [页码]` | `BOT_ADMIN` | 以图片查看指定用户的关系、情绪原因和变化记录 |
 | `/role emotion reset [QQ]` | `BOT_ADMIN` | 重置自己或指定用户的关系状态，重置他人需要 owner |
 | `/role emotion log [页码]` | `BOT_ADMIN` | 以图片查看当前群的情绪事件流水 |
+| `/role emotion affinity set <QQ> <0-100>` | `BOT_ADMIN` | 强制设置指定用户的好感度 |
 | `/role emotion reason set <QQ> <原因>` | `OWNER` | 手动设置指定用户的情绪原因 |
 | `/role emotion reason clear <QQ>` | `OWNER` | 清空指定用户的情绪原因 |
 | `/role bot` | `BOT_ADMIN` | 查看机器人互聊设置 |
@@ -167,7 +178,9 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 群主和管理员若不是其他角色机器人，统一视为老师；其他真人成员视为朋友；另一个角色机器人按角色设定中的同伴关系处理，不会因为群权限被误称为老师。
 
-`initialAffinity` 控制所有真人成员的初始好感度，默认 `70/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。普通闲聊只会产生很低的临时变化，明显事件才会写入原因，例如：
+`initialAffinity` 控制所有真人成员的初始好感度，默认 `85/100`；`initialTrust` 控制初始信任度，默认 `70/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。群主和群管理员、botAdmin、botOwner 会分别叠加初始好感倍率。botOwner 会更进一步，初始好感固定为 `100/100`，之后不会下降，角色把 botOwner 当成妈妈一样亲近、依赖和听劝。
+
+普通闲聊只会产生很低的临时变化，明显事件才会写入原因，例如：
 
 ```text
 讨厌这个人，因为他在冒名顶替我
@@ -176,6 +189,8 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 ```
 
 群级短期情绪包含心情、精力和耐心，会随时间回落到角色人格基线。桃井、绿、爱丽丝的基线分别存放在各自 persona 文件的 `emotionBaseline` 中。
+
+好感度达到 `intimacyCloseAffinity` 后会逐步接受轻微亲密互动，达到 `intimacyVeryCloseAffinity` 后可以自然接受抱抱、牵手、贴贴、靠肩、摸头和膝枕等日常亲密举动。botOwner 的亲密关系按“妈妈”处理，不进入恋爱方向。
 
 情绪不会改写回复结构。执行层仍然只返回：
 
@@ -187,6 +202,13 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 ```yaml
 emotionEnable: true
+initialAffinity: 85
+initialTrust: 70
+initialGroupAdminMultiplier: 1.05
+initialBotAdminMultiplier: 1.10
+initialBotOwnerMultiplier: 1.15
+intimacyCloseAffinity: 80
+intimacyVeryCloseAffinity: 92
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 30
 emotionAnalyzeEnable: true
@@ -202,8 +224,11 @@ emotionReasonDecayDays: 30
 ```text
 /role mood
 /role emotion 123456789
+/role emotion affinity set 123456789 95
 /role emotion reason set 123456789 讨厌这个人，因为他在冒名顶替我
 /role emotion reason clear 123456789
+/role blacklist add 123456789 恶意刷屏
+/role blacklist list
 ```
 
 ## 依赖
@@ -215,8 +240,14 @@ emotionReasonDecayDays: 30
 ```yaml
 replyCooldownSecond: 5
 maxRepliesPerHour: 180
-initialAffinity: 70
+initialAffinity: 85
+initialTrust: 70
+initialGroupAdminMultiplier: 1.05
+initialBotAdminMultiplier: 1.10
+initialBotOwnerMultiplier: 1.15
 relationDailyMaxDelta: 5
+intimacyCloseAffinity: 80
+intimacyVeryCloseAffinity: 92
 emotionEnable: true
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 30
@@ -486,6 +517,7 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 - `longTerm`：所有群的长期记忆
 - `globalMemory`：全局永久记忆
 - `emotion`：群级情绪、用户关系、用户级情绪原因和情绪事件流水
+- `blacklist`：按群用户黑名单和操作原因
 
 恢复时先自动备份当前记忆，再用指定文件覆盖记忆和情绪关系状态。恢复操作仅 `OWNER` 可用。
 
@@ -599,4 +631,4 @@ speechSimilarityMinChars: 6
 
 `config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放；如果要应用新版桃井或绿设定，可以执行 `/role persona reset <文件名>`，或手动合并 `persona-*.json`。
 
-情绪机制升级到配置结构版本 14 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表。旧记忆备份仍可恢复；包含 `emotion` 字段的新备份会同时恢复情绪和用户关系。
+情绪机制升级到配置结构版本 15 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表；黑名单机制会创建 `plugin_mbb_roleplay_blacklist`。旧记忆备份仍可恢复；包含 `emotion` 和 `blacklist` 字段的新备份会同时恢复情绪、用户关系和黑名单。

@@ -45,9 +45,9 @@ public class RoleplayPersona {
     public List<StudentProfile> studentProfiles = new ArrayList<>();
     public List<String> terminology = new ArrayList<>();
     public List<String> storyMemory = new ArrayList<>();
-    public int emotionBaselineValence = 65;
-    public int emotionBaselineEnergy = 65;
-    public int emotionBaselinePatience = 65;
+    public int emotionBaselineValence = 75;
+    public int emotionBaselineEnergy = 75;
+    public int emotionBaselinePatience = 75;
 
     public static RoleplayPersona load(Plugin plugin,String fileName) {
         RoleplayPersona persona = new RoleplayPersona();
@@ -79,9 +79,9 @@ public class RoleplayPersona {
             persona.storyMemory = readList(json.getJSONArray("storyMemory"));
             JSONObject emotionBaseline = json.getJSONObject("emotionBaseline");
             if (emotionBaseline != null) {
-                persona.emotionBaselineValence = clamp(emotionBaseline.getIntValue("valence"),65);
-                persona.emotionBaselineEnergy = clamp(emotionBaseline.getIntValue("energy"),65);
-                persona.emotionBaselinePatience = clamp(emotionBaseline.getIntValue("patience"),65);
+                persona.emotionBaselineValence = clamp(emotionBaseline.getIntValue("valence"),75);
+                persona.emotionBaselineEnergy = clamp(emotionBaseline.getIntValue("energy"),75);
+                persona.emotionBaselinePatience = clamp(emotionBaseline.getIntValue("patience"),75);
             }
             mergeSharedStudents(plugin,persona);
         } catch (Exception e) {

@@ -21,8 +21,14 @@ public class RoleplayConfig {
     public String timeZone = "Asia/Shanghai";
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
-    public int initialAffinity = 70;
+    public int initialAffinity = 85;
+    public int initialTrust = 60;
+    public double initialGroupAdminMultiplier = 1.05;
+    public double initialBotAdminMultiplier = 1.10;
+    public double initialBotOwnerMultiplier = 1.15;
     public int relationDailyMaxDelta = 5;
+    public int intimacyCloseAffinity = 80;
+    public int intimacyVeryCloseAffinity = 92;
     public boolean emotionEnable = true;
     public int emotionDecayMinute = 30;
     public int emotionEventCooldownSecond = 30;
@@ -124,8 +130,29 @@ public class RoleplayConfig {
         config.timeZone = plugin.getConfig().getString("timeZone","Asia/Shanghai");
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
-        config.initialAffinity = plugin.getConfig().getInt("initialAffinity",70);
+        config.initialAffinity = plugin.getConfig().getInt("initialAffinity",85);
+        config.initialTrust = plugin.getConfig().getInt("initialTrust",70);
+        try {
+            config.initialGroupAdminMultiplier = Double.parseDouble(
+                    plugin.getConfig().getString("initialGroupAdminMultiplier","1.05"));
+        } catch (Exception e) {
+            config.initialGroupAdminMultiplier = 1.05;
+        }
+        try {
+            config.initialBotAdminMultiplier = Double.parseDouble(
+                    plugin.getConfig().getString("initialBotAdminMultiplier","1.10"));
+        } catch (Exception e) {
+            config.initialBotAdminMultiplier = 1.10;
+        }
+        try {
+            config.initialBotOwnerMultiplier = Double.parseDouble(
+                    plugin.getConfig().getString("initialBotOwnerMultiplier","1.15"));
+        } catch (Exception e) {
+            config.initialBotOwnerMultiplier = 1.15;
+        }
         config.relationDailyMaxDelta = plugin.getConfig().getInt("relationDailyMaxDelta",5);
+        config.intimacyCloseAffinity = plugin.getConfig().getInt("intimacyCloseAffinity",80);
+        config.intimacyVeryCloseAffinity = plugin.getConfig().getInt("intimacyVeryCloseAffinity",92);
         config.emotionEnable = plugin.getConfig().getBoolean("emotionEnable",true);
         config.emotionDecayMinute = plugin.getConfig().getInt("emotionDecayMinute",30);
         config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",30);
@@ -279,8 +306,22 @@ public class RoleplayConfig {
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
         if (config.initialAffinity < 0) config.initialAffinity = 0;
         if (config.initialAffinity > 100) config.initialAffinity = 100;
+        if (config.initialTrust < 0) config.initialTrust = 0;
+        if (config.initialTrust > 100) config.initialTrust = 100;
+        if (config.initialGroupAdminMultiplier < 1) config.initialGroupAdminMultiplier = 1;
+        if (config.initialGroupAdminMultiplier > 2) config.initialGroupAdminMultiplier = 2;
+        if (config.initialBotAdminMultiplier < 1) config.initialBotAdminMultiplier = 1;
+        if (config.initialBotAdminMultiplier > 2) config.initialBotAdminMultiplier = 2;
+        if (config.initialBotOwnerMultiplier < 1) config.initialBotOwnerMultiplier = 1;
+        if (config.initialBotOwnerMultiplier > 2) config.initialBotOwnerMultiplier = 2;
         if (config.relationDailyMaxDelta < 1) config.relationDailyMaxDelta = 1;
         if (config.relationDailyMaxDelta > 30) config.relationDailyMaxDelta = 30;
+        if (config.intimacyCloseAffinity < 0) config.intimacyCloseAffinity = 0;
+        if (config.intimacyCloseAffinity > 100) config.intimacyCloseAffinity = 100;
+        if (config.intimacyVeryCloseAffinity < config.intimacyCloseAffinity) {
+            config.intimacyVeryCloseAffinity = config.intimacyCloseAffinity;
+        }
+        if (config.intimacyVeryCloseAffinity > 100) config.intimacyVeryCloseAffinity = 100;
         if (config.emotionDecayMinute < 5) config.emotionDecayMinute = 5;
         if (config.emotionDecayMinute > 1440) config.emotionDecayMinute = 1440;
         if (config.emotionEventCooldownSecond < 0) config.emotionEventCooldownSecond = 0;
