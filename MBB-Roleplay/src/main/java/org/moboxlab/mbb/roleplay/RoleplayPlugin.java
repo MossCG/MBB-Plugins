@@ -7,6 +7,9 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * MBB-Roleplay 插件
@@ -101,7 +104,18 @@ public class RoleplayPlugin extends Plugin {
         try {
             byte[] bytes = readResource(name);
             if (bytes == null) return false;
-            Files.write(Paths.get(new File(getDataFolder(),name).getAbsolutePath()),bytes);
+            //覆盖前先备份运行目录里的旧设定，避免用户自定义内容丢失
+            File file = new File(getDataFolder(),name);
+            if (file.exists()) {
+                File backupDirectory = new File(getDataFolder(),"backup");
+                backupDirectory.mkdirs();
+                String backupName = "persona-backup-"
+                        +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
+                        +"-"+name;
+                Files.copy(file.toPath(),new File(backupDirectory,backupName).toPath());
+                getLogger().sendInfo("角色设定重置前已备份："+backupName);
+            }
+            Files.write(Paths.get(file.getAbsolutePath()),bytes);
             reloadRoleplay();
             return true;
         } catch (Exception e) {
