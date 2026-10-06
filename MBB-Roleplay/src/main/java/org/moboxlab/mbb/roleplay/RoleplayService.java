@@ -3485,6 +3485,8 @@ public class RoleplayService {
             String text = extractContent(event.getMessage());
             if (text != null && !text.trim().isEmpty()) {
                 pending.appendContent(text);
+                //并入的这句仍然要写进消息流水，否则记忆整理看不到它
+                recordMessage(event,text,false);
                 if (event.getMessageID() > 0) {
                     if (mergedMessageIDs.size() > 500) mergedMessageIDs.clear();
                     mergedMessageIDs.add(event.getMessageID());
