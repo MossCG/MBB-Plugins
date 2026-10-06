@@ -192,6 +192,8 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 好感、信任和厌烦的变化频率已收紧：普通闲聊和戳一戳只影响群级情绪，不再直接改关系；关系数值只由带明确原因的高信号事件、AI 语义事件或管理员命令改变。每次关系数值变化都会写入情绪事件流水，并保留变化原因；没有原因的关系变化会被直接忽略。每日单项累计变化默认限制为 `2` 点。
 
+关系数值支持小数。每次事件通常只增加或减少 `0.1` 到 `0.5`。同一天内的原始增量会持续累计，但当日实际值最多只能比当日开始值高或低 `relationDailyMaxDelta`。例如当日累计 `5.9`，上限是 `2`，长期生效值仍然只增加 `2`，超出的 `3.9` 会在跨日时丢弃。这样不会因为单次取整或短时间多次小幅波动而浪费变化量。
+
 群级短期情绪包含心情、精力和耐心，会随时间回落到角色人格基线。桃井、绿、爱丽丝的基线分别存放在各自 persona 文件的 `emotionBaseline` 中。
 
 好感度达到 `intimacyCloseAffinity` 后会逐步接受轻微亲密互动，达到 `intimacyVeryCloseAffinity` 后可以自然接受抱抱、牵手、贴贴、靠肩、摸头和膝枕等日常亲密举动。botOwner 的亲密关系按“妈妈”处理，不进入恋爱方向。
@@ -249,7 +251,7 @@ initialTrust: 60
 initialGroupAdminMultiplier: 1.05
 initialBotAdminMultiplier: 1.10
 initialBotOwnerMultiplier: 1.15
-relationDailyMaxDelta: 2
+relationDailyMaxDelta: 2.0
 intimacyCloseAffinity: 75
 intimacyVeryCloseAffinity: 90
 emotionEnable: true
@@ -261,7 +263,7 @@ emotionAnalyzeProfile: ""
 emotionAnalyzeCooldownSecond: 300
 emotionAnalyzeMaxTokens: 1200
 emotionAnalyzeReasoningEffort: "low"
-emotionAnalyzeMaxDelta: 12
+emotionAnalyzeMaxDelta: 0.8
 emotionReasonMaxChars: 120
 emotionReasonMinStrength: 40
 emotionReasonDecayDays: 30
@@ -635,4 +637,4 @@ speechSimilarityMinChars: 6
 
 `config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放；如果要应用新版桃井或绿设定，可以执行 `/role persona reset <文件名>`，或手动合并 `persona-*.json`。
 
-情绪机制升级到配置结构版本 17 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表；黑名单机制会创建 `plugin_mbb_roleplay_blacklist`。旧记忆备份仍可恢复；包含 `emotion` 和 `blacklist` 字段的新备份会同时恢复情绪、用户关系和黑名单。关系变化冷却、每日变化上限和旧初始好感的自动迁移也由该版本处理。
+情绪机制升级到配置结构版本 18 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表；黑名单机制会创建 `plugin_mbb_roleplay_blacklist`。旧记忆备份仍可恢复；包含 `emotion` 和 `blacklist` 字段的新备份会同时恢复情绪、用户关系和黑名单。该版本还会为已有关系表补齐小数累计字段，并自动迁移旧初始好感、每日变化上限和情绪分析单项上限。

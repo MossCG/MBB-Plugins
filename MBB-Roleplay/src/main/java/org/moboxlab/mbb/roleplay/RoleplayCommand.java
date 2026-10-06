@@ -561,9 +561,9 @@ public class RoleplayCommand extends BotCommand {
         JSONObject relation = data.getJSONObject("relation");
         sender.sendMessage("用户关系 QQ："+userID
                 +"\n态度："+relation.getString("emotionLabel")
-                +"\n好感："+relation.getIntValue("affinity")
-                +"\n信任："+relation.getIntValue("trust")
-                +"\n厌烦："+relation.getIntValue("annoyance")
+                +"\n好感："+formatDecimal(relation.getDoubleValue("affinity"))
+                +"\n信任："+formatDecimal(relation.getDoubleValue("trust"))
+                +"\n厌烦："+formatDecimal(relation.getDoubleValue("annoyance"))
                 +"\n原因："+relation.getString("emotionReason"));
     }
 
@@ -615,9 +615,9 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         long userID = parseUserID(args[4]);
-        int affinity;
+        double affinity;
         try {
-            affinity = Integer.parseInt(args[5]);
+            affinity = Double.parseDouble(args[5]);
         } catch (Exception e) {
             sender.sendMessage("好感度格式不正确。");
             return;
@@ -627,7 +627,7 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         service.getEmotionService().setRelationAffinity(groupID,userID,affinity);
-        sender.sendMessage("用户 "+userID+" 的好感度已设置为 "+affinity+"。");
+        sender.sendMessage("用户 "+userID+" 的好感度已设置为 "+formatDecimal(affinity)+"。");
     }
 
     private void handleBlacklist(CommandSender sender,String[] args) {
@@ -702,6 +702,13 @@ public class RoleplayCommand extends BotCommand {
         } catch (Exception e) {
             return 1;
         }
+    }
+
+    private String formatDecimal(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.001) {
+            return String.valueOf((long) Math.rint(value));
+        }
+        return String.format(java.util.Locale.CHINA,"%.1f",value);
     }
 
     private void handleBot(CommandSender sender,String[] args) {

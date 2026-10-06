@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 17
+configVersion: 18
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -49,7 +49,7 @@ emotionAnalyzeMaxTokens: 1200
 #情绪分析思考强度：low / medium / high，留空表示不发送
 emotionAnalyzeReasoningEffort: "low"
 #单次 AI 情绪分析对单项数值的最大变化
-emotionAnalyzeMaxDelta: 12
+emotionAnalyzeMaxDelta: 0.8
 #用户级情绪原因的最大字符数
 emotionReasonMaxChars: 120
 #低于该强度时不再把情绪原因注入提示词

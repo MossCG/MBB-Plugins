@@ -54,9 +54,9 @@ public class RoleplayEmotionService {
     public static class RelationState {
         public long groupID;
         public long userID;
-        public int affinity;
-        public int trust;
-        public int annoyance;
+        public double affinity;
+        public double trust;
+        public double annoyance;
         public String emotionLabel = "普通";
         public String emotionReason = "";
         public int reasonStrength;
@@ -66,6 +66,13 @@ public class RoleplayEmotionService {
         public long lastInteraction;
         public long updateTime;
         public boolean provisionalInitial;
+        public int dayKey;
+        public double dayBaseAffinity;
+        public double dayBaseTrust;
+        public double dayBaseAnnoyance;
+        public double dayDeltaAffinity;
+        public double dayDeltaTrust;
+        public double dayDeltaAnnoyance;
     }
 
     public static class LocalEvent {
@@ -76,9 +83,9 @@ public class RoleplayEmotionService {
         public int valenceDelta;
         public int energyDelta;
         public int patienceDelta;
-        public int affinityDelta;
-        public int trustDelta;
-        public int annoyanceDelta;
+        public double affinityDelta;
+        public double trustDelta;
+        public double annoyanceDelta;
 
         private static LocalEvent none() {
             return new LocalEvent();
@@ -122,9 +129,9 @@ public class RoleplayEmotionService {
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "`groupID` INTEGER NOT NULL DEFAULT 0,"
                 + "`userID` INTEGER NOT NULL DEFAULT 0,"
-                + "`affinity` INTEGER NOT NULL DEFAULT 0,"
-                + "`trust` INTEGER NOT NULL DEFAULT 0,"
-                + "`annoyance` INTEGER NOT NULL DEFAULT 0,"
+                + "`affinity` REAL NOT NULL DEFAULT 0,"
+                + "`trust` REAL NOT NULL DEFAULT 0,"
+                + "`annoyance` REAL NOT NULL DEFAULT 0,"
                 + "`emotionLabel` TEXT NOT NULL DEFAULT '普通',"
                 + "`emotionReason` TEXT NOT NULL DEFAULT '',"
                 + "`reasonStrength` INTEGER NOT NULL DEFAULT 0,"
@@ -132,7 +139,14 @@ public class RoleplayEmotionService {
                 + "`reasonSince` INTEGER NOT NULL DEFAULT 0,"
                 + "`reasonExpire` INTEGER NOT NULL DEFAULT 0,"
                 + "`lastInteraction` INTEGER NOT NULL DEFAULT 0,"
-                + "`updateTime` INTEGER NOT NULL DEFAULT 0"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0,"
+                + "`dayKey` INTEGER NOT NULL DEFAULT 0,"
+                + "`dayBaseAffinity` REAL NOT NULL DEFAULT 0,"
+                + "`dayBaseTrust` REAL NOT NULL DEFAULT 0,"
+                + "`dayBaseAnnoyance` REAL NOT NULL DEFAULT 0,"
+                + "`dayDeltaAffinity` REAL NOT NULL DEFAULT 0,"
+                + "`dayDeltaTrust` REAL NOT NULL DEFAULT 0,"
+                + "`dayDeltaAnnoyance` REAL NOT NULL DEFAULT 0"
                 + ")");
         storage().update("CREATE TABLE IF NOT EXISTS `"+EVENT_TABLE+"` ("
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -143,13 +157,20 @@ public class RoleplayEmotionService {
                 + "`valenceDelta` INTEGER NOT NULL DEFAULT 0,"
                 + "`energyDelta` INTEGER NOT NULL DEFAULT 0,"
                 + "`patienceDelta` INTEGER NOT NULL DEFAULT 0,"
-                + "`affinityDelta` INTEGER NOT NULL DEFAULT 0,"
-                + "`trustDelta` INTEGER NOT NULL DEFAULT 0,"
-                + "`annoyanceDelta` INTEGER NOT NULL DEFAULT 0,"
+                + "`affinityDelta` REAL NOT NULL DEFAULT 0,"
+                + "`trustDelta` REAL NOT NULL DEFAULT 0,"
+                + "`annoyanceDelta` REAL NOT NULL DEFAULT 0,"
                 + "`reason` TEXT NOT NULL DEFAULT '',"
                 + "`source` TEXT NOT NULL DEFAULT '',"
                 + "`createTime` INTEGER NOT NULL DEFAULT 0"
                 + ")");
+        ensureColumn(RELATION_TABLE,"dayKey","INTEGER NOT NULL DEFAULT 0");
+        ensureColumn(RELATION_TABLE,"dayBaseAffinity","REAL NOT NULL DEFAULT 0");
+        ensureColumn(RELATION_TABLE,"dayBaseTrust","REAL NOT NULL DEFAULT 0");
+        ensureColumn(RELATION_TABLE,"dayBaseAnnoyance","REAL NOT NULL DEFAULT 0");
+        ensureColumn(RELATION_TABLE,"dayDeltaAffinity","REAL NOT NULL DEFAULT 0");
+        ensureColumn(RELATION_TABLE,"dayDeltaTrust","REAL NOT NULL DEFAULT 0");
+        ensureColumn(RELATION_TABLE,"dayDeltaAnnoyance","REAL NOT NULL DEFAULT 0");
         storage().update("CREATE UNIQUE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_relation_key` "
                 + "ON `"+RELATION_TABLE+"` (`groupID`,`userID`)");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_emotion_event_group` "
@@ -193,15 +214,15 @@ public class RoleplayEmotionService {
         } else if (isImpersonation(text,userName)
                 && allowEvent(groupID,userID,"impersonation",
                 Math.max(300,config.emotionEventCooldownSecond))) {
-            event = event("impersonation","他在冒名顶替你",true,-3,-1,-5,-3,-3,6);
+            event = event("impersonation","他在冒名顶替你",true,-3,-1,-5,-0.8,-0.6,1.2);
             event.persistReason = true;
         } else if (isAttack(text)
                 && allowEvent(groupID,userID,"attack",config.emotionEventCooldownSecond)) {
-            event = event("attack","他刚才说了攻击性的话",true,-6,-2,-8,-3,-2,5);
+            event = event("attack","他刚才说了攻击性的话",true,-6,-2,-8,-0.6,-0.4,1.0);
             event.persistReason = true;
         } else if (isPraise(text)
                 && allowEvent(groupID,userID,"praise",config.emotionEventCooldownSecond)) {
-            event = event("praise","他刚才夸过你",true,4,2,2,1,1,-1);
+            event = event("praise","他刚才夸过你",true,4,2,2,0.4,0.3,-0.2);
             event.persistReason = true;
         } else if (isRepeatedMessage(groupID,userID,text)
                 && allowEvent(groupID,userID,"spam",Math.max(30,config.emotionEventCooldownSecond))) {
@@ -214,11 +235,11 @@ public class RoleplayEmotionService {
         LocalEvent applied = applyEvent(groupID,userID,messageID,mood,relation,event,"rule");
         plugin.getLogger().sendInfo("[情绪] 群"+groupID+" 用户"+userID
                 +" 事件="+event.type
-                +" 心情"+(applied.valenceDelta >= 0 ? "+" : "")+applied.valenceDelta
-                +" 耐心"+(applied.patienceDelta >= 0 ? "+" : "")+applied.patienceDelta
-                +" 好感"+(applied.affinityDelta >= 0 ? "+" : "")+applied.affinityDelta
-                +" 信任"+(applied.trustDelta >= 0 ? "+" : "")+applied.trustDelta
-                +" 厌烦"+(applied.annoyanceDelta >= 0 ? "+" : "")+applied.annoyanceDelta
+                +" 心情"+formatDelta(applied.valenceDelta)
+                +" 耐心"+formatDelta(applied.patienceDelta)
+                +" 好感"+formatDelta(applied.affinityDelta)
+                +" 信任"+formatDelta(applied.trustDelta)
+                +" 厌烦"+formatDelta(applied.annoyanceDelta)
                 +(event.reason.isEmpty() ? "" : " 原因="+event.reason));
         return applied;
     }
@@ -238,8 +259,8 @@ public class RoleplayEmotionService {
         plugin.getLogger().sendInfo("[情绪] 群"+groupID+" 用户"+userID
                 +" 事件=poke 心情"+applied.valenceDelta
                 +" 耐心"+applied.patienceDelta
-                +" 好感"+applied.affinityDelta
-                +" 厌烦"+applied.annoyanceDelta
+                +" 好感"+formatDelta(applied.affinityDelta)
+                +" 厌烦"+formatDelta(applied.annoyanceDelta)
                 +" 原因="+event.reason);
         return applied;
     }
@@ -385,9 +406,9 @@ public class RoleplayEmotionService {
 
     public synchronized void resetRelation(long groupID,long userID) {
         RelationState relation = relation(groupID,userID);
-        int oldAffinity = relation.affinity;
-        int oldTrust = relation.trust;
-        int oldAnnoyance = relation.annoyance;
+        double oldAffinity = relation.affinity;
+        double oldTrust = relation.trust;
+        double oldAnnoyance = relation.annoyance;
         boolean owner = isBotOwner(userID);
         relation.affinity = owner ? 100 : clamp(config.initialAffinity,0,100);
         relation.trust = owner ? 100 : clamp(config.initialTrust,0,100);
@@ -400,6 +421,13 @@ public class RoleplayEmotionService {
         relation.reasonExpire = 0L;
         relation.lastInteraction = System.currentTimeMillis();
         relation.updateTime = System.currentTimeMillis();
+        relation.dayKey = dayKey(relation.updateTime);
+        relation.dayBaseAffinity = relation.affinity;
+        relation.dayBaseTrust = relation.trust;
+        relation.dayBaseAnnoyance = relation.annoyance;
+        relation.dayDeltaAffinity = 0;
+        relation.dayDeltaTrust = 0;
+        relation.dayDeltaAnnoyance = 0;
         relation.provisionalInitial = false;
         saveRelation(relation);
         if (oldAffinity != relation.affinity || oldTrust != relation.trust
@@ -438,12 +466,15 @@ public class RoleplayEmotionService {
         saveRelation(relation);
     }
 
-    public synchronized void setRelationAffinity(long groupID,long userID,int affinity) {
+    public synchronized void setRelationAffinity(long groupID,long userID,double affinity) {
         RelationState relation = relation(groupID,userID);
-        int oldAffinity = relation.affinity;
-        relation.affinity = isBotOwner(userID) ? 100 : clamp(affinity,0,100);
+        double oldAffinity = relation.affinity;
+        relation.affinity = isBotOwner(userID) ? 100 : clampDouble(affinity,0,100);
         relation.emotionLabel = relationLabel(relation);
         relation.updateTime = System.currentTimeMillis();
+        relation.dayKey = dayKey(relation.updateTime);
+        relation.dayBaseAffinity = relation.affinity;
+        relation.dayDeltaAffinity = 0;
         relation.provisionalInitial = false;
         saveRelation(relation);
         if (oldAffinity != relation.affinity) {
@@ -453,7 +484,7 @@ public class RoleplayEmotionService {
         }
     }
 
-    public synchronized int affinity(long groupID,long userID) {
+    public synchronized double affinity(long groupID,long userID) {
         return relation(groupID,userID).affinity;
     }
 
@@ -516,8 +547,8 @@ public class RoleplayEmotionService {
                 insertEvent(json.getLongValue("groupID"),json.getLongValue("userID"),
                         json.getLongValue("messageID"),json.getString("eventType"),
                         json.getIntValue("valenceDelta"),json.getIntValue("energyDelta"),
-                        json.getIntValue("patienceDelta"),json.getIntValue("affinityDelta"),
-                        json.getIntValue("trustDelta"),json.getIntValue("annoyanceDelta"),
+                        json.getIntValue("patienceDelta"),json.getDoubleValue("affinityDelta"),
+                        json.getDoubleValue("trustDelta"),json.getDoubleValue("annoyanceDelta"),
                         json.getString("reason"),json.getString("source"),
                         json.getLongValue("createTime"));
             }
@@ -531,15 +562,15 @@ public class RoleplayEmotionService {
         int valence = event.valenceDelta;
         int energy = event.energyDelta;
         int patience = event.patienceDelta;
-        int affinity = event.affinityDelta;
-        int trust = event.trustDelta;
-        int annoyance = event.annoyanceDelta;
+        double rawAffinity = event.affinityDelta;
+        double rawTrust = event.trustDelta;
+        double rawAnnoyance = event.annoyanceDelta;
+        double affinity = 0;
+        double trust = 0;
+        double annoyance = 0;
         if (relation != null) {
             String relationReason = event.reason == null ? "" : event.reason.trim();
             if (isBotOwner(userID)) {
-                affinity = 0;
-                trust = 0;
-                annoyance = 0;
                 relation.affinity = 100;
                 relation.trust = 100;
                 relation.annoyance = 0;
@@ -550,23 +581,28 @@ public class RoleplayEmotionService {
                 relation.reasonSince = 0L;
                 relation.reasonExpire = 0L;
                 relation.provisionalInitial = false;
+                relation.dayKey = dayKey(now);
+                relation.dayBaseAffinity = 100;
+                relation.dayBaseTrust = 100;
+                relation.dayBaseAnnoyance = 0;
+                relation.dayDeltaAffinity = 0;
+                relation.dayDeltaTrust = 0;
+                relation.dayDeltaAnnoyance = 0;
                 relation.lastInteraction = now;
                 relation.updateTime = now;
                 saveRelation(relation);
             } else {
-                if ((affinity != 0 || trust != 0 || annoyance != 0) && relationReason.isEmpty()) {
+                if ((rawAffinity != 0 || rawTrust != 0 || rawAnnoyance != 0)
+                        && relationReason.isEmpty()) {
                     plugin.getLogger().sendWarn("[情绪] 群"+groupID+" 用户"+userID
                             +" 关系数值变化缺少原因，已忽略关系变化");
-                    affinity = 0;
-                    trust = 0;
-                    annoyance = 0;
+                    rawAffinity = 0;
+                    rawTrust = 0;
+                    rawAnnoyance = 0;
                 }
-                affinity = applyDailyDelta(groupID,userID,now,"affinityDelta",affinity);
-                trust = applyDailyDelta(groupID,userID,now,"trustDelta",trust);
-                annoyance = applyDailyDelta(groupID,userID,now,"annoyanceDelta",annoyance);
-                relation.affinity = clamp(relation.affinity + affinity,0,100);
-                relation.trust = clamp(relation.trust + trust,0,100);
-                relation.annoyance = clamp(relation.annoyance + annoyance,0,100);
+                affinity = applyDailyAffinity(relation,rawAffinity,now);
+                trust = applyDailyTrust(relation,rawTrust,now);
+                annoyance = applyDailyAnnoyance(relation,rawAnnoyance,now);
                 relation.lastInteraction = now;
                 relation.updateTime = now;
                 if (event.persistReason && !relationReason.isEmpty()) {
@@ -576,8 +612,8 @@ public class RoleplayEmotionService {
                         relation.reasonSince = now;
                     }
                     relation.reasonStrength = clamp(relation.reasonStrength
-                            + Math.max(5,Math.abs(affinity) * 4 + Math.abs(trust) * 2
-                            + Math.abs(annoyance) * 5),0,100);
+                            + Math.max(5,(int) Math.round(Math.abs(rawAffinity) * 20
+                            + Math.abs(rawTrust) * 12 + Math.abs(rawAnnoyance) * 24)),0,100);
                     relation.reasonSource = source;
                     relation.reasonExpire = now + config.emotionReasonDecayDays * DAY_MILLIS;
                     relation.emotionLabel = labelForReason(relation.emotionReason);
@@ -599,7 +635,7 @@ public class RoleplayEmotionService {
         saveMood(mood);
 
         insertEvent(groupID,userID,messageID,event.type,valence,energy,patience,
-                affinity,trust,annoyance,event.reason,source,now);
+                rawAffinity,rawTrust,rawAnnoyance,event.reason,source,now);
         LocalEvent applied = new LocalEvent();
         applied.type = event.type;
         applied.reason = event.reason;
@@ -614,20 +650,49 @@ public class RoleplayEmotionService {
         return applied;
     }
 
-    private int applyDailyDelta(long groupID,long userID,long now,String column,int delta) {
+    private double applyDailyAffinity(RelationState relation,double delta,long now) {
         if (delta == 0) return 0;
-        int used = dailyDeltaUsed(groupID,userID,now,column);
-        int remaining = Math.max(0,config.relationDailyMaxDelta - used);
-        if (remaining <= 0) return 0;
-        if (Math.abs(delta) <= remaining) return delta;
-        return delta > 0 ? remaining : -remaining;
+        normalizeDay(relation,now);
+        relation.dayDeltaAffinity += delta;
+        double old = relation.affinity;
+        double cap = Math.max(0.1,config.relationDailyMaxDelta);
+        relation.affinity = clampDouble(relation.dayBaseAffinity
+                + clampDouble(relation.dayDeltaAffinity,-cap,cap),0,100);
+        return relation.affinity - old;
     }
 
-    private int dailyDeltaUsed(long groupID,long userID,long now,String column) {
-        JSONObject row = storage().queryOne("SELECT COALESCE(SUM(ABS(`"+column+"`)),0) AS `total` "
-                        + "FROM `"+EVENT_TABLE+"` WHERE `groupID`=? AND `userID`=? AND `createTime`>=?",
-                groupID,userID,dayStart(now));
-        return row == null ? 0 : row.getIntValue("total");
+    private double applyDailyTrust(RelationState relation,double delta,long now) {
+        if (delta == 0) return 0;
+        normalizeDay(relation,now);
+        relation.dayDeltaTrust += delta;
+        double old = relation.trust;
+        double cap = Math.max(0.1,config.relationDailyMaxDelta);
+        relation.trust = clampDouble(relation.dayBaseTrust
+                + clampDouble(relation.dayDeltaTrust,-cap,cap),0,100);
+        return relation.trust - old;
+    }
+
+    private double applyDailyAnnoyance(RelationState relation,double delta,long now) {
+        if (delta == 0) return 0;
+        normalizeDay(relation,now);
+        relation.dayDeltaAnnoyance += delta;
+        double old = relation.annoyance;
+        double cap = Math.max(0.1,config.relationDailyMaxDelta);
+        relation.annoyance = clampDouble(relation.dayBaseAnnoyance
+                + clampDouble(relation.dayDeltaAnnoyance,-cap,cap),0,100);
+        return relation.annoyance - old;
+    }
+
+    private void normalizeDay(RelationState relation,long now) {
+        int key = dayKey(now);
+        if (relation.dayKey == key) return;
+        relation.dayKey = key;
+        relation.dayBaseAffinity = relation.affinity;
+        relation.dayBaseTrust = relation.trust;
+        relation.dayBaseAnnoyance = relation.annoyance;
+        relation.dayDeltaAffinity = 0;
+        relation.dayDeltaTrust = 0;
+        relation.dayDeltaAnnoyance = 0;
     }
 
     private void analyzeEmotion(long groupID,long userID,String userName,String relationship,
@@ -666,8 +731,8 @@ public class RoleplayEmotionService {
         JSONObject deltas = parsed.getJSONObject("delta");
         LocalEvent event = event("ai".equals(eventType) ? "semantic" : eventType,
                 reason, true,
-                delta(deltas,"valence"),delta(deltas,"energy"),
-                delta(deltas,"patience"),delta(deltas,"affinity"),
+                intDelta(deltas,"valence"),intDelta(deltas,"energy"),
+                intDelta(deltas,"patience"),delta(deltas,"affinity"),
                 delta(deltas,"trust"),delta(deltas,"annoyance"));
         event.persistReason = persistReason;
         synchronized (this) {
@@ -676,11 +741,11 @@ public class RoleplayEmotionService {
             LocalEvent applied = applyEvent(groupID,userID,0L,mood,relation,event,"ai");
             plugin.getLogger().sendInfo("[情绪分析] 群"+groupID+" 用户"+userID
                     +" 事件="+applied.type
-                    +" 心情"+(applied.valenceDelta >= 0 ? "+" : "")+applied.valenceDelta
-                    +" 耐心"+(applied.patienceDelta >= 0 ? "+" : "")+applied.patienceDelta
-                    +" 好感"+(applied.affinityDelta >= 0 ? "+" : "")+applied.affinityDelta
-                    +" 信任"+(applied.trustDelta >= 0 ? "+" : "")+applied.trustDelta
-                    +" 厌烦"+(applied.annoyanceDelta >= 0 ? "+" : "")+applied.annoyanceDelta
+                    +" 心情"+formatDelta(applied.valenceDelta)
+                    +" 耐心"+formatDelta(applied.patienceDelta)
+                    +" 好感"+formatDelta(applied.affinityDelta)
+                    +" 信任"+formatDelta(applied.trustDelta)
+                    +" 厌烦"+formatDelta(applied.annoyanceDelta)
                     +(reason.isEmpty() ? "" : " 原因="+reason));
         }
     }
@@ -720,12 +785,13 @@ public class RoleplayEmotionService {
                 .append("- 正面互动可以提升好感和信任，但原因要短\n")
                 .append("- 原因只描述当前用户做了什么，不记录隐私信息\n")
                 .append("- 原因最多 ").append(config.emotionReasonMaxChars).append(" 个字符\n")
+                .append("- 单项数值变化使用小数，普通事件建议 0.1 到 0.5\n")
                 .append("- 单项数值变化绝对值不超过 ").append(config.emotionAnalyzeMaxDelta).append("\n")
                 .append("- 来源：“他在冒名顶替我”“他刚才夸过我”“他反复戳我”\n");
         builder.append("输出格式：{\"event\":\"impersonation|attack|praise|friendly|neutral\",")
                 .append("\"reason\":\"\",\"persistReason\":false,")
                 .append("\"delta\":{\"valence\":0,\"energy\":0,\"patience\":0,")
-                .append("\"affinity\":0,\"trust\":0,\"annoyance\":0}}");
+                .append("\"affinity\":0.0,\"trust\":0.0,\"annoyance\":0.0}}");
         return builder.toString();
     }
 
@@ -792,7 +858,7 @@ public class RoleplayEmotionService {
 
     private LocalEvent event(String type,String reason,boolean significant,
                              int valence,int energy,int patience,
-                             int affinity,int trust,int annoyance) {
+                             double affinity,double trust,double annoyance) {
         LocalEvent event = new LocalEvent();
         event.type = type;
         event.reason = trimReason(reason);
@@ -880,6 +946,13 @@ public class RoleplayEmotionService {
             relation.reasonSince = 0L;
             relation.reasonExpire = 0L;
             relation.provisionalInitial = false;
+            relation.dayKey = dayKey(now);
+            relation.dayBaseAffinity = 100;
+            relation.dayBaseTrust = 100;
+            relation.dayBaseAnnoyance = 0;
+            relation.dayDeltaAffinity = 0;
+            relation.dayDeltaTrust = 0;
+            relation.dayDeltaAnnoyance = 0;
             relation.updateTime = now;
             saveRelation(relation);
             return;
@@ -891,9 +964,9 @@ public class RoleplayEmotionService {
         long days = (now - relation.updateTime) / DAY_MILLIS;
         if (days <= 0) return;
         int steps = (int) Math.min(60,days);
-        int oldAffinity = relation.affinity;
-        int oldTrust = relation.trust;
-        int oldAnnoyance = relation.annoyance;
+        double oldAffinity = relation.affinity;
+        double oldTrust = relation.trust;
+        double oldAnnoyance = relation.annoyance;
         relation.affinity = moveToward(relation.affinity,config.initialAffinity,steps);
         relation.trust = moveToward(relation.trust,config.initialTrust,steps);
         relation.annoyance = Math.max(0,relation.annoyance - steps);
@@ -910,6 +983,13 @@ public class RoleplayEmotionService {
             relation.reasonExpire = 0L;
         }
         relation.emotionLabel = relationLabel(relation);
+        relation.dayKey = dayKey(now);
+        relation.dayBaseAffinity = relation.affinity;
+        relation.dayBaseTrust = relation.trust;
+        relation.dayBaseAnnoyance = relation.annoyance;
+        relation.dayDeltaAffinity = 0;
+        relation.dayDeltaTrust = 0;
+        relation.dayDeltaAnnoyance = 0;
         relation.updateTime = now;
         saveRelation(relation);
         if (oldAffinity != relation.affinity || oldTrust != relation.trust
@@ -956,6 +1036,10 @@ public class RoleplayEmotionService {
         relation.emotionLabel = relationLabel(relation);
         relation.lastInteraction = System.currentTimeMillis();
         relation.updateTime = relation.lastInteraction;
+        relation.dayKey = dayKey(relation.updateTime);
+        relation.dayBaseAffinity = relation.affinity;
+        relation.dayBaseTrust = relation.trust;
+        relation.dayBaseAnnoyance = relation.annoyance;
         relation.provisionalInitial = safe(relationship).isEmpty();
         return relation;
     }
@@ -999,9 +1083,9 @@ public class RoleplayEmotionService {
         RelationState relation = new RelationState();
         relation.groupID = json.getLongValue("groupID");
         relation.userID = json.getLongValue("userID");
-        relation.affinity = clamp(json.getIntValue("affinity"),0,100);
-        relation.trust = clamp(json.getIntValue("trust"),0,100);
-        relation.annoyance = clamp(json.getIntValue("annoyance"),0,100);
+        relation.affinity = clampDouble(json.getDoubleValue("affinity"),0,100);
+        relation.trust = clampDouble(json.getDoubleValue("trust"),0,100);
+        relation.annoyance = clampDouble(json.getDoubleValue("annoyance"),0,100);
         relation.emotionLabel = safe(json.getString("emotionLabel"));
         relation.emotionReason = safe(json.getString("emotionReason"));
         relation.reasonStrength = clamp(json.getIntValue("reasonStrength"),0,100);
@@ -1010,6 +1094,13 @@ public class RoleplayEmotionService {
         relation.reasonExpire = json.getLongValue("reasonExpire");
         relation.lastInteraction = json.getLongValue("lastInteraction");
         relation.updateTime = json.getLongValue("updateTime");
+        relation.dayKey = json.getIntValue("dayKey");
+        relation.dayBaseAffinity = json.getDoubleValue("dayBaseAffinity");
+        relation.dayBaseTrust = json.getDoubleValue("dayBaseTrust");
+        relation.dayBaseAnnoyance = json.getDoubleValue("dayBaseAnnoyance");
+        relation.dayDeltaAffinity = json.getDoubleValue("dayDeltaAffinity");
+        relation.dayDeltaTrust = json.getDoubleValue("dayDeltaTrust");
+        relation.dayDeltaAnnoyance = json.getDoubleValue("dayDeltaAnnoyance");
         if (relation.emotionLabel.isEmpty()) relation.emotionLabel = relationLabel(relation);
         return relation;
     }
@@ -1042,6 +1133,13 @@ public class RoleplayEmotionService {
         json.put("reasonExpire",relation.reasonExpire);
         json.put("lastInteraction",relation.lastInteraction);
         json.put("updateTime",relation.updateTime);
+        json.put("dayKey",relation.dayKey);
+        json.put("dayBaseAffinity",relation.dayBaseAffinity);
+        json.put("dayBaseTrust",relation.dayBaseTrust);
+        json.put("dayBaseAnnoyance",relation.dayBaseAnnoyance);
+        json.put("dayDeltaAffinity",relation.dayDeltaAffinity);
+        json.put("dayDeltaTrust",relation.dayDeltaTrust);
+        json.put("dayDeltaAnnoyance",relation.dayDeltaAnnoyance);
         return json;
     }
 
@@ -1075,9 +1173,9 @@ public class RoleplayEmotionService {
             item.put("valenceDelta",row.getIntValue("valenceDelta"));
             item.put("energyDelta",row.getIntValue("energyDelta"));
             item.put("patienceDelta",row.getIntValue("patienceDelta"));
-            item.put("affinityDelta",row.getIntValue("affinityDelta"));
-            item.put("trustDelta",row.getIntValue("trustDelta"));
-            item.put("annoyanceDelta",row.getIntValue("annoyanceDelta"));
+            item.put("affinityDelta",row.getDoubleValue("affinityDelta"));
+            item.put("trustDelta",row.getDoubleValue("trustDelta"));
+            item.put("annoyanceDelta",row.getDoubleValue("annoyanceDelta"));
             item.put("reason",row.getString("reason"));
             item.put("source",row.getString("source"));
             item.put("createTime",row.getLongValue("createTime"));
@@ -1110,9 +1208,9 @@ public class RoleplayEmotionService {
             item.put("valenceDelta",row.getIntValue("valenceDelta"));
             item.put("energyDelta",row.getIntValue("energyDelta"));
             item.put("patienceDelta",row.getIntValue("patienceDelta"));
-            item.put("affinityDelta",row.getIntValue("affinityDelta"));
-            item.put("trustDelta",row.getIntValue("trustDelta"));
-            item.put("annoyanceDelta",row.getIntValue("annoyanceDelta"));
+            item.put("affinityDelta",row.getDoubleValue("affinityDelta"));
+            item.put("trustDelta",row.getDoubleValue("trustDelta"));
+            item.put("annoyanceDelta",row.getDoubleValue("annoyanceDelta"));
             item.put("reason",row.getString("reason"));
             item.put("source",row.getString("source"));
             item.put("createTime",row.getLongValue("createTime"));
@@ -1133,17 +1231,22 @@ public class RoleplayEmotionService {
         storage().insert("INSERT OR REPLACE INTO `"+RELATION_TABLE+"` "
                         + "(`groupID`,`userID`,`affinity`,`trust`,`annoyance`,`emotionLabel`,"
                         + "`emotionReason`,`reasonStrength`,`reasonSource`,`reasonSince`,"
-                        + "`reasonExpire`,`lastInteraction`,`updateTime`) "
-                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        + "`reasonExpire`,`lastInteraction`,`updateTime`,`dayKey`,"
+                        + "`dayBaseAffinity`,`dayBaseTrust`,`dayBaseAnnoyance`,"
+                        + "`dayDeltaAffinity`,`dayDeltaTrust`,`dayDeltaAnnoyance`) "
+                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 relation.groupID,relation.userID,relation.affinity,relation.trust,
                 relation.annoyance,relation.emotionLabel,relation.emotionReason,
                 relation.reasonStrength,relation.reasonSource,relation.reasonSince,
-                relation.reasonExpire,relation.lastInteraction,relation.updateTime);
+                relation.reasonExpire,relation.lastInteraction,relation.updateTime,
+                relation.dayKey,relation.dayBaseAffinity,relation.dayBaseTrust,
+                relation.dayBaseAnnoyance,relation.dayDeltaAffinity,relation.dayDeltaTrust,
+                relation.dayDeltaAnnoyance);
     }
 
     private void insertEvent(long groupID,long userID,long messageID,String eventType,
-                             int valence,int energy,int patience,int affinity,int trust,
-                             int annoyance,String reason,String source,long createTime) {
+                             int valence,int energy,int patience,double affinity,double trust,
+                             double annoyance,String reason,String source,long createTime) {
         long time = createTime <= 0 ? System.currentTimeMillis() : createTime;
         storage().insert("INSERT INTO `"+EVENT_TABLE+"` "
                         + "(`groupID`,`userID`,`messageID`,`eventType`,`valenceDelta`,`energyDelta`,"
@@ -1158,6 +1261,16 @@ public class RoleplayEmotionService {
     private void pruneEvents() {
         long cutoff = System.currentTimeMillis() - config.emotionEventRetentionDays * DAY_MILLIS;
         storage().update("DELETE FROM `"+EVENT_TABLE+"` WHERE `createTime`<?",cutoff);
+    }
+
+    private void ensureColumn(String table,String column,String definition) {
+        List<JSONObject> columns = storage().query("PRAGMA table_info(`"+table+"`)");
+        if (columns != null) {
+            for (JSONObject item : columns) {
+                if (column.equalsIgnoreCase(item.getString("name"))) return;
+            }
+        }
+        storage().update("ALTER TABLE `"+table+"` ADD COLUMN `"+column+"` "+definition);
     }
 
     private int baselineValence() {
@@ -1218,7 +1331,7 @@ public class RoleplayEmotionService {
         return "亲密程度：还不算亲近。亲密举动要保持距离，先害羞、吐槽或转移话题，不要表现成恋人式亲近。";
     }
 
-    private String levelText(int value) {
+    private String levelText(double value) {
         if (value >= 80) return "很高";
         if (value >= 65) return "较高";
         if (value >= 45) return "中等";
@@ -1226,7 +1339,21 @@ public class RoleplayEmotionService {
         return "很低";
     }
 
+    private String formatDelta(double value) {
+        if (Math.abs(value) < 0.001) return "0";
+        String number = Math.abs(value - Math.rint(value)) < 0.001
+                ? String.valueOf((long) Math.rint(value))
+                : String.format(Locale.CHINA,"%.1f",value);
+        return value > 0 ? "+"+number : number;
+    }
+
     private int clamp(int value,int min,int max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
+
+    private double clampDouble(double value,double min,double max) {
         if (value < min) return min;
         if (value > max) return max;
         return value;
@@ -1238,12 +1365,17 @@ public class RoleplayEmotionService {
         return value;
     }
 
-    private int delta(JSONObject delta,String key) {
+    private double delta(JSONObject delta,String key) {
         if (delta == null) return 0;
-        int value = delta.getIntValue(key);
+        double value = delta.getDoubleValue(key);
         if (value > config.emotionAnalyzeMaxDelta) value = config.emotionAnalyzeMaxDelta;
         if (value < -config.emotionAnalyzeMaxDelta) value = -config.emotionAnalyzeMaxDelta;
         return value;
+    }
+
+    private int intDelta(JSONObject delta,String key) {
+        if (delta == null) return 0;
+        return delta.getIntValue(key);
     }
 
     private JSONObject parseJson(String content) {
@@ -1317,6 +1449,26 @@ public class RoleplayEmotionService {
         calendar.set(Calendar.SECOND,0);
         calendar.set(Calendar.MILLISECOND,0);
         return calendar.getTimeInMillis();
+    }
+
+    private int dayKey(long time) {
+        TimeZone zone = TimeZone.getTimeZone(config.timeZone == null
+                || config.timeZone.trim().isEmpty() ? "Asia/Shanghai" : config.timeZone.trim());
+        Calendar calendar = Calendar.getInstance(zone,Locale.CHINA);
+        calendar.setTime(new Date(time));
+        return calendar.get(Calendar.YEAR) * 10000
+                + (calendar.get(Calendar.MONTH) + 1) * 100
+                + calendar.get(Calendar.DAY_OF_MONTH);
+    }
+
+    private double moveToward(double value,double target,int steps) {
+        if (value == target) return value;
+        double step = Math.copySign(1.0,value < target ? 1.0 : -1.0);
+        for (int i = 0; i < steps; i++) {
+            if (value == target) break;
+            value += step;
+        }
+        return value;
     }
 
     private String safe(String value) {

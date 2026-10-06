@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "17";
+    private static final String CURRENT_VERSION = "18";
 
     private static class ConfigEntry {
         private final String key;
@@ -56,7 +56,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("emotionAnalyzeCooldownSecond","300","同一用户两次 AI 情绪分析的最小间隔秒数"),
             new ConfigEntry("emotionAnalyzeMaxTokens","1200","情绪分析输出 Token 上限"),
             new ConfigEntry("emotionAnalyzeReasoningEffort","low","情绪分析思考强度：low / medium / high，留空表示不发送"),
-            new ConfigEntry("emotionAnalyzeMaxDelta","12","单次 AI 情绪分析对单项数值的最大变化"),
+            new ConfigEntry("emotionAnalyzeMaxDelta","0.8","单次 AI 情绪分析对单项数值的最大变化"),
             new ConfigEntry("emotionReasonMaxChars","120","用户级情绪原因的最大字符数"),
             new ConfigEntry("emotionReasonMinStrength","40","低于该强度时不再把情绪原因注入提示词"),
             new ConfigEntry("emotionReasonDecayDays","30","情绪原因在无新证据时完全衰减的固定参考天数"),
@@ -174,6 +174,9 @@ public class RoleplayConfigMigrator {
                 && "30".equals(config.getString("emotionEventCooldownSecond",""));
         boolean legacyEmotionAnalyzeCooldown = version < 17
                 && "60".equals(config.getString("emotionAnalyzeCooldownSecond",""));
+        boolean legacyEmotionAnalyzeMaxDelta = version < 18
+                && ("12".equals(config.getString("emotionAnalyzeMaxDelta",""))
+                || "6".equals(config.getString("emotionAnalyzeMaxDelta","")));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -187,7 +190,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 17) {
+        if (version < 18) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -244,12 +247,16 @@ public class RoleplayConfigMigrator {
             config.set("emotionAnalyzeCooldownSecond","300");
             changed++;
         }
-        if (version < 17 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (legacyEmotionAnalyzeMaxDelta) {
+            config.set("emotionAnalyzeMaxDelta","0.8");
+            changed++;
+        }
+        if (version < 18 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose
                 || legacyRelationDailyMax || legacyEmotionEventCooldown
-                || legacyEmotionAnalyzeCooldown) {
+                || legacyEmotionAnalyzeCooldown || legacyEmotionAnalyzeMaxDelta) {
             if (config.save()) {
                 config.load();
             } else {

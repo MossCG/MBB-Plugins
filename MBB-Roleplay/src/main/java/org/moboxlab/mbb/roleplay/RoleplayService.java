@@ -546,7 +546,7 @@ public class RoleplayService {
         String relationship = pokeRelationship(member,userID);
         RoleplayConversationState pokeState = state(groupID);
         int pokeVariant = pokeState.pokeVariant++ % 6;
-        int affinity = emotionService.affinity(groupID,userID);
+        double affinity = emotionService.affinity(groupID,userID);
         int patience = emotionService.patience(groupID);
         boolean allowPokeBack = config.pokeBackEnable;
         String hint;

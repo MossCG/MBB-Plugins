@@ -139,10 +139,10 @@ public class RoleplayEmotionImageRenderer {
                 PADDING + 22,top + 72,new Color(68,64,60),Font.BOLD,20);
         int x = PADDING + 22;
         int y = top + 96;
-        drawBar(graphics,x,y,260,"好感",relation.getIntValue("affinity"),new Color(251,191,36));
-        drawBar(graphics,x + 320,y,260,"信任",relation.getIntValue("trust"),
+        drawBar(graphics,x,y,260,"好感",relation.getDoubleValue("affinity"),new Color(251,191,36));
+        drawBar(graphics,x + 320,y,260,"信任",relation.getDoubleValue("trust"),
                 new Color(56,189,248));
-        drawBar(graphics,x + 640,y,260,"厌烦",relation.getIntValue("annoyance"),
+        drawBar(graphics,x + 640,y,260,"厌烦",relation.getDoubleValue("annoyance"),
                 new Color(239,68,68));
         String reason = safe(relation.getString("emotionReason"));
         List<String> lines = wrapText(reason,58);
@@ -201,30 +201,37 @@ public class RoleplayEmotionImageRenderer {
         appendChange(change,"心情",event.getIntValue("valenceDelta"));
         appendChange(change,"精力",event.getIntValue("energyDelta"));
         appendChange(change,"耐心",event.getIntValue("patienceDelta"));
-        appendChange(change,"好感",event.getIntValue("affinityDelta"));
-        appendChange(change,"信任",event.getIntValue("trustDelta"));
-        appendChange(change,"厌烦",event.getIntValue("annoyanceDelta"));
+        appendChange(change,"好感",event.getDoubleValue("affinityDelta"));
+        appendChange(change,"信任",event.getDoubleValue("trustDelta"));
+        appendChange(change,"厌烦",event.getDoubleValue("annoyanceDelta"));
         if (change.length() == 3) change.append("无");
         result.add(change.toString());
         return result;
     }
 
-    private static void appendChange(StringBuilder builder,String name,int value) {
+    private static void appendChange(StringBuilder builder,String name,double value) {
         if (value == 0) return;
         if (builder.length() > 3) builder.append("  ");
-        builder.append(name).append(value > 0 ? "+" : "").append(value);
+        builder.append(name).append(value > 0 ? "+" : "").append(formatDecimal(value));
     }
 
     private static void drawBar(Graphics2D graphics,int x,int y,int width,String label,
-                                int value,Color color) {
-        int safeValue = Math.max(0,Math.min(100,value));
+                                double value,Color color) {
+        double safeValue = Math.max(0,Math.min(100,value));
         drawText(graphics,label,x,y,new Color(68,64,60),Font.PLAIN,15);
         graphics.setColor(new Color(241,235,226));
         graphics.fillRoundRect(x,y + 12,width,16,8,8);
         graphics.setColor(color);
-        graphics.fillRoundRect(x,y + 12,Math.max(4,width * safeValue / 100),16,8,8);
-        drawRightText(graphics,safeValue+"/100",x + width,y + 25,
+        graphics.fillRoundRect(x,y + 12,(int) Math.max(4,width * safeValue / 100),16,8,8);
+        drawRightText(graphics,formatDecimal(safeValue)+"/100",x + width,y + 25,
                 new Color(120,113,108),Font.PLAIN,13);
+    }
+
+    private static String formatDecimal(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.001) {
+            return String.valueOf((long) Math.rint(value));
+        }
+        return String.format(Locale.CHINA,"%.1f",value);
     }
 
     private static void drawPanel(Graphics2D graphics,int x,int y,int width,int height,String title) {

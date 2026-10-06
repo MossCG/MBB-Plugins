@@ -26,7 +26,7 @@ public class RoleplayConfig {
     public double initialGroupAdminMultiplier = 1.05;
     public double initialBotAdminMultiplier = 1.10;
     public double initialBotOwnerMultiplier = 1.15;
-    public int relationDailyMaxDelta = 2;
+    public double relationDailyMaxDelta = 2.0;
     public int intimacyCloseAffinity = 75;
     public int intimacyVeryCloseAffinity = 90;
     public boolean emotionEnable = true;
@@ -38,7 +38,7 @@ public class RoleplayConfig {
     public int emotionAnalyzeCooldownSecond = 300;
     public int emotionAnalyzeMaxTokens = 1200;
     public String emotionAnalyzeReasoningEffort = "low";
-    public int emotionAnalyzeMaxDelta = 12;
+    public double emotionAnalyzeMaxDelta = 0.8;
     public int emotionReasonMaxChars = 120;
     public int emotionReasonMinStrength = 40;
     public int emotionReasonDecayDays = 30;
@@ -150,7 +150,12 @@ public class RoleplayConfig {
         } catch (Exception e) {
             config.initialBotOwnerMultiplier = 1.15;
         }
-        config.relationDailyMaxDelta = plugin.getConfig().getInt("relationDailyMaxDelta",2);
+        try {
+            config.relationDailyMaxDelta = Double.parseDouble(
+                    plugin.getConfig().getString("relationDailyMaxDelta","2.0"));
+        } catch (Exception e) {
+            config.relationDailyMaxDelta = 2.0;
+        }
         config.intimacyCloseAffinity = plugin.getConfig().getInt("intimacyCloseAffinity",75);
         config.intimacyVeryCloseAffinity = plugin.getConfig().getInt("intimacyVeryCloseAffinity",90);
         config.emotionEnable = plugin.getConfig().getBoolean("emotionEnable",true);
@@ -163,7 +168,12 @@ public class RoleplayConfig {
         config.emotionAnalyzeMaxTokens = plugin.getConfig().getInt("emotionAnalyzeMaxTokens",1200);
         config.emotionAnalyzeReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("emotionAnalyzeReasoningEffort","low"));
-        config.emotionAnalyzeMaxDelta = plugin.getConfig().getInt("emotionAnalyzeMaxDelta",12);
+        try {
+            config.emotionAnalyzeMaxDelta = Double.parseDouble(
+                    plugin.getConfig().getString("emotionAnalyzeMaxDelta","0.8"));
+        } catch (Exception e) {
+            config.emotionAnalyzeMaxDelta = 0.8;
+        }
         config.emotionReasonMaxChars = plugin.getConfig().getInt("emotionReasonMaxChars",120);
         config.emotionReasonMinStrength = plugin.getConfig().getInt("emotionReasonMinStrength",40);
         config.emotionReasonDecayDays = plugin.getConfig().getInt("emotionReasonDecayDays",30);
@@ -314,7 +324,7 @@ public class RoleplayConfig {
         if (config.initialBotAdminMultiplier > 2) config.initialBotAdminMultiplier = 2;
         if (config.initialBotOwnerMultiplier < 1) config.initialBotOwnerMultiplier = 1;
         if (config.initialBotOwnerMultiplier > 2) config.initialBotOwnerMultiplier = 2;
-        if (config.relationDailyMaxDelta < 1) config.relationDailyMaxDelta = 1;
+        if (config.relationDailyMaxDelta < 0.1) config.relationDailyMaxDelta = 0.1;
         if (config.relationDailyMaxDelta > 30) config.relationDailyMaxDelta = 30;
         if (config.intimacyCloseAffinity < 0) config.intimacyCloseAffinity = 0;
         if (config.intimacyCloseAffinity > 100) config.intimacyCloseAffinity = 100;
@@ -340,8 +350,8 @@ public class RoleplayConfig {
         if (config.emotionAnalyzeCooldownSecond > 3600) config.emotionAnalyzeCooldownSecond = 3600;
         if (config.emotionAnalyzeMaxTokens < 400) config.emotionAnalyzeMaxTokens = 400;
         if (config.emotionAnalyzeMaxTokens > 4000) config.emotionAnalyzeMaxTokens = 4000;
-        if (config.emotionAnalyzeMaxDelta < 1) config.emotionAnalyzeMaxDelta = 1;
-        if (config.emotionAnalyzeMaxDelta > 30) config.emotionAnalyzeMaxDelta = 30;
+        if (config.emotionAnalyzeMaxDelta < 0.1) config.emotionAnalyzeMaxDelta = 0.1;
+        if (config.emotionAnalyzeMaxDelta > 3) config.emotionAnalyzeMaxDelta = 3;
         if (config.emotionReasonMaxChars < 20) config.emotionReasonMaxChars = 20;
         if (config.emotionReasonMaxChars > 500) config.emotionReasonMaxChars = 500;
         if (config.emotionReasonMinStrength < 1) config.emotionReasonMinStrength = 1;
