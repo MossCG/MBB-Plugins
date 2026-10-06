@@ -18,7 +18,6 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
@@ -610,39 +609,16 @@ public class RoleplayService {
                     +(success ? "用户刚才要求生图，图片已经生成并发送到群里。"
                     : "用户刚才要求生图，但生图失败了。")
                     +"请用角色语气给发起者一句简短提醒，12 到 20 字以内，"
-                    +"如果能看到图片，就结合画面里的一个具体细节，不要空泛描述。"
+                    +"如果能看到图片识别结果，就结合画面里的一个具体细节，不要空泛描述。"
                     +"不要 Markdown，不要解释，不要用“图片已生成”这种机械说法，不要提及系统。"));
+            String visual = success ? describeDrawImage(imagePath,prompt) : "";
             String userText = "发起者QQ："+userID
                     +"\n生图需求："+shortText(prompt,300)
                     +"\n图片文件："+(imageName == null || imageName.isEmpty() ? "无" : imageName)
-                    +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160));
-            String imageDataUri = success ? readImageDataUri(imagePath) : "";
-            if (!imageDataUri.isEmpty()) {
-                JSONArray content = new JSONArray();
-                JSONObject textPart = new JSONObject(true);
-                textPart.put("type","text");
-                textPart.put("text",userText);
-                content.add(textPart);
-                JSONObject imageUrl = new JSONObject(true);
-                imageUrl.put("url",imageDataUri);
-                JSONObject imagePart = new JSONObject(true);
-                imagePart.put("type","image_url");
-                imagePart.put("image_url",imageUrl);
-                content.add(imagePart);
-                JSONObject userMessage = new JSONObject(true);
-                userMessage.put("role","user");
-                userMessage.put("content",content);
-                messages.add(userMessage);
-            } else {
-                messages.add(message("user",userText));
-            }
+                    +"\n失败原因："+(reason == null || reason.isEmpty() ? "无" : shortText(reason,160))
+                    +"\n图片识别结果："+(visual.isEmpty() ? "无" : visual);
+            messages.add(message("user",userText));
             JSONObject response = callDrawNotifyAi(ai,groupID,messages);
-            if ((response == null || !response.getBooleanValue("status"))
-                    && !imageDataUri.isEmpty()) {
-                messages.remove(messages.size() - 1);
-                messages.add(message("user",userText));
-                response = callDrawNotifyAi(ai,groupID,messages);
-            }
             if (response == null || !response.getBooleanValue("status")) return fallback;
             String text = safe(response.getString("content")).trim();
             if (text.isEmpty()) return fallback;
@@ -664,23 +640,38 @@ public class RoleplayService {
         return ai.call("chat",params);
     }
 
-    private String readImageDataUri(String imagePath) {
+    private String describeDrawImage(String imagePath,String prompt) {
         if (imagePath == null || imagePath.trim().isEmpty()) return "";
+        PluginService vision = plugin.getServer().getPluginManager().getService("MBB-Vision");
+        if (vision == null) return "";
         try {
             File file = new File(imagePath);
             if (!file.exists() || !file.isFile()) return "";
-            if (file.length() > 8L * 1024L * 1024L) {
-                plugin.getLogger().sendWarn("[角色] 生图回调图片超过 8MB，改为纯文本提醒。");
+            JSONObject params = new JSONObject(true);
+            params.put("kind","image");
+            params.put("file",file.getAbsolutePath());
+            params.put("context",shortText(prompt,300));
+            params.put("profile",config.imageUnderstandingProfile);
+            JSONObject result = vision.call("describe",params);
+            if (result == null || !result.getBooleanValue("status")) {
+                plugin.getLogger().sendWarn("[角色] 生图回调识图失败："
+                        +safe(result == null ? "" : result.getString("message")));
                 return "";
             }
-            byte[] bytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
-            String mime = "image/png";
-            String name = file.getName().toLowerCase(Locale.ROOT);
-            if (name.endsWith(".jpg") || name.endsWith(".jpeg")) mime = "image/jpeg";
-            else if (name.endsWith(".webp")) mime = "image/webp";
-            return "data:"+mime+";base64,"+Base64.getEncoder().encodeToString(bytes);
+            String summary = safe(result.getString("summary"));
+            if (summary.isEmpty()) summary = safe(result.getString("description"));
+            String tags = joinArray(result.getJSONArray("emotionTags"));
+            StringBuilder builder = new StringBuilder();
+            if (!summary.isEmpty()) builder.append(shortText(summary,config.imageUnderstandingMaxChars));
+            if (!tags.isEmpty()) {
+                if (builder.length() > 0) builder.append("；");
+                builder.append("画面标签：").append(tags);
+            }
+            plugin.getLogger().sendInfo("[角色] 生图回调识图完成："
+                    +shortText(builder.toString(),120));
+            return builder.toString();
         } catch (Exception e) {
-            plugin.getLogger().sendWarn("[角色] 生图回调读取图片失败："+e.getMessage());
+            plugin.getLogger().sendWarn("[角色] 生图回调识图异常："+e.getMessage());
             return "";
         }
     }
