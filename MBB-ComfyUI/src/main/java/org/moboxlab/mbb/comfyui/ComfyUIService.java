@@ -293,6 +293,9 @@ public class ComfyUIService implements PluginService {
             metadata.put("userID",job.userID);
             metadata.put("messageID",job.messageID);
             metadata.put("prompt",job.prompt);
+            metadata.put("effectivePrompt",buildPositivePrompt(job.prompt));
+            metadata.put("promptPrefix",config.promptPrefix);
+            metadata.put("promptSuffix",config.promptSuffix);
             metadata.put("negativePrompt",config.negativePrompt);
             metadata.put("width",job.width);
             metadata.put("height",job.height);
@@ -365,8 +368,27 @@ public class ComfyUIService implements PluginService {
     private String buildPositivePrompt(String prompt) {
         StringBuilder builder = new StringBuilder();
         appendPrompt(builder,config.promptPrefix);
-        appendPrompt(builder,prompt);
+        appendPrompt(builder,sanitizePrompt(prompt));
         appendPrompt(builder,config.promptSuffix);
+        return builder.toString();
+    }
+
+    private String sanitizePrompt(String prompt) {
+        String value = safe(prompt);
+        String[] parts = value.split(",");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            String text = part == null ? "" : part.trim();
+            if (text.isEmpty()) continue;
+            String lower = text.toLowerCase(Locale.ROOT);
+            if ("twins".equals(lower) || "clone".equals(lower) || "cloned".equals(lower)
+                    || "duplicate character".equals(lower) || "multiple views".equals(lower)
+                    || "split screen".equals(lower) || "extra person".equals(lower)) {
+                continue;
+            }
+            if (builder.length() > 0) builder.append(", ");
+            builder.append(text);
+        }
         return builder.toString();
     }
 

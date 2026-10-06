@@ -12,6 +12,10 @@ public class ComfyUIPlugin extends Plugin {
     @Override
     public void onLoad() {
         saveDefaultConfig();
+        int repaired = ComfyUIConfigMigrator.ensure(this);
+        if (repaired > 0) {
+            getLogger().sendInfo("ComfyUI 配置已自动补全或迁移 "+repaired+" 项。");
+        }
         comfyConfig = ComfyUIConfig.load(this);
         getLogger().sendInfo("ComfyUI 配置已加载，地址："+comfyConfig.baseUrl);
     }
@@ -41,6 +45,10 @@ public class ComfyUIPlugin extends Plugin {
     }
 
     public void reloadConfig() {
+        int repaired = ComfyUIConfigMigrator.ensure(this);
+        if (repaired > 0) {
+            getLogger().sendInfo("ComfyUI 配置重载时自动补全或迁移 "+repaired+" 项。");
+        }
         comfyConfig = ComfyUIConfig.load(this);
         if (service != null) service.reload(comfyConfig);
         getLogger().sendInfo("ComfyUI 配置已重载！");
