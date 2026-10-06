@@ -26,16 +26,16 @@ public class RoleplayConfig {
     public double initialGroupAdminMultiplier = 1.05;
     public double initialBotAdminMultiplier = 1.10;
     public double initialBotOwnerMultiplier = 1.15;
-    public int relationDailyMaxDelta = 5;
+    public int relationDailyMaxDelta = 2;
     public int intimacyCloseAffinity = 75;
     public int intimacyVeryCloseAffinity = 90;
     public boolean emotionEnable = true;
     public int emotionDecayMinute = 30;
-    public int emotionEventCooldownSecond = 30;
+    public int emotionEventCooldownSecond = 300;
     public boolean emotionAnalyzeEnable = true;
     public String emotionAnalyzeMode = "significant";
     public String emotionAnalyzeProfile = "";
-    public int emotionAnalyzeCooldownSecond = 60;
+    public int emotionAnalyzeCooldownSecond = 300;
     public int emotionAnalyzeMaxTokens = 1200;
     public String emotionAnalyzeReasoningEffort = "low";
     public int emotionAnalyzeMaxDelta = 12;
@@ -150,16 +150,16 @@ public class RoleplayConfig {
         } catch (Exception e) {
             config.initialBotOwnerMultiplier = 1.15;
         }
-        config.relationDailyMaxDelta = plugin.getConfig().getInt("relationDailyMaxDelta",5);
+        config.relationDailyMaxDelta = plugin.getConfig().getInt("relationDailyMaxDelta",2);
         config.intimacyCloseAffinity = plugin.getConfig().getInt("intimacyCloseAffinity",75);
         config.intimacyVeryCloseAffinity = plugin.getConfig().getInt("intimacyVeryCloseAffinity",90);
         config.emotionEnable = plugin.getConfig().getBoolean("emotionEnable",true);
         config.emotionDecayMinute = plugin.getConfig().getInt("emotionDecayMinute",30);
-        config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",30);
+        config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",300);
         config.emotionAnalyzeEnable = plugin.getConfig().getBoolean("emotionAnalyzeEnable",true);
         config.emotionAnalyzeMode = plugin.getConfig().getString("emotionAnalyzeMode","significant");
         config.emotionAnalyzeProfile = plugin.getConfig().getString("emotionAnalyzeProfile","");
-        config.emotionAnalyzeCooldownSecond = plugin.getConfig().getInt("emotionAnalyzeCooldownSecond",60);
+        config.emotionAnalyzeCooldownSecond = plugin.getConfig().getInt("emotionAnalyzeCooldownSecond",300);
         config.emotionAnalyzeMaxTokens = plugin.getConfig().getInt("emotionAnalyzeMaxTokens",1200);
         config.emotionAnalyzeReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("emotionAnalyzeReasoningEffort","low"));

@@ -193,20 +193,21 @@ public class RoleplayEmotionService {
         } else if (isImpersonation(text,userName)
                 && allowEvent(groupID,userID,"impersonation",
                 Math.max(300,config.emotionEventCooldownSecond))) {
-            event = event("impersonation","他在冒名顶替你",true,-4,-1,-6,-5,-4,10);
+            event = event("impersonation","他在冒名顶替你",true,-3,-1,-5,-3,-3,6);
             event.persistReason = true;
         } else if (isAttack(text)
                 && allowEvent(groupID,userID,"attack",config.emotionEventCooldownSecond)) {
-            event = event("attack","他刚才说了攻击性的话",true,-8,-3,-10,-7,-6,14);
+            event = event("attack","他刚才说了攻击性的话",true,-6,-2,-8,-3,-2,5);
             event.persistReason = true;
         } else if (isPraise(text)
                 && allowEvent(groupID,userID,"praise",config.emotionEventCooldownSecond)) {
-            event = event("praise","他刚才夸过你",true,5,2,3,4,3,-4);
+            event = event("praise","他刚才夸过你",true,4,2,2,1,1,-1);
+            event.persistReason = true;
         } else if (isRepeatedMessage(groupID,userID,text)
                 && allowEvent(groupID,userID,"spam",Math.max(30,config.emotionEventCooldownSecond))) {
-            event = event("spam","他连续重复发送消息",false,-2,0,-3,-1,-1,3);
+            event = event("spam","他连续重复发送消息",false,-2,0,-3,0,0,0);
         } else if (direct && allowEvent(groupID,userID,"friendly",config.emotionEventCooldownSecond)) {
-            event = event("friendly","他主动找你说话了",false,2,1,1,1,1,-1);
+            event = event("friendly","他主动找你说话了",false,2,1,1,0,0,0);
         }
         if (event == null || !event.isPresent()) return LocalEvent.none();
 
@@ -232,7 +233,7 @@ public class RoleplayEmotionService {
         }
         MoodState mood = mood(groupID);
         RelationState relation = relation(groupID,userID);
-        LocalEvent event = event("poke",userName+"戳了你一下",false,-1,0,-1,0,0,1);
+        LocalEvent event = event("poke",userName+"戳了你一下",false,-1,0,-1,0,0,0);
         LocalEvent applied = applyEvent(groupID,userID,0L,mood,relation,event,"rule");
         plugin.getLogger().sendInfo("[情绪] 群"+groupID+" 用户"+userID
                 +" 事件=poke 心情"+applied.valenceDelta
@@ -384,10 +385,14 @@ public class RoleplayEmotionService {
 
     public synchronized void resetRelation(long groupID,long userID) {
         RelationState relation = relation(groupID,userID);
-        relation.affinity = isBotOwner(userID) ? 100 : clamp(config.initialAffinity,0,100);
-        relation.trust = clamp(config.initialTrust,0,100);
+        int oldAffinity = relation.affinity;
+        int oldTrust = relation.trust;
+        int oldAnnoyance = relation.annoyance;
+        boolean owner = isBotOwner(userID);
+        relation.affinity = owner ? 100 : clamp(config.initialAffinity,0,100);
+        relation.trust = owner ? 100 : clamp(config.initialTrust,0,100);
         relation.annoyance = 0;
-        relation.emotionLabel = "普通";
+        relation.emotionLabel = owner ? "妈妈" : "普通";
         relation.emotionReason = "";
         relation.reasonStrength = 0;
         relation.reasonSource = "";
@@ -397,11 +402,30 @@ public class RoleplayEmotionService {
         relation.updateTime = System.currentTimeMillis();
         relation.provisionalInitial = false;
         saveRelation(relation);
+        if (oldAffinity != relation.affinity || oldTrust != relation.trust
+                || oldAnnoyance != relation.annoyance) {
+            insertEvent(groupID,userID,0L,"command-reset",
+                    0,0,0,relation.affinity - oldAffinity,
+                    relation.trust - oldTrust,relation.annoyance - oldAnnoyance,
+                    "管理员重置关系","command",relation.updateTime);
+        }
         plugin.getLogger().sendInfo("[情绪] 群"+groupID+" 用户"+userID+" 关系已重置");
     }
 
     public synchronized void setRelationReason(long groupID,long userID,String reason) {
         RelationState relation = relation(groupID,userID);
+        if (isBotOwner(userID)) {
+            relation.emotionReason = "";
+            relation.reasonStrength = 0;
+            relation.reasonSource = "";
+            relation.reasonSince = 0L;
+            relation.reasonExpire = 0L;
+            relation.emotionLabel = "妈妈";
+            relation.provisionalInitial = false;
+            relation.updateTime = System.currentTimeMillis();
+            saveRelation(relation);
+            return;
+        }
         String value = trimReason(reason);
         relation.emotionReason = value;
         relation.reasonStrength = value.isEmpty() ? 0 : 100;
@@ -416,11 +440,17 @@ public class RoleplayEmotionService {
 
     public synchronized void setRelationAffinity(long groupID,long userID,int affinity) {
         RelationState relation = relation(groupID,userID);
+        int oldAffinity = relation.affinity;
         relation.affinity = isBotOwner(userID) ? 100 : clamp(affinity,0,100);
         relation.emotionLabel = relationLabel(relation);
         relation.updateTime = System.currentTimeMillis();
         relation.provisionalInitial = false;
         saveRelation(relation);
+        if (oldAffinity != relation.affinity) {
+            insertEvent(groupID,userID,0L,"command-set-affinity",
+                    0,0,0,relation.affinity - oldAffinity,0,0,
+                    "管理员手动设置好感度","command",relation.updateTime);
+        }
     }
 
     public synchronized int affinity(long groupID,long userID) {
@@ -505,31 +535,57 @@ public class RoleplayEmotionService {
         int trust = event.trustDelta;
         int annoyance = event.annoyanceDelta;
         if (relation != null) {
-            affinity = applyDailyDelta(groupID,userID,now,"affinityDelta",affinity);
-            if (isBotOwner(userID) && affinity < 0) affinity = 0;
-            trust = applyDailyDelta(groupID,userID,now,"trustDelta",trust);
-            annoyance = applyDailyDelta(groupID,userID,now,"annoyanceDelta",annoyance);
-            relation.affinity = clamp(relation.affinity + affinity,0,100);
-            relation.trust = clamp(relation.trust + trust,0,100);
-            relation.annoyance = clamp(relation.annoyance + annoyance,0,100);
-            relation.lastInteraction = now;
-            relation.updateTime = now;
-            if (event.persistReason && event.reason != null && !event.reason.trim().isEmpty()) {
-                String reason = trimReason(event.reason);
-                if (!reason.equals(relation.emotionReason)) {
-                    relation.emotionReason = reason;
-                    relation.reasonSince = now;
+            String relationReason = event.reason == null ? "" : event.reason.trim();
+            if (isBotOwner(userID)) {
+                affinity = 0;
+                trust = 0;
+                annoyance = 0;
+                relation.affinity = 100;
+                relation.trust = 100;
+                relation.annoyance = 0;
+                relation.emotionLabel = "妈妈";
+                relation.emotionReason = "";
+                relation.reasonStrength = 0;
+                relation.reasonSource = "";
+                relation.reasonSince = 0L;
+                relation.reasonExpire = 0L;
+                relation.provisionalInitial = false;
+                relation.lastInteraction = now;
+                relation.updateTime = now;
+                saveRelation(relation);
+            } else {
+                if ((affinity != 0 || trust != 0 || annoyance != 0) && relationReason.isEmpty()) {
+                    plugin.getLogger().sendWarn("[情绪] 群"+groupID+" 用户"+userID
+                            +" 关系数值变化缺少原因，已忽略关系变化");
+                    affinity = 0;
+                    trust = 0;
+                    annoyance = 0;
                 }
-                relation.reasonStrength = clamp(relation.reasonStrength
-                        + Math.max(5,Math.abs(affinity) * 4 + Math.abs(trust) * 2
-                        + Math.abs(annoyance) * 5),0,100);
-                relation.reasonSource = source;
-                relation.reasonExpire = now + config.emotionReasonDecayDays * DAY_MILLIS;
-                relation.emotionLabel = labelForReason(relation.emotionReason);
-            } else if (relation.reasonStrength > 0) {
-                relation.emotionLabel = labelForReason(relation.emotionReason);
+                affinity = applyDailyDelta(groupID,userID,now,"affinityDelta",affinity);
+                trust = applyDailyDelta(groupID,userID,now,"trustDelta",trust);
+                annoyance = applyDailyDelta(groupID,userID,now,"annoyanceDelta",annoyance);
+                relation.affinity = clamp(relation.affinity + affinity,0,100);
+                relation.trust = clamp(relation.trust + trust,0,100);
+                relation.annoyance = clamp(relation.annoyance + annoyance,0,100);
+                relation.lastInteraction = now;
+                relation.updateTime = now;
+                if (event.persistReason && !relationReason.isEmpty()) {
+                    String reason = trimReason(relationReason);
+                    if (!reason.equals(relation.emotionReason)) {
+                        relation.emotionReason = reason;
+                        relation.reasonSince = now;
+                    }
+                    relation.reasonStrength = clamp(relation.reasonStrength
+                            + Math.max(5,Math.abs(affinity) * 4 + Math.abs(trust) * 2
+                            + Math.abs(annoyance) * 5),0,100);
+                    relation.reasonSource = source;
+                    relation.reasonExpire = now + config.emotionReasonDecayDays * DAY_MILLIS;
+                    relation.emotionLabel = labelForReason(relation.emotionReason);
+                } else if (relation.reasonStrength > 0) {
+                    relation.emotionLabel = labelForReason(relation.emotionReason);
+                }
+                saveRelation(relation);
             }
-            saveRelation(relation);
         }
 
         mood.valence = clamp(mood.valence + valence,0,100);
@@ -820,13 +876,19 @@ public class RoleplayEmotionService {
         long days = (now - relation.updateTime) / DAY_MILLIS;
         if (days <= 0) return;
         int steps = (int) Math.min(60,days);
-        if (isBotOwner(relation.userID)) {
+        int oldAffinity = relation.affinity;
+        int oldTrust = relation.trust;
+        int oldAnnoyance = relation.annoyance;
+        boolean owner = isBotOwner(relation.userID);
+        if (owner) {
             relation.affinity = 100;
+            relation.trust = 100;
+            relation.annoyance = 0;
         } else {
             relation.affinity = moveToward(relation.affinity,config.initialAffinity,steps);
+            relation.trust = moveToward(relation.trust,config.initialTrust,steps);
+            relation.annoyance = Math.max(0,relation.annoyance - steps);
         }
-        relation.trust = moveToward(relation.trust,config.initialTrust,steps);
-        relation.annoyance = Math.max(0,relation.annoyance - steps);
         if (relation.reasonStrength > 0) {
             relation.reasonStrength = Math.max(0,relation.reasonStrength - steps * 2);
         }
@@ -842,6 +904,14 @@ public class RoleplayEmotionService {
         relation.emotionLabel = relationLabel(relation);
         relation.updateTime = now;
         saveRelation(relation);
+        if (!owner && (oldAffinity != relation.affinity || oldTrust != relation.trust
+                || oldAnnoyance != relation.annoyance)) {
+            insertEvent(relation.groupID,relation.userID,0L,"decay",
+                    0,0,0,
+                    relation.affinity - oldAffinity,relation.trust - oldTrust,
+                    relation.annoyance - oldAnnoyance,
+                    "长时间未互动，关系缓慢回落","decay",now);
+        }
     }
 
     private int moveToward(int value,int target,int steps) {
@@ -872,7 +942,7 @@ public class RoleplayEmotionService {
         double multiplier = initialMultiplier(userID,relationship);
         relation.affinity = isBotOwner(userID)
                 ? 100 : clamp((int) Math.round(config.initialAffinity * multiplier),0,100);
-        relation.trust = clamp((int) Math.round(config.initialTrust
+        relation.trust = isBotOwner(userID) ? 100 : clamp((int) Math.round(config.initialTrust
                 * Math.min(1.25,multiplier)),0,100);
         relation.annoyance = 0;
         relation.emotionLabel = relationLabel(relation);

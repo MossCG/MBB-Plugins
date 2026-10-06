@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "16";
+    private static final String CURRENT_VERSION = "17";
 
     private static class ConfigEntry {
         private final String key;
@@ -44,16 +44,16 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("initialGroupAdminMultiplier","1.05","群主和群管理员的初始好感倍率"),
             new ConfigEntry("initialBotAdminMultiplier","1.10","botAdmin 的初始好感倍率"),
             new ConfigEntry("initialBotOwnerMultiplier","1.15","botOwner 的初始好感倍率"),
-            new ConfigEntry("relationDailyMaxDelta","5","同一用户每天好感、信任和厌烦的最大累计变化值"),
+            new ConfigEntry("relationDailyMaxDelta","2","同一用户每天好感、信任和厌烦的最大累计变化值"),
             new ConfigEntry("intimacyCloseAffinity","75","达到该好感度时，常态允许轻微亲密互动"),
             new ConfigEntry("intimacyVeryCloseAffinity","90","达到该好感度时，允许明显的撒娇和日常亲密举动"),
             new ConfigEntry("emotionEnable","true","是否启用角色情绪与用户关系机制"),
             new ConfigEntry("emotionDecayMinute","30","情绪回落间隔，每隔多少分钟向角色人格基线靠近一次"),
-            new ConfigEntry("emotionEventCooldownSecond","30","同一用户同一类情绪事件的规则更新冷却秒数"),
+            new ConfigEntry("emotionEventCooldownSecond","300","同一用户同一类情绪事件的规则更新冷却秒数"),
             new ConfigEntry("emotionAnalyzeEnable","true","是否异步调用 AI 分析语义情绪原因"),
             new ConfigEntry("emotionAnalyzeMode","significant","AI 情绪分析范围：off / direct / significant"),
             new ConfigEntry("emotionAnalyzeProfile","","情绪分析使用的模型配置名，留空则使用 aiProfile"),
-            new ConfigEntry("emotionAnalyzeCooldownSecond","60","同一用户两次 AI 情绪分析的最小间隔秒数"),
+            new ConfigEntry("emotionAnalyzeCooldownSecond","300","同一用户两次 AI 情绪分析的最小间隔秒数"),
             new ConfigEntry("emotionAnalyzeMaxTokens","1200","情绪分析输出 Token 上限"),
             new ConfigEntry("emotionAnalyzeReasoningEffort","low","情绪分析思考强度：low / medium / high，留空表示不发送"),
             new ConfigEntry("emotionAnalyzeMaxDelta","12","单次 AI 情绪分析对单项数值的最大变化"),
@@ -168,6 +168,12 @@ public class RoleplayConfigMigrator {
                 && "80".equals(config.getString("intimacyCloseAffinity",""));
         boolean legacyIntimacyVeryClose = version < 16
                 && "92".equals(config.getString("intimacyVeryCloseAffinity",""));
+        boolean legacyRelationDailyMax = version < 17
+                && "5".equals(config.getString("relationDailyMaxDelta",""));
+        boolean legacyEmotionEventCooldown = version < 17
+                && "30".equals(config.getString("emotionEventCooldownSecond",""));
+        boolean legacyEmotionAnalyzeCooldown = version < 17
+                && "60".equals(config.getString("emotionAnalyzeCooldownSecond",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -181,7 +187,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 16) {
+        if (version < 17) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -226,10 +232,24 @@ public class RoleplayConfigMigrator {
             config.set("intimacyVeryCloseAffinity","90");
             changed++;
         }
-        if (version < 16 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (legacyRelationDailyMax) {
+            config.set("relationDailyMaxDelta","2");
+            changed++;
+        }
+        if (legacyEmotionEventCooldown) {
+            config.set("emotionEventCooldownSecond","300");
+            changed++;
+        }
+        if (legacyEmotionAnalyzeCooldown) {
+            config.set("emotionAnalyzeCooldownSecond","300");
+            changed++;
+        }
+        if (version < 17 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
-                || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose) {
+                || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose
+                || legacyRelationDailyMax || legacyEmotionEventCooldown
+                || legacyEmotionAnalyzeCooldown) {
             if (config.save()) {
                 config.load();
             } else {

@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 16
+configVersion: 17
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -25,7 +25,7 @@ initialBotAdminMultiplier: 1.10
 #botOwner 的初始好感倍率
 initialBotOwnerMultiplier: 1.15
 #同一用户每天好感、信任和厌烦的最大累计变化值
-relationDailyMaxDelta: 5
+relationDailyMaxDelta: 2
 #达到该好感度时，常态允许轻微亲密互动
 intimacyCloseAffinity: 75
 #达到该好感度时，允许明显的撒娇和日常亲密举动
@@ -35,7 +35,7 @@ emotionEnable: true
 #情绪回落间隔，每隔多少分钟向角色人格基线靠近一次
 emotionDecayMinute: 30
 #同一用户同一类情绪事件的规则更新冷却秒数
-emotionEventCooldownSecond: 30
+emotionEventCooldownSecond: 300
 #是否异步调用 AI 分析语义情绪原因
 emotionAnalyzeEnable: true
 #AI 情绪分析范围：off / direct / significant
@@ -43,7 +43,7 @@ emotionAnalyzeMode: "significant"
 #情绪分析使用的模型配置名，留空则使用 aiProfile
 emotionAnalyzeProfile: ""
 #同一用户两次 AI 情绪分析的最小间隔秒数
-emotionAnalyzeCooldownSecond: 60
+emotionAnalyzeCooldownSecond: 300
 #情绪分析输出 Token 上限
 emotionAnalyzeMaxTokens: 1200
 #情绪分析思考强度：low / medium / high，留空表示不发送

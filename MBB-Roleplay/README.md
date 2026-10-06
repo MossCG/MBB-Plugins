@@ -178,7 +178,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 
 群主和管理员若不是其他角色机器人，统一视为老师；其他真人成员视为朋友；另一个角色机器人按角色设定中的同伴关系处理，不会因为群权限被误称为老师。
 
-`initialAffinity` 控制所有真人成员的初始好感度，默认 `65/100`；`initialTrust` 控制初始信任度，默认 `60/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。群主和群管理员、botAdmin、botOwner 会分别叠加初始好感倍率。botOwner 会更进一步，初始好感固定为 `100/100`，之后不会下降，角色把 botOwner 当成妈妈一样亲近、依赖和听劝。
+`initialAffinity` 控制所有真人成员的初始好感度，默认 `65/100`；`initialTrust` 控制初始信任度，默认 `60/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。群主和群管理员、botAdmin、botOwner 会分别叠加初始好感倍率。botOwner 的每一项关系数值始终保持在最佳状态：好感 `100/100`、信任 `100/100`、厌烦 `0/100`，不会因为事件或时间下降，角色把 botOwner 当成妈妈一样亲近、依赖和听劝。
 
 普通闲聊只会产生很低的临时变化，明显事件才会写入原因，例如：
 
@@ -187,6 +187,8 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 他刚才夸过角色的画
 他连续冒犯角色
 ```
+
+好感、信任和厌烦的变化频率已收紧：普通闲聊和戳一戳只影响群级情绪，不再直接改关系；关系数值只由带明确原因的高信号事件、AI 语义事件或管理员命令改变。每次关系数值变化都会写入情绪事件流水，并保留变化原因；没有原因的关系变化会被直接忽略。每日单项累计变化默认限制为 `2` 点。
 
 群级短期情绪包含心情、精力和耐心，会随时间回落到角色人格基线。桃井、绿、爱丽丝的基线分别存放在各自 persona 文件的 `emotionBaseline` 中。
 
@@ -210,10 +212,10 @@ initialBotOwnerMultiplier: 1.15
 intimacyCloseAffinity: 75
 intimacyVeryCloseAffinity: 90
 emotionDecayMinute: 30
-emotionEventCooldownSecond: 30
+emotionEventCooldownSecond: 300
 emotionAnalyzeEnable: true
 emotionAnalyzeMode: "significant"
-emotionAnalyzeCooldownSecond: 60
+emotionAnalyzeCooldownSecond: 300
 emotionReasonMaxChars: 120
 emotionReasonMinStrength: 40
 emotionReasonDecayDays: 30
@@ -245,16 +247,16 @@ initialTrust: 60
 initialGroupAdminMultiplier: 1.05
 initialBotAdminMultiplier: 1.10
 initialBotOwnerMultiplier: 1.15
-relationDailyMaxDelta: 5
+relationDailyMaxDelta: 2
 intimacyCloseAffinity: 75
 intimacyVeryCloseAffinity: 90
 emotionEnable: true
 emotionDecayMinute: 30
-emotionEventCooldownSecond: 30
+emotionEventCooldownSecond: 300
 emotionAnalyzeEnable: true
 emotionAnalyzeMode: "significant"
 emotionAnalyzeProfile: ""
-emotionAnalyzeCooldownSecond: 60
+emotionAnalyzeCooldownSecond: 300
 emotionAnalyzeMaxTokens: 1200
 emotionAnalyzeReasoningEffort: "low"
 emotionAnalyzeMaxDelta: 12
@@ -631,4 +633,4 @@ speechSimilarityMinChars: 6
 
 `config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放；如果要应用新版桃井或绿设定，可以执行 `/role persona reset <文件名>`，或手动合并 `persona-*.json`。
 
-情绪机制升级到配置结构版本 15 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表；黑名单机制会创建 `plugin_mbb_roleplay_blacklist`。旧记忆备份仍可恢复；包含 `emotion` 和 `blacklist` 字段的新备份会同时恢复情绪、用户关系和黑名单。
+情绪机制升级到配置结构版本 17 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表；黑名单机制会创建 `plugin_mbb_roleplay_blacklist`。旧记忆备份仍可恢复；包含 `emotion` 和 `blacklist` 字段的新备份会同时恢复情绪、用户关系和黑名单。关系变化冷却、每日变化上限和旧初始好感的自动迁移也由该版本处理。
