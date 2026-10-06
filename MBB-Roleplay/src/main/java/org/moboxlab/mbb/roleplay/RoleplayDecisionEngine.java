@@ -12,12 +12,14 @@ public class RoleplayDecisionEngine {
     public static class Signals {
         public boolean otherRoleBot = false;
         public boolean addressedToOtherRole = false;
+        public boolean addressedToOtherMember = false;
         public boolean reminderNotification = false;
         public int otherRoleStreak = 0;
         public boolean direct = false;
         public boolean quotingSelf = false;
         public boolean mentioningSelf = false;
         public boolean sameUserContinuation = false;
+        public boolean justRepliedToSameUser = false;
         public boolean groupActive = false;
         public boolean interest = false;
         public boolean recentImageQuestion = false;
@@ -32,6 +34,16 @@ public class RoleplayDecisionEngine {
         if (signals.otherRoleBot && signals.reminderNotification) return "另一个机器人的提醒通知";
         if (signals.otherRoleBot && signals.otherRoleStreak > config.maxConsecutiveOtherRoleMessages) {
             return "与另一个机器人连续往返超过上限";
+        }
+        //明确艾特了其他成员，又没有提到角色，说明这句话不是对角色说的
+        if (signals.addressedToOtherMember && !signals.mentioningSelf && !signals.quotingSelf) {
+            return "消息艾特的是其他成员";
+        }
+        //同一用户刚被回复过，紧接着的短句多半是补充，不再重复接一次
+        if (signals.justRepliedToSameUser && !signals.mentioningSelf && !signals.quotingSelf
+                && !signals.direct
+                && signals.contentLength <= config.splitMessageSuppressMaxChars) {
+            return "同一用户刚被回复，短句视为补充";
         }
         return null;
     }

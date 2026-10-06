@@ -8,9 +8,12 @@ import org.moboxlab.moboxbot.API.Storage.StorageService;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * 所有群共享的角色永久记忆
@@ -277,7 +280,7 @@ public class RoleplayGlobalMemoryService {
         JSONArray result = new JSONArray();
         if (limit < 1) limit = config.globalMemoryMaxItems;
         List<JSONObject> rows = storage().query(
-                "SELECT `ID`,`memoryType`,`content`,`importance`,`sourceGroupID`,`updateTime` "
+                "SELECT `ID`,`memoryType`,`content`,`importance`,`sourceGroupID`,`sourceUserID`,`updateTime` "
                         + "FROM `"+TABLE+"` ORDER BY `importance` DESC,`updateTime` DESC LIMIT ?",
                 Math.min(limit,config.globalMemoryMaxItems));
         if (rows == null) return result;
@@ -288,6 +291,7 @@ public class RoleplayGlobalMemoryService {
             item.put("content",row.getString("content"));
             item.put("importance",row.getIntValue("importance"));
             item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
+            item.put("sourceUserID",row.getLongValue("sourceUserID"));
             item.put("updateTime",row.getLongValue("updateTime"));
             result.add(item);
         }
@@ -300,15 +304,75 @@ public class RoleplayGlobalMemoryService {
     }
 
     public String promptText() {
+        return promptText("",0,0);
+    }
+
+    /**
+     * 永久记忆按当前对话相关性排序后注入
+     * 全局记忆是跨群共享的，所以以内容重合度与重要度为主，来源用户命中时再加权
+     */
+    public String promptText(String query,long userID,int maxChars) {
         JSONArray memories = list(config.globalMemoryInjectItems);
         if (memories.isEmpty()) return "暂无全局永久记忆。";
-        StringBuilder builder = new StringBuilder();
+        if (!config.memoryRelevanceSort) {
+            StringBuilder plain = new StringBuilder();
+            for (int i = 0; i < memories.size(); i++) {
+                JSONObject item = memories.getJSONObject(i);
+                plain.append("- [").append(safe(item.getString("type"))).append("] ")
+                        .append(safe(item.getString("content"))).append("\n");
+            }
+            return plain.toString();
+        }
+        Set<String> queryBigrams = SpeechCorpusEntry.bigrams(
+                SpeechCorpusEntry.normalize(query == null ? "" : query));
+        List<ScoredMemory> scored = new ArrayList<>();
         for (int i = 0; i < memories.size(); i++) {
             JSONObject item = memories.getJSONObject(i);
-            builder.append("- [").append(safe(item.getString("type"))).append("] ")
-                    .append(safe(item.getString("content"))).append("\n");
+            Set<String> bigrams = SpeechCorpusEntry.bigrams(
+                    SpeechCorpusEntry.normalize(safe(item.getString("content"))));
+            double score = item.getIntValue("importance") * 0.15;
+            if (!queryBigrams.isEmpty()) {
+                int overlap = 0;
+                for (String bigram : queryBigrams) {
+                    if (bigrams.contains(bigram)) overlap++;
+                }
+                score += overlap * 1.5;
+            }
+            if (userID > 0 && item.getLongValue("sourceUserID") == userID) score += 1.5;
+            scored.add(new ScoredMemory(item,score));
         }
-        return builder.toString();
+        Collections.sort(scored,new Comparator<ScoredMemory>() {
+            @Override
+            public int compare(ScoredMemory left,ScoredMemory right) {
+                return Double.compare(right.score,left.score);
+            }
+        });
+        int budget = maxChars > 0 ? maxChars : config.globalMemoryRelevanceMaxChars;
+        StringBuilder builder = new StringBuilder();
+        int used = 0;
+        int count = 0;
+        for (ScoredMemory scoredMemory : scored) {
+            JSONObject item = scoredMemory.memory;
+            String line = "- ["+safe(item.getString("type"))+"] "
+                    +safe(item.getString("content"))+"\n";
+            if (count > 0 && used + line.length() > budget) break;
+            builder.append(line);
+            used += line.length();
+            count++;
+        }
+        plugin.getLogger().sendInfo("[永久记忆] 按相关性注入 "+count+"/"+memories.size()
+                +" 条，占用 "+used+" 字符");
+        return builder.length() == 0 ? "暂无全局永久记忆。" : builder.toString();
+    }
+
+    private static class ScoredMemory {
+        private final JSONObject memory;
+        private final double score;
+
+        private ScoredMemory(JSONObject memory,double score) {
+            this.memory = memory;
+            this.score = score;
+        }
     }
 
     public JSONArray exportAll() {

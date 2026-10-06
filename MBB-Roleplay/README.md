@@ -49,6 +49,11 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 连续快速发言会按窗口合批，一个回合只做一次路由和一次生成，回复可以分成多段分别回应不同的人
 - 表情包等待是事件驱动的：表情包先到、用户又发言都会立刻结束等待，只有都没出现时才等到窗口上限
 - 表情包已开始识别时会暂停回合，识别完成后立即合并；最多额外等待 15 秒，超时按无表情包继续
+- 明确艾特了其他群成员、又没有提到角色的消息会直接跳过，不再误以为是在和角色说话
+- 路由层会收到"发言指向"说明（艾特角色本人 / 回复角色 / 艾特其他成员等），并结合上下文判断这句话是不是对角色说的
+- 纯图片与表情消息的识图放到独立异步任务，不会卡住同一群后续消息的处理
+- 长期记忆与永久记忆先按当前对话内容与用户做相关性排序，再按相关性注入提示词，并各有字符上限
+- 同一用户刚被回复过时，紧接着的短句（默认 20 秒内、20 字以内）视为补充，不再重复接一次
 - 学生图鉴已升级为全身立绘外貌索引，69 个学生补齐下装、腿部、鞋履、尾巴与武器细节；角色识图时会把完整外貌参考传给 `MBB-Vision`
 - 角色知道自己的外貌设定；被问起某位学生是谁或长什么样时，会结合共享图鉴的外貌、社团、性格和关系作答
 - 学生图鉴不会整份塞进每条请求：常驻的「了解的学生」只保留一句话印象，被点名的学生才按需注入完整外貌，省下的上下文留给聊天本身
@@ -315,6 +320,13 @@ messageBatchWindowSecond: 2
 messageBatchMaxMessages: 10
 messageBatchMaxAgeSecond: 20
 batchMaxSegments: 4
+addressedOtherMemberSkip: true
+splitMessageSuppressSecond: 20
+splitMessageSuppressMaxChars: 20
+imageAsyncEnable: true
+memoryRelevanceSort: true
+memoryRelevanceMaxChars: 1800
+globalMemoryRelevanceMaxChars: 1200
 pokeReplyEnable: true
 pokeBackEnable: true
 pokeBackCooldownSecond: 60

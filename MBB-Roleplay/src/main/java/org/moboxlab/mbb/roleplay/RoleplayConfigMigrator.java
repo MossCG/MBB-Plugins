@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "20";
+    private static final String CURRENT_VERSION = "21";
 
     private static class ConfigEntry {
         private final String key;
@@ -77,6 +77,10 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("otherRoleBotNames",RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES,
                     "识别文本中提到的角色名，英文逗号分隔；昵称命中不再代表对方就是该角色"),
             new ConfigEntry("otherRoleBotQQs","","其他角色机器人 QQ，多个用英文逗号分隔；只有 QQ 命中才视为角色本人"),
+            new ConfigEntry("addressedOtherMemberSkip","true","消息明确艾特其他成员且没有提到角色时是否跳过"),
+            new ConfigEntry("splitMessageSuppressSecond","20",
+                    "同一用户刚被回复后，多少秒内的短句视为补充不再回复，0 表示关闭"),
+            new ConfigEntry("splitMessageSuppressMaxChars","20","触发补充抑制的最大字数"),
             new ConfigEntry("shortContextMessages","120","即时上下文消息条数"),
             new ConfigEntry("shortTermDays","3","短期记忆覆盖天数"),
             new ConfigEntry("memoryUpdateMessages","50","每累计多少条消息更新一次记忆"),
@@ -114,6 +118,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("imageUnderstandingProfile","","图片理解使用的模型配置名，留空则使用 MBB-Vision 默认配置"),
             new ConfigEntry("imageUnderstandingMaxChars","600","图片理解结果注入角色的最大字符数"),
             new ConfigEntry("imageContextTimeoutSecond","300","用户发送图片后，后续提问可复用原图作为上下文的时间窗口秒数"),
+            new ConfigEntry("imageAsyncEnable","true","纯图片与表情消息的识图放到独立异步任务，不阻塞回复线程"),
             new ConfigEntry("stickerAttachEnable","true","是否等待用户补发表情包后再生成一次回复"),
             new ConfigEntry("stickerAttachWindowSecond","5","文字回合等待同用户补发表情包的秒数"),
             new ConfigEntry("stickerAttachMaxWaitSecond","15","表情包已开始识别时，最多额外等待多少秒"),
@@ -140,6 +145,9 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("styleReasoningEffort","low","风格层思考强度：low / medium / high，留空表示不发送"),
             new ConfigEntry("styleProactiveEnable","false","主动发言时是否也触发风格层"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
+            new ConfigEntry("memoryRelevanceSort","true","长期记忆与永久记忆是否按当前对话相关性排序后注入"),
+            new ConfigEntry("memoryRelevanceMaxChars","1800","长期记忆按相关性注入的字符上限"),
+            new ConfigEntry("globalMemoryRelevanceMaxChars","1200","永久记忆按相关性注入的字符上限"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
             new ConfigEntry("replySegmentMaxChars","20","单段回复硬上限字符数，提示词默认按 12 字以内生成"),
@@ -204,7 +212,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 20) {
+        if (version < 21) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -265,7 +273,7 @@ public class RoleplayConfigMigrator {
             config.set("emotionAnalyzeMaxDelta","0.8");
             changed++;
         }
-        if (version < 20 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 21 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose

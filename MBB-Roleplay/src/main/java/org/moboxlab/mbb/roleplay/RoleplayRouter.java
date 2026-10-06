@@ -32,11 +32,13 @@ public class RoleplayRouter {
     public RoleplayRouteDecision route(RoleplayConfig config,RoleplayPersona persona,
                                        RoleplaySkillRegistry registry,RoleplayConversationState state,
                                        String content,String userName,String relationship,
-                                       String recentContext,String emotionSummary) {
+                                       String recentContext,String emotionSummary,
+                                       String addressingHint) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONObject response = callRoute(ai,config,persona,registry,state,content,userName,
-                relationship,recentContext,emotionSummary,config.routerMaxTokens,"路由");
+                relationship,recentContext,emotionSummary,addressingHint,
+                config.routerMaxTokens,"路由");
         RoleplayRouteDecision decision = parseResponse(response);
         if (decision != null) return decision;
         if (!shouldRetry(response)) return null;
@@ -45,7 +47,8 @@ public class RoleplayRouter {
         plugin.getLogger().sendWarn("[角色] 路由 群"+state.groupID+" 输出被截断，使用 "
                 +retryMaxTokens+" Token 重试");
         response = callRoute(ai,config,persona,registry,state,content,userName,
-                relationship,recentContext,emotionSummary,retryMaxTokens,"路由重试");
+                relationship,recentContext,emotionSummary,addressingHint,
+                retryMaxTokens,"路由重试");
         return parseResponse(response);
     }
 
@@ -53,11 +56,11 @@ public class RoleplayRouter {
                                  RoleplaySkillRegistry registry,RoleplayConversationState state,
                                  String content,String userName,String relationship,
                                  String recentContext,String emotionSummary,
-                                 int maxTokens,String tag) {
+                                 String addressingHint,int maxTokens,String tag) {
         JSONArray messages = new JSONArray();
         messages.add(message("system",systemPrompt(config,persona,registry,state)));
         messages.add(message("user",userPrompt(content,userName,relationship,recentContext,
-                emotionSummary)));
+                emotionSummary,addressingHint)));
         JSONObject params = new JSONObject(true);
         String profile = config.routerProfile == null || config.routerProfile.trim().isEmpty()
                 ? config.aiProfile : config.routerProfile.trim();
@@ -108,9 +111,14 @@ public class RoleplayRouter {
         builder.append("可选资料（常驻资料不需要点名）：\n").append(service.materialCatalogue());
         builder.append("对话状态：").append(stateSummary(state)).append("\n");
         builder.append("判断规则：\n")
+                .append("- 先判断这句话是不是对角色说的：只有明确艾特或回复角色、叫角色名字、")
+                .append("或延续角色参与的话题，才算对角色说\n")
+                .append("- 明确艾特或回复其他群成员的句子，默认不是对角色说的，reply 用 false\n")
+                .append("- 群里其他人之间的闲聊、互相点名、与角色无关的话题，reply 用 false\n")
                 .append("- 有人直接艾特、回复或点名角色时，reply 必须为 true，addressed 为 direct\n")
                 .append("- 话题明显符合角色兴趣，或角色刚参与过同一话题时，可以 reply 为 true\n")
-                .append("- 普通闲聊、别人的私事、机器人之间无关的互动，reply 用 false，不要为了刷存在感而回复\n")
+                .append("- 普通闲聊、别人的私事、别人之间的对话、机器人之间无关的互动，")
+                .append("reply 用 false，不要为了刷存在感而回复\n")
                 .append("- 只有确实需要某个技能时才写进 skills，没有就留空数组\n")
                 .append("- 只有确实需要某份资料时才写进 materials，没有就留空数组\n");
         builder.append("输出格式：{\"reply\":true,\"addressed\":\"direct|thread|ambient|none\",")
@@ -119,7 +127,7 @@ public class RoleplayRouter {
     }
 
     private String userPrompt(String content,String userName,String relationship,
-                              String recentContext,String emotionSummary) {
+                              String recentContext,String emotionSummary,String addressingHint) {
         StringBuilder builder = new StringBuilder();
         if (recentContext != null && !recentContext.trim().isEmpty()) {
             builder.append("最近群聊：\n").append(recentContext.trim()).append("\n\n");
@@ -127,6 +135,9 @@ public class RoleplayRouter {
         builder.append("当前消息：\n").append(content == null ? "" : content.trim()).append("\n");
         builder.append("发送者：").append(userName == null ? "" : userName)
                 .append("（关系：").append(relationship == null ? "朋友" : relationship).append("）");
+        if (addressingHint != null && !addressingHint.trim().isEmpty()) {
+            builder.append("\n发言指向：").append(addressingHint.trim());
+        }
         if (emotionSummary != null && !emotionSummary.trim().isEmpty()) {
             builder.append("\n当前情绪与关系：").append(emotionSummary.trim());
         }

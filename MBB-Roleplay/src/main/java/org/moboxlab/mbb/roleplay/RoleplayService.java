@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -164,7 +165,7 @@ public class RoleplayService {
     private static class RecentImage {
         private final JSONObject data;
         private final long expireAt;
-        private String summary = "";
+        private volatile String summary = "";
 
         private RecentImage(JSONObject data,long expireAt) {
             this.data = data;
@@ -511,19 +512,25 @@ public class RoleplayService {
         }
         int otherRoleStreak = updateOtherRoleMessageStreak(groupID,otherRoleBot);
         boolean addressedToOtherRole = isAddressedToOtherRole(event,content,selfID);
+        boolean addressedToOtherMember = config.addressedOtherMemberSkip
+                && mentionsOtherMember(event,selfID) && !mentionsSelfRole(event,content,selfID);
         boolean multiRoleAddress = isMultiRoleAddress(event,content,selfID);
         boolean direct = isDirect(event,content,selfID) || multiRoleAddress;
         boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
+        boolean justRepliedToSameUser = justRepliedToSameUser(groupID,event.getUserID());
         boolean groupActive = isGroupActive(groupID);
         boolean interest = persona.matchesInterest(content);
         boolean hasText = hasMeaningfulText(event.getMessage());
+        boolean pureImage = hasImage && !hasText;
         RecentImage currentImage = null;
         if (hasImage) {
             if (hasSticker) {
                 markStickerRecognitionPending(groupID,event.getUserID());
             }
             currentImage = rememberImageContext(event,groupID);
-            if (shouldUnderstandImages(event,content,direct,sameUserContinuation)) {
+            //纯图片消息的识图交给独立异步任务，不占用这一组的处理线程
+            boolean asyncImage = pureImage && config.imageAsyncEnable;
+            if (!asyncImage && shouldUnderstandImages(event,content,direct,sameUserContinuation)) {
                 content = enrichImageContent(event,content,groupID,currentImage);
                 addressedToOtherRole = isAddressedToOtherRole(event,content,selfID);
                 multiRoleAddress = isMultiRoleAddress(event,content,selfID);
@@ -540,8 +547,11 @@ public class RoleplayService {
             messageCountMap.put(groupID,0);
             triggerMemory(groupID,"定时整理");
         }
-        if (hasImage && !hasText) {
-            if (hasSticker) {
+        if (pureImage) {
+            if (config.imageAsyncEnable) {
+                dispatchImageUnderstanding(event,groupID,currentImage,hasSticker,
+                        direct,sameUserContinuation);
+            } else if (hasSticker) {
                 String emotion = content == null || content.trim().isEmpty() ? "[表情包]" : content.trim();
                 finishStickerRecognition(groupID,event.getUserID(),emotion);
             }
@@ -551,11 +561,13 @@ public class RoleplayService {
         signals.otherRoleBot = otherRoleBot;
         signals.otherRoleStreak = otherRoleStreak;
         signals.addressedToOtherRole = addressedToOtherRole;
+        signals.addressedToOtherMember = addressedToOtherMember;
         signals.reminderNotification = isReminderNotification(content);
         signals.direct = direct;
         signals.quotingSelf = isQuotingSelf(event,selfID);
         signals.mentioningSelf = isMentioningSelf(event,selfID);
         signals.sameUserContinuation = sameUserContinuation;
+        signals.justRepliedToSameUser = justRepliedToSameUser;
         signals.groupActive = groupActive;
         signals.interest = interest;
         signals.recentImageQuestion = recentImageQuestion;
@@ -1505,9 +1517,10 @@ public class RoleplayService {
         materials.add(new RoleplayMaterial("students.detail",false,80,4000,
                 () -> persona.studentDetailText(messageText)));
         materials.add(new RoleplayMaterial("memory.long",true,90,3000,
-                () -> "长期记忆：\n"+longMemoryText(groupID)));
+                () -> "长期记忆：\n"+longMemoryText(groupID,userID,messageText)));
         materials.add(new RoleplayMaterial("memory.global",true,85,2000,
-                () -> "全局永久记忆：\n"+globalMemoryService.promptText()));
+                () -> "全局永久记忆：\n"+globalMemoryService.promptText(messageText,userID,
+                        config.globalMemoryRelevanceMaxChars)));
         materials.add(new RoleplayMaterial("memory.short",true,80,1500,
                 () -> "短期记忆：\n"+shortSummary(groupID)));
         materials.add(new RoleplayMaterial("context.recent",true,75,2500,
@@ -1541,6 +1554,21 @@ public class RoleplayService {
     }
 
     /**
+     * 给路由层看的发言指向说明，避免把别人之间的对话当成对角色说的
+     */
+    private String addressingHint(RoleplayDecisionEngine.Signals signals) {
+        if (signals == null) return "";
+        List<String> parts = new ArrayList<>();
+        if (signals.mentioningSelf) parts.add("艾特了角色本人");
+        if (signals.quotingSelf) parts.add("回复的是角色本人上一条消息");
+        if (signals.direct && !signals.mentioningSelf) parts.add("开头叫了角色的名字");
+        if (signals.addressedToOtherMember) parts.add("艾特的是其他群成员，不是角色");
+        if (signals.addressedToOtherRole) parts.add("艾特的是另一个角色机器人");
+        if (parts.isEmpty()) parts.add("没有明确指向角色，需要结合上下文判断");
+        return String.join("；",parts);
+    }
+
+    /**
      * 产出本轮决策
      * 规则先算一遍作为兜底，路由可用时以路由结果为准，但规则保留否决权
      */
@@ -1552,7 +1580,7 @@ public class RoleplayService {
         RoleplayRouteDecision routed = router.route(config,persona,skillRegistry,state(groupID),
                 content,senderName(event),relationshipLabel(event,signals.otherRoleBot),
                 recentContext(groupID),emotionRouterText(groupID,event.getUserID(),
-                        signals.otherRoleBot));
+                        signals.otherRoleBot),addressingHint(signals));
         if (routed == null) {
             plugin.getLogger().sendWarn("[角色] 群"+groupID+" 路由失败，回退规则决策");
             return ruleDecision;
@@ -2287,16 +2315,77 @@ public class RoleplayService {
         return builder.toString();
     }
 
-    private String longMemoryText(long groupID) {
+    private String longMemoryText(long groupID,long userID,String query) {
         JSONArray memories = longMemories(groupID,true);
         if (memories.isEmpty()) return "暂无长期记忆。";
+        if (!config.memoryRelevanceSort) {
+            StringBuilder plain = new StringBuilder();
+            for (int i = 0; i < memories.size(); i++) {
+                JSONObject item = memories.getJSONObject(i);
+                plain.append("- [").append(safe(item.getString("type"))).append("] ")
+                        .append(safe(item.getString("content"))).append("\n");
+            }
+            return plain.toString();
+        }
+        List<JSONObject> ranked = rankMemories(memories,userID,query);
         StringBuilder builder = new StringBuilder();
+        int used = 0;
+        int count = 0;
+        for (JSONObject item : ranked) {
+            String line = "- ["+safe(item.getString("type"))+"] "
+                    +safe(item.getString("content"))+"\n";
+            if (count > 0 && used + line.length() > config.memoryRelevanceMaxChars) break;
+            builder.append(line);
+            used += line.length();
+            count++;
+        }
+        plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆按相关性注入 "+count
+                +"/"+memories.size()+" 条，占用 "+used+" 字符");
+        return builder.length() == 0 ? "暂无长期记忆。" : builder.toString();
+    }
+
+    /**
+     * 记忆相关性排序：与当前消息的字符重合度为主，重要性与同用户归属为辅
+     * 这样注入的是"和这次对话有关"的记忆，而不是只按重要度取前几条
+     */
+    private List<JSONObject> rankMemories(JSONArray memories,long userID,String query) {
+        Set<String> queryBigrams = SpeechCorpusEntry.bigrams(
+                SpeechCorpusEntry.normalize(query == null ? "" : query));
+        List<MemoryScore> scored = new ArrayList<>();
         for (int i = 0; i < memories.size(); i++) {
             JSONObject item = memories.getJSONObject(i);
-            builder.append("- [").append(safe(item.getString("type"))).append("] ")
-                    .append(safe(item.getString("content"))).append("\n");
+            Set<String> bigrams = SpeechCorpusEntry.bigrams(
+                    SpeechCorpusEntry.normalize(safe(item.getString("content"))));
+            double score = item.getIntValue("importance") * 0.15;
+            if (!queryBigrams.isEmpty()) {
+                int overlap = 0;
+                for (String bigram : queryBigrams) {
+                    if (bigrams.contains(bigram)) overlap++;
+                }
+                score += overlap * 1.5;
+            }
+            if (userID > 0 && item.getLongValue("subjectID") == userID) score += 3.0;
+            scored.add(new MemoryScore(item,score));
         }
-        return builder.toString();
+        Collections.sort(scored,new Comparator<MemoryScore>() {
+            @Override
+            public int compare(MemoryScore left,MemoryScore right) {
+                return Double.compare(right.score,left.score);
+            }
+        });
+        List<JSONObject> result = new ArrayList<>();
+        for (MemoryScore item : scored) result.add(item.memory);
+        return result;
+    }
+
+    private static class MemoryScore {
+        private final JSONObject memory;
+        private final double score;
+
+        private MemoryScore(JSONObject memory,double score) {
+            this.memory = memory;
+            this.score = score;
+        }
     }
 
     private JSONArray longMemories(long groupID) {
@@ -2659,7 +2748,10 @@ public class RoleplayService {
                 if (segment == null || !"at".equals(segment.getString("type"))) continue;
                 JSONObject data = segment.getJSONObject("data");
                 long atID = data == null ? 0L : data.getLongValue("qq");
-                if (atID > 0 && atID != selfID) return true;
+                //只有艾特到另一个角色机器人才算"提到其他角色"，普通群友不算
+                if (atID > 0 && atID != selfID && containsCSVLong(config.otherRoleBotQQs,atID)) {
+                    return true;
+                }
             }
         }
         String text = normalizeAddressText(content);
@@ -2668,6 +2760,24 @@ public class RoleplayService {
             String name = item.trim();
             if (name.isEmpty() || isOwnRoleName(name)) continue;
             if (containsRoleAlias(text,name)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 这条消息是否艾特了普通群成员：既不是角色自己，也不是另一个角色机器人
+     */
+    private boolean mentionsOtherMember(GroupMessageEvent event,long selfID) {
+        if (event == null || event.getMessage() == null) return false;
+        JSONArray message = event.getMessage();
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null || !"at".equals(segment.getString("type"))) continue;
+            JSONObject data = segment.getJSONObject("data");
+            long atID = data == null ? 0L : data.getLongValue("qq");
+            if (atID > 0 && atID != selfID && !containsCSVLong(config.otherRoleBotQQs,atID)) {
+                return true;
+            }
         }
         return false;
     }
@@ -2835,6 +2945,17 @@ public class RoleplayService {
         return state.lastReplyTime > 0 && state.lastReplyUser == userID
                 && System.currentTimeMillis() - state.lastReplyTime
                 <= config.conversationWindowSecond * 1000L;
+    }
+
+    /**
+     * 同一用户刚被回复过：用于抑制"一句话拆成两句"时的第二次回复
+     */
+    private boolean justRepliedToSameUser(long groupID,long userID) {
+        if (config.splitMessageSuppressSecond <= 0) return false;
+        RoleplayConversationState state = state(groupID);
+        return state.lastReplyTime > 0 && state.lastReplyUser == userID
+                && System.currentTimeMillis() - state.lastReplyTime
+                <= config.splitMessageSuppressSecond * 1000L;
     }
 
     private boolean isGroupActive(long groupID) {
@@ -3395,6 +3516,31 @@ public class RoleplayService {
         if (subType == null) return false;
         String value = String.valueOf(subType).trim();
         return !value.isEmpty() && !"0".equals(value);
+    }
+
+    /**
+     * 纯图片与表情消息的识图
+     * 放到独立异步任务里跑，识图完成后合并表情语气并放行等待中的回合，
+     * 这样一张图不会卡住同一群后面的消息。
+     */
+    private void dispatchImageUnderstanding(GroupMessageEvent event,long groupID,
+                                            RecentImage imageContext,boolean hasSticker,
+                                            boolean direct,boolean sameUserContinuation) {
+        if (!shouldUnderstandImages(event,"",direct,sameUserContinuation)) return;
+        final long userID = event.getUserID();
+        final boolean sticker = hasSticker;
+        plugin.getServer().getPluginManager().runTask(plugin,() -> {
+            try {
+                String content = enrichImageContent(event,"",groupID,imageContext);
+                if (sticker) {
+                    String emotion = content == null || content.trim().isEmpty()
+                            ? "[表情包]" : content.trim();
+                    finishStickerRecognition(groupID,userID,emotion);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().sendException(e);
+            }
+        });
     }
 
     private String enrichImageContent(GroupMessageEvent event,String context,long groupID,

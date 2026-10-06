@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 20
+configVersion: 21
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -87,6 +87,12 @@ maxConsecutiveOtherRoleMessages: 2
 otherRoleBotNames: "桃井,小桃,桃,才羽桃井,绿,小绿,才羽绿,爱丽丝,天童爱丽丝,モモイ,ミドリ"
 #其他角色机器人 QQ，多个用英文逗号分隔；只有 QQ 命中才视为角色本人，为空时不识别其他机器人
 otherRoleBotQQs: ""
+#消息明确艾特其他成员且没有提到角色时是否跳过
+addressedOtherMemberSkip: true
+#同一用户刚被回复后，多少秒内的短句视为补充不再回复，0 表示关闭
+splitMessageSuppressSecond: 20
+#触发补充抑制的最大字数
+splitMessageSuppressMaxChars: 20
 #即时上下文消息条数
 shortContextMessages: 80
 #短期记忆覆盖天数
@@ -159,6 +165,8 @@ imageUnderstandingProfile: ""
 imageUnderstandingMaxChars: 600
 #用户发送图片后，后续提问可复用原图作为上下文的时间窗口秒数
 imageContextTimeoutSecond: 300
+#纯图片与表情消息的识图放到独立异步任务，不阻塞回复线程
+imageAsyncEnable: true
 #是否等待用户补发表情包后再生成一次回复
 stickerAttachEnable: true
 #文字回合等待同用户补发表情包的最长秒数，用户又发言或表情包先到都会提前结束等待
@@ -179,6 +187,12 @@ messageBatchMaxAgeSecond: 20
 batchMaxSegments: 4
 #最多加载多少条长期记忆
 maxLongMemories: 150
+#长期记忆与永久记忆是否按当前对话相关性排序后注入
+memoryRelevanceSort: true
+#长期记忆按相关性注入的字符上限
+memoryRelevanceMaxChars: 1800
+#永久记忆按相关性注入的字符上限
+globalMemoryRelevanceMaxChars: 1200
 #单次角色回复最大 Token
 replyMaxTokens: 1200
 #带图片上下文时单次角色回复最大 Token

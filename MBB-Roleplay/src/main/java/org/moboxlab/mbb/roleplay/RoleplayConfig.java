@@ -58,6 +58,9 @@ public class RoleplayConfig {
     public int maxConsecutiveOtherRoleMessages = DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES;
     public String otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
     public String otherRoleBotQQs = "";
+    public boolean addressedOtherMemberSkip = true;
+    public int splitMessageSuppressSecond = 20;
+    public int splitMessageSuppressMaxChars = 20;
     public int shortContextMessages = 120;
     public int shortTermDays = 3;
     public int memoryUpdateMessages = 50;
@@ -95,6 +98,10 @@ public class RoleplayConfig {
     public String imageUnderstandingProfile = "";
     public int imageUnderstandingMaxChars = 600;
     public int imageContextTimeoutSecond = 300;
+    public boolean imageAsyncEnable = true;
+    public boolean memoryRelevanceSort = true;
+    public int memoryRelevanceMaxChars = 1800;
+    public int globalMemoryRelevanceMaxChars = 1200;
     public boolean stickerAttachEnable = true;
     public int stickerAttachWindowSecond = 5;
     public int stickerAttachMaxWaitSecond = 15;
@@ -244,6 +251,12 @@ public class RoleplayConfig {
                 "maxConsecutiveOtherRoleMessages",DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES);
         config.otherRoleBotNames = plugin.getConfig().getString("otherRoleBotNames",config.otherRoleBotNames);
         config.otherRoleBotQQs = plugin.getConfig().getString("otherRoleBotQQs","");
+        config.addressedOtherMemberSkip =
+                plugin.getConfig().getBoolean("addressedOtherMemberSkip",true);
+        config.splitMessageSuppressSecond =
+                plugin.getConfig().getInt("splitMessageSuppressSecond",20);
+        config.splitMessageSuppressMaxChars =
+                plugin.getConfig().getInt("splitMessageSuppressMaxChars",20);
         config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",120);
         config.shortTermDays = plugin.getConfig().getInt("shortTermDays",3);
         config.memoryUpdateMessages = plugin.getConfig().getInt("memoryUpdateMessages",50);
@@ -297,6 +310,12 @@ public class RoleplayConfig {
         config.imageUnderstandingProfile = plugin.getConfig().getString("imageUnderstandingProfile","");
         config.imageUnderstandingMaxChars = plugin.getConfig().getInt("imageUnderstandingMaxChars",600);
         config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
+        config.imageAsyncEnable = plugin.getConfig().getBoolean("imageAsyncEnable",true);
+        config.memoryRelevanceSort = plugin.getConfig().getBoolean("memoryRelevanceSort",true);
+        config.memoryRelevanceMaxChars =
+                plugin.getConfig().getInt("memoryRelevanceMaxChars",1800);
+        config.globalMemoryRelevanceMaxChars =
+                plugin.getConfig().getInt("globalMemoryRelevanceMaxChars",1200);
         config.stickerAttachEnable = plugin.getConfig().getBoolean("stickerAttachEnable",true);
         config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",5);
         config.stickerAttachMaxWaitSecond = plugin.getConfig().getInt("stickerAttachMaxWaitSecond",15);
@@ -417,6 +436,18 @@ public class RoleplayConfig {
             config.otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
         }
         if (config.otherRoleBotQQs == null) config.otherRoleBotQQs = "";
+        if (config.splitMessageSuppressSecond < 0) config.splitMessageSuppressSecond = 0;
+        if (config.splitMessageSuppressSecond > 300) config.splitMessageSuppressSecond = 300;
+        if (config.splitMessageSuppressMaxChars < 4) config.splitMessageSuppressMaxChars = 4;
+        if (config.splitMessageSuppressMaxChars > 60) config.splitMessageSuppressMaxChars = 60;
+        if (config.memoryRelevanceMaxChars < 200) config.memoryRelevanceMaxChars = 200;
+        if (config.memoryRelevanceMaxChars > 8000) config.memoryRelevanceMaxChars = 8000;
+        if (config.globalMemoryRelevanceMaxChars < 200) {
+            config.globalMemoryRelevanceMaxChars = 200;
+        }
+        if (config.globalMemoryRelevanceMaxChars > 8000) {
+            config.globalMemoryRelevanceMaxChars = 8000;
+        }
         if (config.shortContextMessages < 1) config.shortContextMessages = 1;
         if (config.shortContextMessages > 300) config.shortContextMessages = 300;
         if (config.shortTermDays < 1) config.shortTermDays = 1;
