@@ -20,6 +20,7 @@ public class RoleplayDecisionEngine {
         public boolean mentioningSelf = false;
         public boolean sameUserContinuation = false;
         public boolean justRepliedToSameUser = false;
+        public boolean completesPreviousMessage = false;
         public boolean groupActive = false;
         public boolean interest = false;
         public boolean recentImageQuestion = false;
@@ -42,6 +43,7 @@ public class RoleplayDecisionEngine {
         //同一用户刚被回复过，紧接着的短句多半是补充，不再重复接一次
         if (signals.justRepliedToSameUser && !signals.mentioningSelf && !signals.quotingSelf
                 && !signals.direct
+                && !signals.completesPreviousMessage
                 && signals.contentLength <= config.splitMessageSuppressMaxChars) {
             return "同一用户刚被回复，短句视为补充";
         }

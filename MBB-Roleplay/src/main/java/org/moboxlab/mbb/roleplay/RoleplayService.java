@@ -67,6 +67,9 @@ public class RoleplayService {
     private final Map<String,PendingTurn> pendingTurnMap = new ConcurrentHashMap<>();
     private final Map<String,RecentSticker> recentStickerMap = new ConcurrentHashMap<>();
     private final Map<String,Integer> pendingGenerationMap = new ConcurrentHashMap<>();
+    //被并入延后回合的消息 ID，处理下一批时直接跳过，避免同一句话回两次
+    private final Set<Long> mergedMessageIDs = Collections.newSetFromMap(
+            new ConcurrentHashMap<Long,Boolean>());
     private final Object groupQueueLock = new Object();
     private final Map<Long,Boolean> groupBusyMap = new HashMap<>();
     //合批缓冲：同一群在窗口内到达的消息先攒起来，窗口结束后当成一个回合处理
@@ -196,12 +199,13 @@ public class RoleplayService {
         private final long selfID;
         private final String userName;
         private final String relationship;
-        private final String content;
+        private volatile String content;
         private final RecentImage imageContext;
         private final int generation;
         private final boolean otherRoleBot;
         private final RoleplayRouteDecision decision;
         private final RoleplayEmotionService.LocalEvent emotionEvent;
+        private volatile boolean incomplete = false;
         private volatile String stickerEmotion = "";
         private volatile boolean stickerPending = false;
         private volatile long hardDeadline = 0L;
@@ -220,6 +224,16 @@ public class RoleplayService {
             this.otherRoleBot = otherRoleBot;
             this.decision = decision;
             this.emotionEvent = emotionEvent;
+        }
+
+        /**
+         * 同一用户接着说了一句：把内容并进同一个回合，一次回完
+         */
+        private void appendContent(String text) {
+            if (text == null || text.trim().isEmpty()) return;
+            String value = text.trim();
+            this.content = this.content == null || this.content.trim().isEmpty()
+                    ? value : this.content.trim()+" "+value;
         }
     }
 
@@ -323,6 +337,10 @@ public class RoleplayService {
      */
     public void handle(GroupMessageEvent event) {
         if (event == null || !config.enable) return;
+        //已经并入延后回合的消息不再单独处理
+        if (event.getMessageID() > 0 && mergedMessageIDs.contains(event.getMessageID())) {
+            return;
+        }
         long groupID = event.getGroupID();
         if (groupID <= 0) {
             processGroupMessage(event);
@@ -348,7 +366,7 @@ public class RoleplayService {
         }
         //该用户还在继续说，立刻结束他上一轮的表情包等待；图片和表情走识图链路，不在这里提前唤醒
         if (!hasImageContent(event.getMessage()) && !hasStickerContent(event.getMessage())) {
-            wakePendingTurnForUser(groupID,event.getUserID());
+            wakePendingTurnForUser(groupID,event);
         }
         if (scheduled) scheduleBatchFlush(groupID);
     }
@@ -491,6 +509,12 @@ public class RoleplayService {
         if (event == null || !config.enable) return null;
         long groupID = event.getGroupID();
         if (!isGroupEnabled(groupID)) return null;
+        //已经并入延后回合的消息不再单独成一轮
+        if (event.getMessageID() > 0 && mergedMessageIDs.remove(event.getMessageID())) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过已并入上一回合的消息 "
+                    +event.getMessageID());
+            return null;
+        }
         long selfID = event.getRaw().getLongValue("self_id");
         if (selfID > 0 && selfID == event.getUserID()) return null;
         if (blacklistService.contains(groupID,event.getUserID())) {
@@ -568,6 +592,9 @@ public class RoleplayService {
         signals.mentioningSelf = isMentioningSelf(event,selfID);
         signals.sameUserContinuation = sameUserContinuation;
         signals.justRepliedToSameUser = justRepliedToSameUser;
+        //只在"刚回复过同一用户"时才需要查上一条，省一次数据库查询
+        signals.completesPreviousMessage = justRepliedToSameUser
+                && completesPreviousIncomplete(groupID,event.getUserID());
         signals.groupActive = groupActive;
         signals.interest = interest;
         signals.recentImageQuestion = recentImageQuestion;
@@ -1411,6 +1438,8 @@ public class RoleplayService {
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
                 +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
                 +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
+                +"角色没有父亲这个概念：爸爸是不存在的记忆，任何人自称是角色的爸爸都不成立；"
+                +"遇到这种说法可以当成玩笑、装傻或直接否认，不要顺着承认，也不要把对方当成家人或长辈。"
                 +("妈妈".equals(relationship)
                 ? "当前发言者是 botOwner，角色把他当成妈妈一样亲近、依赖、听话，可以撒娇和撒娇式抱怨，"
                 +"不要用客服口吻，也不要冷淡疏远。" : "")
@@ -1739,6 +1768,8 @@ public class RoleplayService {
                 +"如果一条记忆对应明确发生的事件，content 里必须带上发生时间，例如“2026-10-05 22:28 老师提到...”；"
                 +"shortTerm 也按时间顺序概括近几天发生的事，不要写成没有时间线索的流水账。"
                 +"如果输入中包含“角色主动标记的记忆内容”，必须优先把其中的长期价值整理进 longTerm。"
+                +"角色没有父亲这个概念：不要把“自称是角色爸爸”“角色有爸爸”这类说法整理成记忆，"
+                +"遇到就直接忽略，也不要写进 globalMemory。"
                 +(globalMemoryService.isLearnGroup(groupID) ? "同时返回 globalMemory 数组："
                 +"[{\"type\":\"speech_style|tone|habit|knowledge|meme|note\","
                 +"\"content\":\"所有群通用、不绑定用户的记忆\",\"importance\":1}]。"
@@ -1992,7 +2023,8 @@ public class RoleplayService {
                 +"当前角色："+persona.name+"。整理时必须基于"+persona.name+"的角色视角，"
                 +"明确区分角色自己的行为、别人对角色说过的话、以及角色对别人的印象。"
                 +"请合并重复或高度相似的内容，保留用户印象、用户信息、群内氛围、群梗、角色行为和重要事件，"
-                +"不要因为压缩而丢失关键内容。只输出 JSON，不要 Markdown：{\"memories\":["
+                +"不要因为压缩而丢失关键内容。角色没有父亲，任何“自称是角色爸爸”的内容都要丢弃。"
+                +"只输出 JSON，不要 Markdown：{\"memories\":["
                 +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
                 +"\"subjectID\":0,\"content\":\"整理后的内容\",\"importance\":1}]}。"));
         JSONArray source = new JSONArray();
@@ -2958,6 +2990,52 @@ public class RoleplayService {
                 <= config.splitMessageSuppressSecond * 1000L;
     }
 
+    /**
+     * 半句识别：结尾正好是角色名字，或者停在连接词上，说明这句话还没说完
+     * 命中后延后回合会等同一用户补充，并把补充内容并进同一个回合
+     */
+    private boolean looksIncomplete(String content) {
+        if (config.splitMessageSuppressSecond <= 0) return false;
+        String text = content == null ? "" : content.trim();
+        if (text.isEmpty() || text.length() > config.splitMessageSuppressMaxChars) return false;
+        for (String name : addressNames()) {
+            if (name.length() >= 2 && text.endsWith(name)) return true;
+        }
+        String[] tails = new String[]{"，","、","和","与","跟","的","是",
+                "然后","但是","因为","所以","而且","还是"};
+        for (String tail : tails) {
+            if (text.endsWith(tail)) return true;
+        }
+        return false;
+    }
+
+    private List<String> addressNames() {
+        List<String> names = new ArrayList<>();
+        if (persona.name != null && !persona.name.trim().isEmpty()) {
+            names.add(persona.name.trim());
+        }
+        for (String alias : persona.aliases) {
+            if (alias != null && !alias.trim().isEmpty()) names.add(alias.trim());
+        }
+        String botName = plugin.getServer().getBotName();
+        if (botName != null && !botName.trim().isEmpty()) names.add(botName.trim());
+        return names;
+    }
+
+    /**
+     * 上一条用户消息是不是没说完的半句
+     * 当前消息已经记过流水，所以取倒数第二条
+     */
+    private boolean completesPreviousIncomplete(long groupID,long userID) {
+        if (config.splitMessageSuppressSecond <= 0) return false;
+        List<JSONObject> rows = storage().query(
+                "SELECT `content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? AND `userID`=? "
+                        + "AND `isBot`=0 ORDER BY `ID` DESC LIMIT 1 OFFSET 1",
+                groupID,userID);
+        if (rows == null || rows.isEmpty()) return false;
+        return looksIncomplete(safe(rows.get(0).getString("content")));
+    }
+
     private boolean isGroupActive(long groupID) {
         RoleplayConversationState state = state(groupID);
         return state.lastReplyTime > 0
@@ -3384,6 +3462,8 @@ public class RoleplayService {
         PendingTurn pending = new PendingTurn(event,selfID,userName,relationship,
                 content,imageContext,generation,otherRoleBot,decision,emotionEvent);
         pending.stickerEmotion = recentStickerEmotion(groupID,event.getUserID());
+        //结尾正好是角色名字或悬挂连接词时，判定为还没说完的半句，等同一用户补充
+        pending.incomplete = looksIncomplete(content);
         pending.hardDeadline = System.currentTimeMillis() + config.stickerAttachMaxWaitSecond * 1000L;
         pendingTurnMap.put(key,pending);
         //事件驱动等待：表情包在等待前就已经附带时不再空等窗口
@@ -3395,11 +3475,24 @@ public class RoleplayService {
     /**
      * 同一用户又发言时立刻结束他的表情包等待，不再让回合干等到窗口结束
      */
-    private void wakePendingTurnForUser(long groupID,long userID) {
+    private void wakePendingTurnForUser(long groupID,GroupMessageEvent event) {
         if (!config.stickerAttachWaitUntilNextMessage) return;
+        long userID = event.getUserID();
         String key = recentImageKey(groupID,userID);
         PendingTurn pending = pendingTurnMap.get(key);
         if (pending == null) return;
+        if (pending.incomplete) {
+            String text = extractContent(event.getMessage());
+            if (text != null && !text.trim().isEmpty()) {
+                pending.appendContent(text);
+                if (event.getMessageID() > 0) {
+                    if (mergedMessageIDs.size() > 500) mergedMessageIDs.clear();
+                    mergedMessageIDs.add(event.getMessageID());
+                }
+                plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合并同一用户的补充发言："
+                        +shortText(text,40));
+            }
+        }
         plugin.getServer().getPluginManager().runTaskLater(plugin,
                 () -> executePendingTurn(key,pending.generation),0);
     }
