@@ -339,7 +339,8 @@ public class RoleplaySkillRegistry {
 
         @Override
         public String promptFragment(RoleplaySkillContext context) {
-            return "poke-back 表示戳回去，适合被人戳、或想回敬对方时使用。";
+            return "poke-back 表示戳回去。被人戳、想回敬对方，或正文里说出“戳回去”“回戳”“戳你”时，"
+                    +"必须同时输出 {\"type\":\"poke-back\"}，不能只在 text 里表达。";
         }
 
         @Override

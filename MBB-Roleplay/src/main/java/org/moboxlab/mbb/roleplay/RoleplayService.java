@@ -479,6 +479,7 @@ public class RoleplayService {
                 }
             }
         }
+        if (sendText) ensurePokeBackAction(draft,decision,reply);
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (sendText && client != null) {
             sendReply(client,groupID,selfID,event.getUserID(),reply,
@@ -523,6 +524,7 @@ public class RoleplayService {
         }
         String text = safe(draft.text).trim();
         boolean sendText = !text.isEmpty() && !"<SKIP>".equalsIgnoreCase(text);
+        if (sendText) ensurePokeBackAction(draft,decision,text);
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (sendText && client != null) sendReply(client,groupID,selfID,userID,text,false,false,0L);
         plugin.getLogger().sendInfo("[角色] 戳一戳 群"+groupID+" 用户"+userID
@@ -774,6 +776,8 @@ public class RoleplayService {
                 +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
                 +"所有真人成员的初始好感度为 "+config.initialAffinity+"/100，整体保持较高好感，"
                 +"愿意接话、帮忙和分享，不要冷淡、疏远或无缘无故防备。"
+                +"如果对方提出亲密、暧昧、sexy 或有点过分的要求，不要直接冷冰冰拒绝或长篇说教；"
+                +"可以用害羞、别扭、撒娇、转移话题、小声吐槽的方式回应，但不要输出露骨性内容，也不要主动升级话题。"
                 +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
@@ -802,9 +806,12 @@ public class RoleplayService {
                 +"不要把“嗯”“嗯……”当作固定开场；最近 3 条回复里已经出现过“嗯”开头时，必须换一种直接的说法。"
                 +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
+                +"如果正文表达要戳回去、回戳或戳你，actions 必须同时包含 {\"type\":\"poke-back\"}；"
+                +"不能只在 text 里说，也不能把动作写成普通文本。"
                 +"不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。"
                 +"输出格式：只输出一个 JSON 对象，不要加代码块或额外说明，格式为 "
                 +"{\"text\":\"你要说的话\",\"actions\":[],\"quote\":false}。"
+                +"例如戳回去时输出：{\"text\":\"戳回去~\",\"actions\":[{\"type\":\"poke-back\"}],\"quote\":false}。"
                 +"text 里放聊天正文，如果这条消息不该回复，text 写 <SKIP>。"
                 +(decision != null && decision.quoteRequired
                 ? "这条消息正在直接回复或艾特你，quote 必须为 true。"
@@ -1011,6 +1018,11 @@ public class RoleplayService {
 
     private String memorySystemPrompt(long groupID,boolean retry) {
         return "你是角色扮演插件的记忆整理器。"
+                +"当前角色："+persona.name
+                +(persona.identity == null || persona.identity.trim().isEmpty()
+                ? "" : "（"+persona.identity.trim()+"）")+"。"
+                +"必须始终以"+persona.name+"的第一人称角色视角整理记忆，区分“角色自己做过/说过”、"
+                +"“别人对角色做过/说过”和“角色对别人的印象”，不要把群友视角当成角色自己的经历。"
                 +(retry ? "上一次输出无法解析。现在必须只输出一个合法 JSON 对象，"
                 +"不要输出任何解释、标题、Markdown、代码块或思考过程。" : "只输出 JSON，不要 Markdown。")
                 +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
@@ -1272,6 +1284,8 @@ public class RoleplayService {
                                                    int batchNo,int batchCount) {
         JSONArray messages = new JSONArray();
         messages.add(message("system","你是角色扮演插件的长期记忆整理器。只处理当前这一批记忆，"
+                +"当前角色："+persona.name+"。整理时必须基于"+persona.name+"的角色视角，"
+                +"明确区分角色自己的行为、别人对角色说过的话、以及角色对别人的印象。"
                 +"请合并重复或高度相似的内容，保留用户印象、用户信息、群内氛围、群梗、角色行为和重要事件，"
                 +"不要因为压缩而丢失关键内容。只输出 JSON，不要 Markdown：{\"memories\":["
                 +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
@@ -1722,6 +1736,19 @@ public class RoleplayService {
             if (target.equals(canonicalAction(item))) return true;
         }
         return false;
+    }
+
+    private void ensurePokeBackAction(RoleplayReplyDraft draft,RoleplayRouteDecision decision,
+                                      String text) {
+        if (draft == null || text == null || text.trim().isEmpty()) return;
+        if (draft.hasAction("poke-back")) return;
+        List<String> allowed = decision == null ? skillRegistry.actionIds(config) : decision.actions;
+        if (!isActionAllowed(allowed,"poke-back")) return;
+        String value = text.trim();
+        if (value.contains("不戳") || value.contains("别戳") || value.contains("不回了")) return;
+        if (value.contains("戳回去") || value.contains("回戳") || value.contains("戳你")) {
+            draft.addCall(new RoleplaySkillCall("poke-back"));
+        }
     }
 
     private List<String> canonicalActions(List<String> actions) {
