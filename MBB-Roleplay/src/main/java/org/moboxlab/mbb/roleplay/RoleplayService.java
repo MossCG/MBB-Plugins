@@ -860,6 +860,8 @@ public class RoleplayService {
         OneBotClient client = plugin.getServer().getOneBotClient();
         List<PreparedMessage> responded = new ArrayList<>();
         int sent = 0;
+        //整批最多发多少条消息：段数上限的两倍，避免段内换行把消息刷屏
+        int messageBudget = Math.max(1,config.batchMaxSegments * 2);
         for (int i = 0; i < limit; i++) {
             RoleplayReplyDraft.Segment segment = segments.get(i);
             if (segment == null) continue;
@@ -905,9 +907,16 @@ public class RoleplayService {
                 boolean forceQuote = decision != null && decision.quoteRequired && target == primary;
                 boolean quote = config.quoteReplyEnable && quoteAllowed
                         && (forceQuote || segment.quote) && quoteMessageID > 0;
-                sendSingleMessage(client,groupID,selfID,target.userID,reply,quote,quoteMessageID);
-                if (!responded.contains(target)) responded.add(target);
-                sent++;
+                //和单回合保持一致：段内换行按多段发送，引用只挂在第一段上
+                List<String> parts = splitReply(reply);
+                int partLimit = Math.min(parts.size(),Math.max(1,config.replyMaxSegments));
+                for (int p = 0; p < partLimit && sent < messageBudget; p++) {
+                    if (p > 0 && !sleepQuietly(250L)) break;
+                    sendSingleMessage(client,groupID,selfID,target.userID,parts.get(p),
+                            quote && p == 0,quoteMessageID);
+                    if (!responded.contains(target)) responded.add(target);
+                    sent++;
+                }
             }
             if (!segmentDraft.actions.isEmpty()) {
                 executeSkillCalls(decision,segmentDraft,groupID,target.userID,
@@ -916,7 +925,7 @@ public class RoleplayService {
             }
             if (sent > 0 && i + 1 < limit && !sleepQuietly(250L)) break;
         }
-        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批回合回复 "+sent+" 段");
+        plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批回合回复 "+sent+" 条");
         for (PreparedMessage message : responded) {
             emotionService.afterTurn(groupID,message.userID,message.userName,message.relationship,
                     message.content,message.emotionEvent,
