@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "18";
+    private static final String CURRENT_VERSION = "19";
 
     private static class ConfigEntry {
         private final String key;
@@ -110,6 +110,12 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("stickerAttachEnable","true","是否等待用户补发表情包后再生成一次回复"),
             new ConfigEntry("stickerAttachWindowSecond","5","文字回合等待同用户补发表情包的秒数"),
             new ConfigEntry("stickerAttachMaxWaitSecond","15","表情包已开始识别时，最多额外等待多少秒"),
+            new ConfigEntry("stickerAttachWaitUntilNextMessage","true",
+                    "同一用户又发言或表情包已附带时立刻结束等待，不再干等到窗口结束"),
+            new ConfigEntry("messageBatchEnable","true","是否启用群消息合批：连续快速发言会合并成一个回合处理"),
+            new ConfigEntry("messageBatchWindowSecond","2","合批窗口秒数，窗口内到达的新消息会并入同一批"),
+            new ConfigEntry("messageBatchMaxMessages","10","单个批次最多合并多少条消息，超出时丢弃最旧的非直接点名消息"),
+            new ConfigEntry("batchMaxSegments","4","合批回合最多回复几段，每段可以回应批内不同的消息"),
             new ConfigEntry("pokeReplyEnable","true","是否响应戳一戳；MBB-Poke 启用时本插件自动跳过"),
             new ConfigEntry("pokeBackEnable","true","被戳时是否允许角色戳回去"),
             new ConfigEntry("pokeBackCooldownSecond","60","对同一用户戳回去的最小间隔秒数"),
@@ -190,7 +196,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 18) {
+        if (version < 19) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -251,7 +257,7 @@ public class RoleplayConfigMigrator {
             config.set("emotionAnalyzeMaxDelta","0.8");
             changed++;
         }
-        if (version < 18 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 19 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose

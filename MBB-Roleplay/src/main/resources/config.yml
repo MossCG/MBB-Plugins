@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 18
+configVersion: 19
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -147,10 +147,20 @@ imageUnderstandingMaxChars: 600
 imageContextTimeoutSecond: 300
 #是否等待用户补发表情包后再生成一次回复
 stickerAttachEnable: true
-#文字回合等待同用户补发表情包的秒数
+#文字回合等待同用户补发表情包的最长秒数，用户又发言或表情包先到都会提前结束等待
 stickerAttachWindowSecond: 7
 #表情包已开始识别时，最多额外等待多少秒
 stickerAttachMaxWaitSecond: 15
+#同一用户又发言或表情包已附带时立刻结束等待，不再干等到窗口结束
+stickerAttachWaitUntilNextMessage: true
+#是否启用群消息合批：短时间内连续到达的消息会合并成一个回合处理，避免刷屏时逐条排队
+messageBatchEnable: true
+#合批窗口秒数，窗口内到达的新消息会并入同一批
+messageBatchWindowSecond: 2
+#单个批次最多合并多少条消息，超出时丢弃最旧的非直接点名消息
+messageBatchMaxMessages: 10
+#合批回合最多回复几段，每段可以回应批内不同的消息
+batchMaxSegments: 4
 #最多加载多少条长期记忆
 maxLongMemories: 150
 #单次角色回复最大 Token

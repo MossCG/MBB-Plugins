@@ -91,6 +91,11 @@ public class RoleplayConfig {
     public boolean stickerAttachEnable = true;
     public int stickerAttachWindowSecond = 5;
     public int stickerAttachMaxWaitSecond = 15;
+    public boolean stickerAttachWaitUntilNextMessage = true;
+    public boolean messageBatchEnable = true;
+    public int messageBatchWindowSecond = 2;
+    public int messageBatchMaxMessages = 10;
+    public int batchMaxSegments = 4;
     public boolean pokeReplyEnable = true;
     public boolean pokeBackEnable = true;
     public int pokeBackCooldownSecond = 60;
@@ -274,6 +279,12 @@ public class RoleplayConfig {
         config.stickerAttachEnable = plugin.getConfig().getBoolean("stickerAttachEnable",true);
         config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",5);
         config.stickerAttachMaxWaitSecond = plugin.getConfig().getInt("stickerAttachMaxWaitSecond",15);
+        config.stickerAttachWaitUntilNextMessage =
+                plugin.getConfig().getBoolean("stickerAttachWaitUntilNextMessage",true);
+        config.messageBatchEnable = plugin.getConfig().getBoolean("messageBatchEnable",true);
+        config.messageBatchWindowSecond = plugin.getConfig().getInt("messageBatchWindowSecond",2);
+        config.messageBatchMaxMessages = plugin.getConfig().getInt("messageBatchMaxMessages",10);
+        config.batchMaxSegments = plugin.getConfig().getInt("batchMaxSegments",4);
         config.pokeReplyEnable = plugin.getConfig().getBoolean("pokeReplyEnable",true);
         config.pokeBackEnable = plugin.getConfig().getBoolean("pokeBackEnable",true);
         config.pokeBackCooldownSecond = plugin.getConfig().getInt("pokeBackCooldownSecond",60);
@@ -443,6 +454,12 @@ public class RoleplayConfig {
             config.stickerAttachMaxWaitSecond = config.stickerAttachWindowSecond;
         }
         if (config.stickerAttachMaxWaitSecond > 60) config.stickerAttachMaxWaitSecond = 60;
+        if (config.messageBatchWindowSecond < 1) config.messageBatchWindowSecond = 1;
+        if (config.messageBatchWindowSecond > 10) config.messageBatchWindowSecond = 10;
+        if (config.messageBatchMaxMessages < 2) config.messageBatchMaxMessages = 2;
+        if (config.messageBatchMaxMessages > 50) config.messageBatchMaxMessages = 50;
+        if (config.batchMaxSegments < 1) config.batchMaxSegments = 1;
+        if (config.batchMaxSegments > 8) config.batchMaxSegments = 8;
         if (config.pokeBackCooldownSecond < 0) config.pokeBackCooldownSecond = 0;
         if (config.pokeBackCooldownSecond > 3600) config.pokeBackCooldownSecond = 3600;
         if (config.promptTotalChars < 4000) config.promptTotalChars = 4000;

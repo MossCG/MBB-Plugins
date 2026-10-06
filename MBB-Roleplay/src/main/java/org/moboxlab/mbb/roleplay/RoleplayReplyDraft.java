@@ -18,9 +18,21 @@ import java.util.Locale;
  * 三级都失败且内容看起来就是结构化结果时，宁可这一轮不发，也不把 JSON 原文发到群里。
  */
 public class RoleplayReplyDraft {
+    /**
+     * 合批回合里的一段回复
+     * to 是批内消息序号，1 起算，0 表示不指定；每段可以各自引用不同的消息
+     */
+    public static class Segment {
+        public String text = "";
+        public boolean quote = false;
+        public int to = 0;
+        public final List<RoleplaySkillCall> actions = new ArrayList<>();
+    }
+
     public String text = "";
     public boolean quote = false;
     public final List<RoleplaySkillCall> actions = new ArrayList<>();
+    public final List<Segment> segments = new ArrayList<>();
     /** 是否成功按约定解析出结构，false 表示走了退化路径 */
     public boolean structured = false;
     /** 看起来是结构化结果但没能解析，调用方应记录日志并跳过发送 */
@@ -32,9 +44,10 @@ public class RoleplayReplyDraft {
         if (raw.isEmpty()) return draft;
 
         JSONObject json = tryParse(raw);
-        if (json != null && json.getString("text") != null) {
+        if (json != null && (json.getString("text") != null
+                || json.getJSONArray("segments") != null)) {
             draft.structured = true;
-            draft.text = json.getString("text").trim();
+            draft.text = json.getString("text") == null ? "" : json.getString("text").trim();
             draft.quote = json.getBooleanValue("quote");
             JSONArray actions = json.getJSONArray("actions");
             if (actions != null) {
@@ -42,6 +55,16 @@ public class RoleplayReplyDraft {
                     RoleplaySkillCall call = parseCall(item);
                     if (call != null) draft.addCall(call);
                 }
+            }
+            JSONArray segments = json.getJSONArray("segments");
+            if (segments != null) {
+                for (Object item : segments) {
+                    Segment segment = parseSegment(item);
+                    if (segment != null) draft.segments.add(segment);
+                }
+            }
+            if (draft.text.isEmpty() && !draft.segments.isEmpty()) {
+                draft.text = draft.segments.get(0).text;
             }
             return draft;
         }
@@ -77,6 +100,20 @@ public class RoleplayReplyDraft {
         return action(type) != null;
     }
 
+    /**
+     * 统一按“段”处理：单段结果包装成一段，合批结果直接返回多段
+     */
+    public List<Segment> effectiveSegments() {
+        if (!segments.isEmpty()) return segments;
+        List<Segment> result = new ArrayList<>();
+        Segment segment = new Segment();
+        segment.text = text;
+        segment.quote = quote;
+        segment.actions.addAll(actions);
+        result.add(segment);
+        return result;
+    }
+
     public RoleplaySkillCall action(String type) {
         if (type == null) return null;
         for (RoleplaySkillCall call : actions) {
@@ -95,6 +132,40 @@ public class RoleplayReplyDraft {
         JSONObject args = json.getJSONObject("args");
         if (args != null) call.args = args;
         return call;
+    }
+
+    private static Segment parseSegment(Object item) {
+        if (!(item instanceof JSONObject)) {
+            if (item == null) return null;
+            String value = String.valueOf(item).trim();
+            if (value.isEmpty()) return null;
+            Segment segment = new Segment();
+            segment.text = value;
+            return segment;
+        }
+        JSONObject json = (JSONObject) item;
+        Segment segment = new Segment();
+        String text = json.getString("text");
+        segment.text = text == null ? "" : text.trim();
+        if (segment.text.isEmpty()) return null;
+        segment.quote = json.getBooleanValue("quote");
+        segment.to = json.getIntValue("to");
+        JSONArray actions = json.getJSONArray("actions");
+        if (actions != null) {
+            for (Object value : actions) {
+                RoleplaySkillCall call = parseCall(value);
+                if (call == null || call.type.isEmpty()) continue;
+                boolean exists = false;
+                for (RoleplaySkillCall existing : segment.actions) {
+                    if (existing.type.equals(call.type)) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) segment.actions.add(call);
+            }
+        }
+        return segment;
     }
 
     private static String normalizeActionType(String type) {
