@@ -22,6 +22,25 @@ public class RoleplayConfig {
     public int replyCooldownSecond = 5;
     public int maxRepliesPerHour = 180;
     public int initialAffinity = 70;
+    public int relationDailyMaxDelta = 5;
+    public boolean emotionEnable = true;
+    public int emotionDecayMinute = 30;
+    public int emotionEventCooldownSecond = 30;
+    public boolean emotionAnalyzeEnable = true;
+    public String emotionAnalyzeMode = "significant";
+    public String emotionAnalyzeProfile = "";
+    public int emotionAnalyzeCooldownSecond = 60;
+    public int emotionAnalyzeMaxTokens = 1200;
+    public String emotionAnalyzeReasoningEffort = "low";
+    public int emotionAnalyzeMaxDelta = 12;
+    public int emotionReasonMaxChars = 120;
+    public int emotionReasonMinStrength = 40;
+    public int emotionReasonDecayDays = 30;
+    public int emotionEventRetentionDays = 90;
+    public double emotionPositiveReplyBonus = 0.05;
+    public double emotionNegativeReplyPenalty = 0.15;
+    public double emotionAffinityReplyBonus = 0.08;
+    public double emotionAffinityReplyPenalty = 0.15;
     public boolean reminderEnable = true;
     public boolean reminderAiParse = true;
     public int reminderMaxDays = 30;
@@ -106,6 +125,46 @@ public class RoleplayConfig {
         config.replyCooldownSecond = plugin.getConfig().getInt("replyCooldownSecond",5);
         config.maxRepliesPerHour = plugin.getConfig().getInt("maxRepliesPerHour",180);
         config.initialAffinity = plugin.getConfig().getInt("initialAffinity",70);
+        config.relationDailyMaxDelta = plugin.getConfig().getInt("relationDailyMaxDelta",5);
+        config.emotionEnable = plugin.getConfig().getBoolean("emotionEnable",true);
+        config.emotionDecayMinute = plugin.getConfig().getInt("emotionDecayMinute",30);
+        config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",30);
+        config.emotionAnalyzeEnable = plugin.getConfig().getBoolean("emotionAnalyzeEnable",true);
+        config.emotionAnalyzeMode = plugin.getConfig().getString("emotionAnalyzeMode","significant");
+        config.emotionAnalyzeProfile = plugin.getConfig().getString("emotionAnalyzeProfile","");
+        config.emotionAnalyzeCooldownSecond = plugin.getConfig().getInt("emotionAnalyzeCooldownSecond",60);
+        config.emotionAnalyzeMaxTokens = plugin.getConfig().getInt("emotionAnalyzeMaxTokens",1200);
+        config.emotionAnalyzeReasoningEffort = normalizeEffort(
+                plugin.getConfig().getString("emotionAnalyzeReasoningEffort","low"));
+        config.emotionAnalyzeMaxDelta = plugin.getConfig().getInt("emotionAnalyzeMaxDelta",12);
+        config.emotionReasonMaxChars = plugin.getConfig().getInt("emotionReasonMaxChars",120);
+        config.emotionReasonMinStrength = plugin.getConfig().getInt("emotionReasonMinStrength",40);
+        config.emotionReasonDecayDays = plugin.getConfig().getInt("emotionReasonDecayDays",30);
+        config.emotionEventRetentionDays = plugin.getConfig().getInt("emotionEventRetentionDays",90);
+        try {
+            config.emotionPositiveReplyBonus = Double.parseDouble(
+                    plugin.getConfig().getString("emotionPositiveReplyBonus","0.05"));
+        } catch (Exception e) {
+            config.emotionPositiveReplyBonus = 0.05;
+        }
+        try {
+            config.emotionNegativeReplyPenalty = Double.parseDouble(
+                    plugin.getConfig().getString("emotionNegativeReplyPenalty","0.15"));
+        } catch (Exception e) {
+            config.emotionNegativeReplyPenalty = 0.15;
+        }
+        try {
+            config.emotionAffinityReplyBonus = Double.parseDouble(
+                    plugin.getConfig().getString("emotionAffinityReplyBonus","0.08"));
+        } catch (Exception e) {
+            config.emotionAffinityReplyBonus = 0.08;
+        }
+        try {
+            config.emotionAffinityReplyPenalty = Double.parseDouble(
+                    plugin.getConfig().getString("emotionAffinityReplyPenalty","0.15"));
+        } catch (Exception e) {
+            config.emotionAffinityReplyPenalty = 0.15;
+        }
         config.reminderEnable = plugin.getConfig().getBoolean("reminderEnable",true);
         config.reminderAiParse = plugin.getConfig().getBoolean("reminderAiParse",true);
         config.reminderMaxDays = plugin.getConfig().getInt("reminderMaxDays",30);
@@ -220,6 +279,44 @@ public class RoleplayConfig {
         if (config.maxRepliesPerHour < 1) config.maxRepliesPerHour = 1;
         if (config.initialAffinity < 0) config.initialAffinity = 0;
         if (config.initialAffinity > 100) config.initialAffinity = 100;
+        if (config.relationDailyMaxDelta < 1) config.relationDailyMaxDelta = 1;
+        if (config.relationDailyMaxDelta > 30) config.relationDailyMaxDelta = 30;
+        if (config.emotionDecayMinute < 5) config.emotionDecayMinute = 5;
+        if (config.emotionDecayMinute > 1440) config.emotionDecayMinute = 1440;
+        if (config.emotionEventCooldownSecond < 0) config.emotionEventCooldownSecond = 0;
+        if (config.emotionEventCooldownSecond > 3600) config.emotionEventCooldownSecond = 3600;
+        if (config.emotionAnalyzeMode == null || config.emotionAnalyzeMode.trim().isEmpty()) {
+            config.emotionAnalyzeMode = "significant";
+        }
+        config.emotionAnalyzeMode = config.emotionAnalyzeMode.trim().toLowerCase(Locale.ROOT);
+        if (!"off".equals(config.emotionAnalyzeMode)
+                && !"direct".equals(config.emotionAnalyzeMode)
+                && !"significant".equals(config.emotionAnalyzeMode)) {
+            config.emotionAnalyzeMode = "significant";
+        }
+        if (config.emotionAnalyzeProfile == null) config.emotionAnalyzeProfile = "";
+        if (config.emotionAnalyzeCooldownSecond < 10) config.emotionAnalyzeCooldownSecond = 10;
+        if (config.emotionAnalyzeCooldownSecond > 3600) config.emotionAnalyzeCooldownSecond = 3600;
+        if (config.emotionAnalyzeMaxTokens < 400) config.emotionAnalyzeMaxTokens = 400;
+        if (config.emotionAnalyzeMaxTokens > 4000) config.emotionAnalyzeMaxTokens = 4000;
+        if (config.emotionAnalyzeMaxDelta < 1) config.emotionAnalyzeMaxDelta = 1;
+        if (config.emotionAnalyzeMaxDelta > 30) config.emotionAnalyzeMaxDelta = 30;
+        if (config.emotionReasonMaxChars < 20) config.emotionReasonMaxChars = 20;
+        if (config.emotionReasonMaxChars > 500) config.emotionReasonMaxChars = 500;
+        if (config.emotionReasonMinStrength < 1) config.emotionReasonMinStrength = 1;
+        if (config.emotionReasonMinStrength > 100) config.emotionReasonMinStrength = 100;
+        if (config.emotionReasonDecayDays < 1) config.emotionReasonDecayDays = 1;
+        if (config.emotionReasonDecayDays > 3650) config.emotionReasonDecayDays = 3650;
+        if (config.emotionEventRetentionDays < 1) config.emotionEventRetentionDays = 1;
+        if (config.emotionEventRetentionDays > 3650) config.emotionEventRetentionDays = 3650;
+        if (config.emotionPositiveReplyBonus < 0) config.emotionPositiveReplyBonus = 0;
+        if (config.emotionPositiveReplyBonus > 0.5) config.emotionPositiveReplyBonus = 0.5;
+        if (config.emotionNegativeReplyPenalty < 0) config.emotionNegativeReplyPenalty = 0;
+        if (config.emotionNegativeReplyPenalty > 1) config.emotionNegativeReplyPenalty = 1;
+        if (config.emotionAffinityReplyBonus < 0) config.emotionAffinityReplyBonus = 0;
+        if (config.emotionAffinityReplyBonus > 0.5) config.emotionAffinityReplyBonus = 0.5;
+        if (config.emotionAffinityReplyPenalty < 0) config.emotionAffinityReplyPenalty = 0;
+        if (config.emotionAffinityReplyPenalty > 1) config.emotionAffinityReplyPenalty = 1;
         if (config.reminderMaxDays < 1) config.reminderMaxDays = 1;
         if (config.reminderMaxDays > 365) config.reminderMaxDays = 365;
         if (config.interestReplyChance < 0) config.interestReplyChance = 0;

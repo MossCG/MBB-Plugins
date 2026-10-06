@@ -45,6 +45,9 @@ public class RoleplayPersona {
     public List<StudentProfile> studentProfiles = new ArrayList<>();
     public List<String> terminology = new ArrayList<>();
     public List<String> storyMemory = new ArrayList<>();
+    public int emotionBaselineValence = 65;
+    public int emotionBaselineEnergy = 65;
+    public int emotionBaselinePatience = 65;
 
     public static RoleplayPersona load(Plugin plugin,String fileName) {
         RoleplayPersona persona = new RoleplayPersona();
@@ -74,6 +77,12 @@ public class RoleplayPersona {
             persona.otherStudents = readList(json.getJSONArray("otherStudents"));
             persona.terminology = readList(json.getJSONArray("terminology"));
             persona.storyMemory = readList(json.getJSONArray("storyMemory"));
+            JSONObject emotionBaseline = json.getJSONObject("emotionBaseline");
+            if (emotionBaseline != null) {
+                persona.emotionBaselineValence = clamp(emotionBaseline.getIntValue("valence"),65);
+                persona.emotionBaselineEnergy = clamp(emotionBaseline.getIntValue("energy"),65);
+                persona.emotionBaselinePatience = clamp(emotionBaseline.getIntValue("patience"),65);
+            }
             mergeSharedStudents(plugin,persona);
         } catch (Exception e) {
             plugin.getLogger().sendWarn("读取角色设定失败："+e.getMessage());
@@ -307,5 +316,11 @@ public class RoleplayPersona {
 
     private static String safe(String value,String defaultValue) {
         return value == null ? defaultValue : value;
+    }
+
+    private static int clamp(int value,int defaultValue) {
+        if (value <= 0) return defaultValue;
+        if (value > 100) return 100;
+        return value;
     }
 }

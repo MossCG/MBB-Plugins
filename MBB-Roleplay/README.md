@@ -55,6 +55,10 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 表情包是可选表达，提示词会要求低频自然使用，不会每句话都携带
 - 响应戳一戳：被人戳时由角色自己决定是回一句话、戳回去、还是两者都做，戳回去对同一用户有冷却
 - 正文出现“戳回去/回戳/戳你”时会自动补齐 `poke-back` 动作，避免只说不做
+- 新增群级短期情绪与用户关系机制：心情、精力、耐心会影响参与意愿，好感、信任、厌烦会影响对具体群员的语气
+- `(群号, QQ)` 关系记录支持用户级情绪原因，例如“讨厌这个人，因为他在冒名顶替我”，原因不会直接发送到 QQ
+- 情绪更新分为本地规则和异步语义分析两段，回复结果仍然只有 `text`、`actions`、`quote`，不会携带情绪提示
+- 用户可以随时通过管理命令查看当前群情绪、指定用户关系和原因，owner 可以设置或清空原因
 - 安装 `MBB-ComfyUI` 后开放 `draw` 技能；需求不完整时角色会自行补全背景、动作、风格和尺寸，并优先写完整角色名
 - 生图完成后角色会基于 prompt 生成简短完成提醒，图片先发、提醒后发，不再二次识图
 - 亲密、暧昧或有点过分的要求会以害羞、别扭、撒娇或转移话题回应，不输出露骨内容
@@ -75,6 +79,13 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 | `/role reload` | `BOT_ADMIN` | 重载角色设定和配置 |
 | `/role config` | `BOT_ADMIN` | 查看配置文件与补全状态 |
 | `/role config repair` | `BOT_ADMIN` | 手动补全缺失配置项 |
+| `/role mood [页码]` | `BOT_ADMIN` | 以图片查看当前群情绪和情绪事件 |
+| `/role mood reset` | `OWNER` | 将当前群情绪重置到角色基线 |
+| `/role emotion [QQ] [页码]` | `BOT_ADMIN` | 以图片查看指定用户的关系、情绪原因和变化记录 |
+| `/role emotion reset [QQ]` | `BOT_ADMIN` | 重置自己或指定用户的关系状态，重置他人需要 owner |
+| `/role emotion log [页码]` | `BOT_ADMIN` | 以图片查看当前群的情绪事件流水 |
+| `/role emotion reason set <QQ> <原因>` | `OWNER` | 手动设置指定用户的情绪原因 |
+| `/role emotion reason clear <QQ>` | `OWNER` | 清空指定用户的情绪原因 |
 | `/role bot` | `BOT_ADMIN` | 查看机器人互聊设置 |
 | `/role bot chance <0.3-1>` | `BOT_ADMIN` | 设置其他角色机器人的接话概率 |
 | `/role bot max <1-10>` | `BOT_ADMIN` | 设置无人插话时的连续回应上限 |
@@ -152,11 +163,48 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 /role persona reset persona-midori.json
 ```
 
-## 关系与好感
+## 关系、好感与情绪
 
 群主和管理员若不是其他角色机器人，统一视为老师；其他真人成员视为朋友；另一个角色机器人按角色设定中的同伴关系处理，不会因为群权限被误称为老师。
 
-`initialAffinity` 控制所有真人成员的初始好感度，默认 `70/100`。该值会注入回复提示词，让角色默认保持善意、亲近、愿意接话和帮忙，但不会自动改变群权限或持久化逐人好感数值。
+`initialAffinity` 控制所有真人成员的初始好感度，默认 `70/100`。关系状态按 `(群号, QQ)` 持久化，包含好感、信任、厌烦、当前态度和用户级情绪原因。普通闲聊只会产生很低的临时变化，明显事件才会写入原因，例如：
+
+```text
+讨厌这个人，因为他在冒名顶替我
+他刚才夸过角色的画
+他连续冒犯角色
+```
+
+群级短期情绪包含心情、精力和耐心，会随时间回落到角色人格基线。桃井、绿、爱丽丝的基线分别存放在各自 persona 文件的 `emotionBaseline` 中。
+
+情绪不会改写回复结构。执行层仍然只返回：
+
+```json
+{"text":"聊天正文","actions":[],"quote":false}
+```
+
+回复完成后，插件可以在后台异步调用 AI 分析语义原因。这个分析不阻塞当前回复，也不会把分析提示、数值或内部原因发送到 QQ。
+
+```yaml
+emotionEnable: true
+emotionDecayMinute: 30
+emotionEventCooldownSecond: 30
+emotionAnalyzeEnable: true
+emotionAnalyzeMode: "significant"
+emotionAnalyzeCooldownSecond: 60
+emotionReasonMaxChars: 120
+emotionReasonMinStrength: 40
+emotionReasonDecayDays: 30
+```
+
+管理命令：
+
+```text
+/role mood
+/role emotion 123456789
+/role emotion reason set 123456789 讨厌这个人，因为他在冒名顶替我
+/role emotion reason clear 123456789
+```
 
 ## 依赖
 
@@ -168,6 +216,25 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 replyCooldownSecond: 5
 maxRepliesPerHour: 180
 initialAffinity: 70
+relationDailyMaxDelta: 5
+emotionEnable: true
+emotionDecayMinute: 30
+emotionEventCooldownSecond: 30
+emotionAnalyzeEnable: true
+emotionAnalyzeMode: "significant"
+emotionAnalyzeProfile: ""
+emotionAnalyzeCooldownSecond: 60
+emotionAnalyzeMaxTokens: 1200
+emotionAnalyzeReasoningEffort: "low"
+emotionAnalyzeMaxDelta: 12
+emotionReasonMaxChars: 120
+emotionReasonMinStrength: 40
+emotionReasonDecayDays: 30
+emotionEventRetentionDays: 90
+emotionPositiveReplyBonus: 0.05
+emotionNegativeReplyPenalty: 0.15
+emotionAffinityReplyBonus: 0.08
+emotionAffinityReplyPenalty: 0.15
 reminderEnable: true
 reminderAiParse: true
 reminderMaxDays: 30
@@ -243,7 +310,7 @@ minMessageLength: 2
 [角色] 回复 群623069084 profile=default model=deepseek-v4.1-flash 耗时=1840ms finish=stop token=5210/96 缓存=否 长度=42 内容=...
 ```
 
-标签包括 `回复`、`记忆整理`、`长期记忆合并`、`永久记忆合并`、`提醒识别`、`提醒确认生成`、`提醒内容生成`。调用失败时输出 `sendWarn`，包含错误类型和耗时。
+标签包括 `回复`、`记忆整理`、`长期记忆合并`、`永久记忆合并`、`提醒识别`、`提醒确认生成`、`提醒内容生成`、`情绪分析`。调用失败时输出 `sendWarn`，包含错误类型和耗时。
 
 `timeZone` 决定角色理解的当前时间，默认 `Asia/Shanghai`。服务器使用 UTC 时也不会影响角色看到的本地日期和星期。
 
@@ -418,8 +485,9 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 - `shortTerm`：所有群的短期记忆
 - `longTerm`：所有群的长期记忆
 - `globalMemory`：全局永久记忆
+- `emotion`：群级情绪、用户关系、用户级情绪原因和情绪事件流水
 
-恢复时先自动备份当前记忆，再用指定文件覆盖三类记忆。恢复操作仅 `OWNER` 可用。
+恢复时先自动备份当前记忆，再用指定文件覆盖记忆和情绪关系状态。恢复操作仅 `OWNER` 可用。
 
 永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是先做相似排序，再按 `memoryMergeBatchSize` 分批调用 AI 合并。合并读取快照内的全部永久记忆，不会只取前 300 条；合并失败时保留原数据。
 
@@ -530,3 +598,5 @@ speechSimilarityMinChars: 6
 ## 升级说明
 
 `config.yml` 中缺失的配置项会自动补全。角色文件仍只在文件不存在时释放；如果要应用新版桃井或绿设定，可以执行 `/role persona reset <文件名>`，或手动合并 `persona-*.json`。
+
+情绪机制升级到配置结构版本 14 后，会自动创建 `plugin_mbb_roleplay_mood`、`plugin_mbb_roleplay_relation` 和 `plugin_mbb_roleplay_emotion_event` 三张表。旧记忆备份仍可恢复；包含 `emotion` 字段的新备份会同时恢复情绪和用户关系。

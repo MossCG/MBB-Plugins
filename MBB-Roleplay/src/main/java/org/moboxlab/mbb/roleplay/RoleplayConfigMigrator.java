@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "13";
+    private static final String CURRENT_VERSION = "14";
 
     private static class ConfigEntry {
         private final String key;
@@ -40,6 +40,25 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replyCooldownSecond","5","同一群两次回复的最小间隔秒数"),
             new ConfigEntry("maxRepliesPerHour","180","同一群每小时最多回复次数"),
             new ConfigEntry("initialAffinity","70","角色对所有真人成员的初始好感度，0 到 100"),
+            new ConfigEntry("relationDailyMaxDelta","5","同一用户每天好感、信任和厌烦的最大累计变化值"),
+            new ConfigEntry("emotionEnable","true","是否启用角色情绪与用户关系机制"),
+            new ConfigEntry("emotionDecayMinute","30","情绪回落间隔，每隔多少分钟向角色人格基线靠近一次"),
+            new ConfigEntry("emotionEventCooldownSecond","30","同一用户同一类情绪事件的规则更新冷却秒数"),
+            new ConfigEntry("emotionAnalyzeEnable","true","是否异步调用 AI 分析语义情绪原因"),
+            new ConfigEntry("emotionAnalyzeMode","significant","AI 情绪分析范围：off / direct / significant"),
+            new ConfigEntry("emotionAnalyzeProfile","","情绪分析使用的模型配置名，留空则使用 aiProfile"),
+            new ConfigEntry("emotionAnalyzeCooldownSecond","60","同一用户两次 AI 情绪分析的最小间隔秒数"),
+            new ConfigEntry("emotionAnalyzeMaxTokens","1200","情绪分析输出 Token 上限"),
+            new ConfigEntry("emotionAnalyzeReasoningEffort","low","情绪分析思考强度：low / medium / high，留空表示不发送"),
+            new ConfigEntry("emotionAnalyzeMaxDelta","12","单次 AI 情绪分析对单项数值的最大变化"),
+            new ConfigEntry("emotionReasonMaxChars","120","用户级情绪原因的最大字符数"),
+            new ConfigEntry("emotionReasonMinStrength","40","低于该强度时不再把情绪原因注入提示词"),
+            new ConfigEntry("emotionReasonDecayDays","30","情绪原因在无新证据时完全衰减的固定参考天数"),
+            new ConfigEntry("emotionEventRetentionDays","90","情绪事件流水保留天数"),
+            new ConfigEntry("emotionPositiveReplyBonus","0.05","心情好时非直接消息的回复概率加成"),
+            new ConfigEntry("emotionNegativeReplyPenalty","0.15","心情差或耐心低时非直接消息的回复概率扣减"),
+            new ConfigEntry("emotionAffinityReplyBonus","0.08","对高好感用户非直接消息的回复概率加成"),
+            new ConfigEntry("emotionAffinityReplyPenalty","0.15","对低好感或高厌烦用户非直接消息的回复概率扣减"),
             new ConfigEntry("reminderEnable","true","是否允许角色识别并创建自然语言定时提醒"),
             new ConfigEntry("reminderAiParse","true","是否用 AI 识别提醒意图和时间；关闭时使用内置规则解析"),
             new ConfigEntry("reminderMaxDays","30","定时提醒最长可提前多少天"),
@@ -147,7 +166,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 13) {
+        if (version < 14) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -176,7 +195,7 @@ public class RoleplayConfigMigrator {
             config.set("replySplitPunctuation","。！？!?；;，、：,:～~");
             changed++;
         }
-        if (version < 13 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 14 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation) {
             if (config.save()) {

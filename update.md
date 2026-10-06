@@ -18,6 +18,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.4.56.0.2228 | 2026-10-06 | `MBB-Roleplay` 新增群级情绪和 `(群号, QQ)` 用户关系机制：心情、精力、耐心会影响参与意愿，好感、信任、厌烦和用户级情绪原因可持久化；回复结构保持不变，原因由独立异步分析更新，并新增 `/role mood`、`/role emotion` 管理与图片输出、备份恢复、规则日志和角色基线 |
 | V0.4.55.2.2047 | 2026-10-06 | `MBB-ComfyUI` 增加设备信息采集与日志，元数据记录 baseUrl/device/显存；prompt 清洗去掉重复人数、质量词和危险复制标签并记录 effectivePrompt；`MBB-Roleplay` draw 改用标准 Blue Archive tag + 外貌锚点，生图提醒日志与输出 Token 上限提高 |
 | V0.4.55.1.2017 | 2026-10-06 | 修复双人图重复角色：`MBB-ComfyUI` 自动迁移旧配置并补充重复角色负向词、过滤 `twins/clone/multiple views` 等危险标签，元数据记录 effectivePrompt；`MBB-Roleplay` draw prompt 明确禁止 `twins/克隆/分身` 等标签 |
 | V0.4.55.0.2008 | 2026-10-06 | `MBB-ComfyUI` 与 `MBB-Roleplay` 生图链路调整：优先限制每个角色只出现一次，避免双人图重复生成小绿等角色；提醒改为基于 prompt 表达任务完成，不再二次识图；生图完成后先生成提醒文本，再发图片，最后发提醒 |

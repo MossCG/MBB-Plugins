@@ -48,6 +48,7 @@ public class RoleplayService {
     private final RoleplayGlobalMemoryService globalMemoryService;
     private final RoleplaySpeechCorpusService speechCorpusService;
     private final RoleplayActionService actionService;
+    private final RoleplayEmotionService emotionService;
     private final RoleplaySkillRegistry skillRegistry;
     private final RoleplayRouter router;
     private final RoleplayStyler styler;
@@ -196,13 +197,15 @@ public class RoleplayService {
         private final int generation;
         private final boolean otherRoleBot;
         private final RoleplayRouteDecision decision;
+        private final RoleplayEmotionService.LocalEvent emotionEvent;
         private volatile String stickerEmotion = "";
         private volatile boolean stickerPending = false;
         private volatile long hardDeadline = 0L;
 
         private PendingTurn(GroupMessageEvent event,long selfID,String userName,
                             String relationship,String content,RecentImage imageContext,
-                            int generation,boolean otherRoleBot,RoleplayRouteDecision decision) {
+                            int generation,boolean otherRoleBot,RoleplayRouteDecision decision,
+                            RoleplayEmotionService.LocalEvent emotionEvent) {
             this.event = event;
             this.selfID = selfID;
             this.userName = userName;
@@ -212,6 +215,7 @@ public class RoleplayService {
             this.generation = generation;
             this.otherRoleBot = otherRoleBot;
             this.decision = decision;
+            this.emotionEvent = emotionEvent;
         }
     }
 
@@ -223,6 +227,7 @@ public class RoleplayService {
         this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config,this);
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
+        this.emotionService = new RoleplayEmotionService(plugin,config,persona);
         this.skillRegistry = new RoleplaySkillRegistry(this);
         this.router = new RoleplayRouter(plugin,this);
         this.styler = new RoleplayStyler(plugin);
@@ -269,6 +274,7 @@ public class RoleplayService {
         reminderService.init();
         globalMemoryService.init();
         speechCorpusService.init();
+        emotionService.init();
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
@@ -277,6 +283,7 @@ public class RoleplayService {
         reminderService.reload(config,persona);
         globalMemoryService.reload(config);
         speechCorpusService.reload(config);
+        emotionService.reload(config,persona);
     }
 
     /**
@@ -402,11 +409,16 @@ public class RoleplayService {
             }
             return;
         }
+        RoleplayEmotionService.LocalEvent emotionEvent = emotionService.observeMessage(
+                groupID,event.getUserID(),senderName(event),relationshipLabel(event,otherRoleBot),
+                content,event.getMessageID(),direct,otherRoleBot);
         if (!otherRoleBot && reminderService.handle(event,content)) return;
         // 冷却或超频时直接跳过，不必再花一次路由调用
         if (rateLimited(groupID)) return;
         RoleplayRouteDecision decision = routeDecision(signals,event,groupID,selfID,content);
         if (decision == null || !decision.reply) return;
+        decision.chance = emotionService.adjustReplyChance(groupID,event.getUserID(),
+                decision.chance,direct,otherRoleBot);
         if (decision.chance < 1.0 && Math.random() >= decision.chance) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 概率跳过 概率="
                     +decision.chance+" 原因="+decision.reason);
@@ -422,18 +434,21 @@ public class RoleplayService {
         String userName = senderName(event);
         String relationship = relationshipLabel(event,otherRoleBot);
         if (shouldDeferTurn(event,otherRoleBot,hasImage)) {
-            deferTurn(event,groupID,selfID,userName,relationship,content,replyImage,otherRoleBot,decision);
+            deferTurn(event,groupID,selfID,userName,relationship,content,replyImage,
+                    otherRoleBot,decision,emotionEvent);
             return;
         }
         JSONObject result = reply(groupID,event.getUserID(),userName,content,otherRoleBot,
                 relationship,replyImage,decision);
         if (result == null || !result.getBooleanValue("status")) return;
-        processReplyResult(event,groupID,selfID,userName,relationship,content,result,decision);
+        processReplyResult(event,groupID,selfID,userName,relationship,content,result,decision,
+                emotionEvent);
     }
 
     private void processReplyResult(GroupMessageEvent event,long groupID,long selfID,
                                     String userName,String relationship,String content,
-                                    JSONObject result,RoleplayRouteDecision decision) {
+                                    JSONObject result,RoleplayRouteDecision decision,
+                                    RoleplayEmotionService.LocalEvent emotionEvent) {
         RoleplayReplyDraft draft = RoleplayReplyDraft.parse(result.getString("content"));
         if (draft.malformed) {
             plugin.getLogger().sendWarn("[角色] 群"+groupID+" 执行层结构化结果无法解析，本轮跳过发送："
@@ -487,6 +502,9 @@ public class RoleplayService {
         }
         executeSkillCalls(decision,draft,groupID,event.getUserID(),event.getMessageID(),selfID,
                 userName,relationship,content);
+        emotionService.afterTurn(groupID,event.getUserID(),userName,relationship,content,
+                emotionEvent,decision != null && "direct".equals(decision.addressed),
+                decision != null && decision.otherRoleBot);
     }
 
     /**
@@ -515,8 +533,14 @@ public class RoleplayService {
         String userName = pokeMemberName(member,userID);
         String relationship = pokeRelationship(member);
         String content = "[戳一戳] "+userName+" 戳了你一下。";
+        RoleplayEmotionService.LocalEvent emotionEvent = emotionService.observePoke(
+                groupID,userID,userName);
         JSONObject result = reply(groupID,userID,userName,content,false,relationship,null,decision);
-        if (result == null || !result.getBooleanValue("status")) return;
+        if (result == null || !result.getBooleanValue("status")) {
+            emotionService.afterTurn(groupID,userID,userName,relationship,content,
+                    emotionEvent,true,false);
+            return;
+        }
         RoleplayReplyDraft draft = RoleplayReplyDraft.parse(result.getString("content"));
         if (draft.malformed) {
             plugin.getLogger().sendWarn("[角色] 戳一戳 群"+groupID+" 结构化结果无法解析，本轮跳过");
@@ -530,6 +554,8 @@ public class RoleplayService {
         plugin.getLogger().sendInfo("[角色] 戳一戳 群"+groupID+" 用户"+userID
                 +" 回复="+(sendText ? shortText(text,60) : "无"));
         executeSkillCalls(decision,draft,groupID,userID,0L,selfID,userName,relationship,content);
+        emotionService.afterTurn(groupID,userID,userName,relationship,content,
+                emotionEvent,true,false);
     }
 
     private JSONObject pokeMember(long groupID,long userID) {
@@ -567,6 +593,7 @@ public class RoleplayService {
         result.put("groupEnabled",groupID <= 0 || isGroupEnabled(groupID));
         result.put("shortSummary",shortSummary(groupID));
         result.put("memoryCount",memoryCount(groupID));
+        result.put("mood",emotionService.moodStats(groupID,1).getJSONObject("mood"));
         return result;
     }
 
@@ -776,6 +803,10 @@ public class RoleplayService {
         return actionService;
     }
 
+    public RoleplayEmotionService getEmotionService() {
+        return emotionService;
+    }
+
     /** 技能注册表使用的内部入口，只在本包内可见 */
     Plugin plugin() {
         return plugin;
@@ -877,6 +908,7 @@ public class RoleplayService {
                 +(skillPrompt.isEmpty() ? "" : "可用技能：\n"+skillPrompt)
                 +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
+                +emotionService.promptText(groupID,userID,otherRoleBot)
                 +(actionIds.contains("reminder") ? "当前用户的待触发提醒：\n"
                 +reminderService.pendingText(groupID,userID)+"\n" : "")
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
@@ -991,6 +1023,10 @@ public class RoleplayService {
                 +"students.detail：被提到的学生的完整外貌，问起某位学生时带上\n";
     }
 
+    String emotionRouterText(long groupID,long userID,boolean otherRoleBot) {
+        return emotionService.routerText(groupID,userID,otherRoleBot);
+    }
+
     /**
      * 产出本轮决策
      * 规则先算一遍作为兜底，路由可用时以路由结果为准，但规则保留否决权
@@ -1002,7 +1038,8 @@ public class RoleplayService {
         if (!config.routerEnable) return ruleDecision;
         RoleplayRouteDecision routed = router.route(config,persona,skillRegistry,state(groupID),
                 content,senderName(event),relationshipLabel(event,signals.otherRoleBot),
-                recentContext(groupID));
+                recentContext(groupID),emotionRouterText(groupID,event.getUserID(),
+                        signals.otherRoleBot));
         if (routed == null) {
             plugin.getLogger().sendWarn("[角色] 群"+groupID+" 路由失败，回退规则决策");
             return ruleDecision;
@@ -1482,13 +1519,14 @@ public class RoleplayService {
         try {
             File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
-            root.put("version",1);
+            root.put("version",2);
             root.put("type","mbb-roleplay-memory-backup");
             root.put("createTime",System.currentTimeMillis());
             root.put("reason",safe(reason));
             root.put("shortTerm",exportShortTerm());
             root.put("longTerm",exportLongTerm());
             root.put("globalMemory",globalMemoryService.exportAll());
+            root.put("emotion",emotionService.exportState());
             String name = "memory-backup-"
                     +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
                     +".json";
@@ -1548,10 +1586,12 @@ public class RoleplayService {
             JSONArray shortTerm = root.getJSONArray("shortTerm");
             JSONArray longTerm = root.getJSONArray("longTerm");
             JSONArray globalMemory = root.getJSONArray("globalMemory");
+            JSONObject emotion = root.getJSONObject("emotion");
             backupAllMemories("before-restore-"+name);
             storage().update("DELETE FROM `"+MEMORY_TABLE+"`");
             storage().update("DELETE FROM `"+STATE_TABLE+"`");
             globalMemoryService.replaceAll(globalMemory);
+            emotionService.restoreState(emotion);
             int shortSaved = restoreShortTerm(shortTerm);
             int longSaved = restoreLongTerm(longTerm);
             clearRuntimeMemoryState();
@@ -1560,6 +1600,7 @@ public class RoleplayService {
             result.put("shortTerm",shortSaved);
             result.put("longTerm",longSaved);
             result.put("globalMemory",globalMemory == null ? 0 : globalMemory.size());
+            result.put("emotion",emotion != null);
             plugin.getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
                     +" 条，长期 "+longSaved+" 条，永久 "
                     +(globalMemory == null ? 0 : globalMemory.size())+" 条");
@@ -1673,6 +1714,7 @@ public class RoleplayService {
         recentImageMap.clear();
         recentStickerMap.clear();
         pendingTurnMap.clear();
+        emotionService.clearCache();
     }
 
     private String recentRoleReplyText(long groupID) {
@@ -2665,11 +2707,12 @@ public class RoleplayService {
 
     private void deferTurn(GroupMessageEvent event,long groupID,long selfID,String userName,
                            String relationship,String content,RecentImage imageContext,
-                           boolean otherRoleBot,RoleplayRouteDecision decision) {
+                           boolean otherRoleBot,RoleplayRouteDecision decision,
+                           RoleplayEmotionService.LocalEvent emotionEvent) {
         String key = recentImageKey(groupID,event.getUserID());
         int generation = nextPendingGeneration(key);
         PendingTurn pending = new PendingTurn(event,selfID,userName,relationship,
-                content,imageContext,generation,otherRoleBot,decision);
+                content,imageContext,generation,otherRoleBot,decision,emotionEvent);
         pending.stickerEmotion = recentStickerEmotion(groupID,event.getUserID());
         pending.hardDeadline = System.currentTimeMillis() + config.stickerAttachMaxWaitSecond * 1000L;
         pendingTurnMap.put(key,pending);
@@ -2698,7 +2741,7 @@ public class RoleplayService {
                 pending.otherRoleBot,pending.relationship,pending.imageContext,pending.decision);
         if (result == null || !result.getBooleanValue("status")) return;
         processReplyResult(pending.event,groupID,pending.selfID,pending.userName,
-                pending.relationship,content,result,pending.decision);
+                pending.relationship,content,result,pending.decision,pending.emotionEvent);
     }
 
     private void markStickerRecognitionPending(long groupID,long userID) {

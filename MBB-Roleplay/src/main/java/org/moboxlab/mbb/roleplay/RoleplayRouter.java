@@ -32,11 +32,11 @@ public class RoleplayRouter {
     public RoleplayRouteDecision route(RoleplayConfig config,RoleplayPersona persona,
                                        RoleplaySkillRegistry registry,RoleplayConversationState state,
                                        String content,String userName,String relationship,
-                                       String recentContext) {
+                                       String recentContext,String emotionSummary) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONObject response = callRoute(ai,config,persona,registry,state,content,userName,
-                relationship,recentContext,config.routerMaxTokens,"路由");
+                relationship,recentContext,emotionSummary,config.routerMaxTokens,"路由");
         RoleplayRouteDecision decision = parseResponse(response);
         if (decision != null) return decision;
         if (!shouldRetry(response)) return null;
@@ -45,17 +45,19 @@ public class RoleplayRouter {
         plugin.getLogger().sendWarn("[角色] 路由 群"+state.groupID+" 输出被截断，使用 "
                 +retryMaxTokens+" Token 重试");
         response = callRoute(ai,config,persona,registry,state,content,userName,
-                relationship,recentContext,retryMaxTokens,"路由重试");
+                relationship,recentContext,emotionSummary,retryMaxTokens,"路由重试");
         return parseResponse(response);
     }
 
     private JSONObject callRoute(PluginService ai,RoleplayConfig config,RoleplayPersona persona,
                                  RoleplaySkillRegistry registry,RoleplayConversationState state,
                                  String content,String userName,String relationship,
-                                 String recentContext,int maxTokens,String tag) {
+                                 String recentContext,String emotionSummary,
+                                 int maxTokens,String tag) {
         JSONArray messages = new JSONArray();
         messages.add(message("system",systemPrompt(config,persona,registry,state)));
-        messages.add(message("user",userPrompt(content,userName,relationship,recentContext)));
+        messages.add(message("user",userPrompt(content,userName,relationship,recentContext,
+                emotionSummary)));
         JSONObject params = new JSONObject(true);
         String profile = config.routerProfile == null || config.routerProfile.trim().isEmpty()
                 ? config.aiProfile : config.routerProfile.trim();
@@ -116,7 +118,8 @@ public class RoleplayRouter {
         return builder.toString();
     }
 
-    private String userPrompt(String content,String userName,String relationship,String recentContext) {
+    private String userPrompt(String content,String userName,String relationship,
+                              String recentContext,String emotionSummary) {
         StringBuilder builder = new StringBuilder();
         if (recentContext != null && !recentContext.trim().isEmpty()) {
             builder.append("最近群聊：\n").append(recentContext.trim()).append("\n\n");
@@ -124,6 +127,9 @@ public class RoleplayRouter {
         builder.append("当前消息：\n").append(content == null ? "" : content.trim()).append("\n");
         builder.append("发送者：").append(userName == null ? "" : userName)
                 .append("（关系：").append(relationship == null ? "朋友" : relationship).append("）");
+        if (emotionSummary != null && !emotionSummary.trim().isEmpty()) {
+            builder.append("\n当前情绪与关系：").append(emotionSummary.trim());
+        }
         return builder.toString();
     }
 
