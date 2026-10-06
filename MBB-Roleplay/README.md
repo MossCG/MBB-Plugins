@@ -52,7 +52,10 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 明确艾特了其他群成员、又没有提到角色的消息会直接跳过，不再误以为是在和角色说话
 - 路由层会收到"发言指向"说明（艾特角色本人 / 回复角色 / 艾特其他成员等），并结合上下文判断这句话是不是对角色说的
 - 纯图片与表情消息的识图放到独立异步任务，不会卡住同一群后续消息的处理
-- 长期记忆与永久记忆先按当前对话内容与用户做相关性排序，再按相关性注入提示词，并各有字符上限
+- 长期记忆与永久记忆先按当前对话相关性排序再注入：检索 query 由当前消息和路由层判定的话题拼成，
+  重要度、字符重合度（按 query 长度归一化）、同用户归属和时间新鲜度共同打分，
+  长期记忆先取 `memoryRelevancePoolSize` 条候选池再截取，两者各有字符上限
+- 同一群的消息回合串行处理：上一回合没出声前不会开始下一批，避免同一段连续发言被两个回合各回一次
 - 同一用户刚被回复过时，紧接着的短句（默认 20 秒内、20 字以内）视为补充，不再重复接一次
 - 半句识别：消息结尾停在角色名字或连接词上时（例如"你们觉得小桃"），会等同一用户补充，
   把"你们觉得小桃"+"今天可爱吗"并成一次回复，而不是先回半句再漏掉真正的问题
@@ -329,16 +332,17 @@ splitMessageSuppressSecond: 20
 splitMessageSuppressMaxChars: 20
 imageAsyncEnable: true
 memoryRelevanceSort: true
-memoryRelevanceMaxChars: 1800
-globalMemoryRelevanceMaxChars: 1200
+memoryRelevancePoolSize: 600
+memoryRelevanceMaxChars: 5000
+globalMemoryRelevanceMaxChars: 4000
 pokeReplyEnable: true
 pokeBackEnable: true
 pokeBackCooldownSecond: 60
 quoteReplyEnable: true
-promptTotalChars: 16000
+promptTotalChars: 26000
 routerEnable: true
 routerProfile: ""
-routerMaxTokens: 1200
+routerMaxTokens: 2400
 routerReasoningEffort: "low"
 styleEnable: true
 styleMaxChars: 60
@@ -391,7 +395,7 @@ minMessageLength: 2
 ```yaml
 routerEnable: true
 routerProfile: ""            #留空则使用 aiProfile
-routerMaxTokens: 1200
+routerMaxTokens: 2400
 routerReasoningEffort: "low"
 ```
 
@@ -405,7 +409,7 @@ routerReasoningEffort: "low"
 限制。上限存在的意义是防止某一份资料把整条提示词撑爆。
 
 ```yaml
-promptTotalChars: 16000
+promptTotalChars: 26000
 ```
 
 **风格层**：默认不调用，先用本地规则判断回复是否带 AI 味。命中超长、破折号、Markdown
@@ -445,7 +449,9 @@ quoteReplyEnable: true   #回复被艾特或被直接回复的消息时是否引
 群里刷屏时不再逐条排队，而是先按窗口攒批：
 
 - 同一群的消息先进入合批窗口，窗口内到达的新消息会并入同一批，默认窗口 2 秒
-- 窗口结束后整批只做一次路由、一次生成；处理期间到达的消息进入下一批，当前批一结束就立刻接手，不再额外等一个窗口
+- 窗口结束后整批只做一次路由、一次生成；处理期间到达的消息进入下一批，
+  等当前回合真正出声（含表情包等待结束）后立刻接手，不再额外等一个窗口
+- 同一群同一时刻只有一个回合在跑，回复冷却的判定与时间戳写入加锁，避免并发回合同时通过冷却检查各回一次
 - 一批最多合并 10 条消息，超出时优先丢掉最早的非点名消息，被艾特或引用角色的消息优先保留
 - 等待超过 `messageBatchMaxAgeSecond`（默认 20 秒）且没有被点名的消息直接丢弃，避免回复一分钟前已经翻篇的话题
 - 合批回合允许模型返回多段回复，每段用 `to` 指向批内某一条消息，可以分别回应不同的人

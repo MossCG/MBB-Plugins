@@ -100,8 +100,9 @@ public class RoleplayConfig {
     public int imageContextTimeoutSecond = 300;
     public boolean imageAsyncEnable = true;
     public boolean memoryRelevanceSort = true;
-    public int memoryRelevanceMaxChars = 1800;
-    public int globalMemoryRelevanceMaxChars = 1200;
+    public int memoryRelevancePoolSize = 600;
+    public int memoryRelevanceMaxChars = 5000;
+    public int globalMemoryRelevanceMaxChars = 4000;
     public boolean stickerAttachEnable = true;
     public int stickerAttachWindowSecond = 5;
     public int stickerAttachMaxWaitSecond = 15;
@@ -115,10 +116,10 @@ public class RoleplayConfig {
     public boolean pokeBackEnable = true;
     public int pokeBackCooldownSecond = 60;
     public boolean quoteReplyEnable = true;
-    public int promptTotalChars = 16000;
+    public int promptTotalChars = 26000;
     public boolean routerEnable = true;
     public String routerProfile = "";
-    public int routerMaxTokens = 1200;
+    public int routerMaxTokens = 2400;
     public String routerReasoningEffort = "low";
     public boolean styleEnable = true;
     public int styleMaxChars = 60;
@@ -312,10 +313,12 @@ public class RoleplayConfig {
         config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
         config.imageAsyncEnable = plugin.getConfig().getBoolean("imageAsyncEnable",true);
         config.memoryRelevanceSort = plugin.getConfig().getBoolean("memoryRelevanceSort",true);
+        config.memoryRelevancePoolSize =
+                plugin.getConfig().getInt("memoryRelevancePoolSize",600);
         config.memoryRelevanceMaxChars =
-                plugin.getConfig().getInt("memoryRelevanceMaxChars",1800);
+                plugin.getConfig().getInt("memoryRelevanceMaxChars",5000);
         config.globalMemoryRelevanceMaxChars =
-                plugin.getConfig().getInt("globalMemoryRelevanceMaxChars",1200);
+                plugin.getConfig().getInt("globalMemoryRelevanceMaxChars",4000);
         config.stickerAttachEnable = plugin.getConfig().getBoolean("stickerAttachEnable",true);
         config.stickerAttachWindowSecond = plugin.getConfig().getInt("stickerAttachWindowSecond",5);
         config.stickerAttachMaxWaitSecond = plugin.getConfig().getInt("stickerAttachMaxWaitSecond",15);
@@ -330,10 +333,10 @@ public class RoleplayConfig {
         config.pokeBackEnable = plugin.getConfig().getBoolean("pokeBackEnable",true);
         config.pokeBackCooldownSecond = plugin.getConfig().getInt("pokeBackCooldownSecond",60);
         config.quoteReplyEnable = plugin.getConfig().getBoolean("quoteReplyEnable",true);
-        config.promptTotalChars = plugin.getConfig().getInt("promptTotalChars",16000);
+        config.promptTotalChars = plugin.getConfig().getInt("promptTotalChars",26000);
         config.routerEnable = plugin.getConfig().getBoolean("routerEnable",true);
         config.routerProfile = plugin.getConfig().getString("routerProfile","");
-        config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",1200);
+        config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",2400);
         config.routerReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("routerReasoningEffort","low"));
         config.styleEnable = plugin.getConfig().getBoolean("styleEnable",true);
@@ -442,6 +445,8 @@ public class RoleplayConfig {
         if (config.splitMessageSuppressMaxChars > 60) config.splitMessageSuppressMaxChars = 60;
         if (config.memoryRelevanceMaxChars < 200) config.memoryRelevanceMaxChars = 200;
         if (config.memoryRelevanceMaxChars > 8000) config.memoryRelevanceMaxChars = 8000;
+        if (config.memoryRelevancePoolSize < 50) config.memoryRelevancePoolSize = 50;
+        if (config.memoryRelevancePoolSize > 3000) config.memoryRelevancePoolSize = 3000;
         if (config.globalMemoryRelevanceMaxChars < 200) {
             config.globalMemoryRelevanceMaxChars = 200;
         }

@@ -91,7 +91,7 @@ public class RoleplayRouter {
 
     private int retryMaxTokens(int current) {
         int retry = Math.max(current * 2,1600);
-        return Math.min(retry,4000);
+        return Math.min(retry,8000);
     }
 
     private String systemPrompt(RoleplayConfig config,RoleplayPersona persona,

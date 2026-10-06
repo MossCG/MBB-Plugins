@@ -312,7 +312,9 @@ public class RoleplayGlobalMemoryService {
      * 全局记忆是跨群共享的，所以以内容重合度与重要度为主，来源用户命中时再加权
      */
     public String promptText(String query,long userID,int maxChars) {
-        JSONArray memories = list(config.globalMemoryInjectItems);
+        //排序前先取全量候选池，避免按重要度预截断后贴题的旧记忆根本进不了排序
+        JSONArray memories = list(Math.max(config.globalMemoryInjectItems,
+                config.globalMemoryMaxItems));
         if (memories.isEmpty()) return "暂无全局永久记忆。";
         if (!config.memoryRelevanceSort) {
             StringBuilder plain = new StringBuilder();
@@ -325,20 +327,24 @@ public class RoleplayGlobalMemoryService {
         }
         Set<String> queryBigrams = SpeechCorpusEntry.bigrams(
                 SpeechCorpusEntry.normalize(query == null ? "" : query));
+        long now = System.currentTimeMillis();
         List<ScoredMemory> scored = new ArrayList<>();
         for (int i = 0; i < memories.size(); i++) {
             JSONObject item = memories.getJSONObject(i);
             Set<String> bigrams = SpeechCorpusEntry.bigrams(
                     SpeechCorpusEntry.normalize(safe(item.getString("content"))));
-            double score = item.getIntValue("importance") * 0.15;
+            //重要度给足权重，避免一次无关的关键词命中就压过明显更重要的记忆
+            double score = item.getIntValue("importance") * 0.8;
             if (!queryBigrams.isEmpty()) {
                 int overlap = 0;
                 for (String bigram : queryBigrams) {
                     if (bigrams.contains(bigram)) overlap++;
                 }
-                score += overlap * 1.5;
+                //按 query 长度归一化，长记忆不再靠体量天然占优
+                score += (double) overlap / queryBigrams.size() * 8.0;
             }
             if (userID > 0 && item.getLongValue("sourceUserID") == userID) score += 1.5;
+            score += recencyBonus(item.getLongValue("updateTime"),now);
             scored.add(new ScoredMemory(item,score));
         }
         Collections.sort(scored,new Comparator<ScoredMemory>() {
@@ -363,6 +369,16 @@ public class RoleplayGlobalMemoryService {
         plugin.getLogger().sendInfo("[永久记忆] 按相关性注入 "+count+"/"+memories.size()
                 +" 条，占用 "+used+" 字符");
         return builder.length() == 0 ? "暂无全局永久记忆。" : builder.toString();
+    }
+
+    /**
+     * 新记忆加分：随时间平滑衰减，越新越靠前
+     */
+    private static double recencyBonus(long updateTime,long now) {
+        if (updateTime <= 0) return 0;
+        double days = (now - updateTime) / 86400000.0;
+        if (days < 0) days = 0;
+        return 2.0 / (1.0 + days / 10.0);
     }
 
     private static class ScoredMemory {

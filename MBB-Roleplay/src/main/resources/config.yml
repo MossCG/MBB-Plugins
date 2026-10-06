@@ -189,10 +189,12 @@ batchMaxSegments: 4
 maxLongMemories: 150
 #长期记忆与永久记忆是否按当前对话相关性排序后注入
 memoryRelevanceSort: true
+#相关性排序前先加载多少条长期记忆作为候选池
+memoryRelevancePoolSize: 600
 #长期记忆按相关性注入的字符上限
-memoryRelevanceMaxChars: 1800
+memoryRelevanceMaxChars: 5000
 #永久记忆按相关性注入的字符上限
-globalMemoryRelevanceMaxChars: 1200
+globalMemoryRelevanceMaxChars: 4000
 #单次角色回复最大 Token
 replyMaxTokens: 1200
 #带图片上下文时单次角色回复最大 Token
