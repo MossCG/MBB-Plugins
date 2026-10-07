@@ -425,7 +425,7 @@ repeatCommonRunMinChars: 8
 minMessageLength: 2
 ```
 
-非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息优先控制在 12 字以内、硬上限 20 字，一条说不完可以在正文里换行，最多分两段；拆分器会优先在 `replySplitPunctuation` 列出的常用符号处断开，再按硬上限拆分。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
+非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息控制在 15 到 30 字之间、硬上限 30 字，一条说不完可以在正文里换行，最多分两段；拆分器会优先在 `replySplitPunctuation` 列出的常用符号处断开，再按硬上限拆分。省略号「……」不会被从中间劈开——如果断点正好落在它中间，整对会挪到下一段。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
 
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。长期记忆合并单独使用 `memoryMergeMaxTokens`，默认 `32000`，避免 reasoning 把输出预算耗尽后返回空正文。记忆合并按 `memoryMergeBatchSize`（默认 60）分批，最多执行 `memoryMergeMaxRounds`（默认 3）轮；每批开始和结束都会输出控制台进度日志。`memoryTimeoutSecond` 默认 `300`，用于覆盖 profile 里较短的超时时间，避免长上下文整理频繁超时；可设置范围是 `30` 到 `600` 秒。
 
@@ -436,8 +436,10 @@ minMessageLength: 2
 每次调用 AI 都会在控制台输出一行 `[角色]` 日志，格式与 `MBB-Vision` 的识图日志一致：
 
 ```text
-[角色] 回复 群623069084 profile=default model=deepseek-v4.1-flash 耗时=1840ms finish=stop token=5210/96 缓存=否 长度=42 内容=...
+[角色] 回复 群623069084 profile=default model=deepseek-v4.1-flash 耗时=1840ms finish=stop token=5210/96 提示词缓存=3120/5210(59.9%) 长度=42 内容=...
 ```
+
+`提示词缓存=命中/总输入(命中率)` 来自服务端返回的缓存字段，用来判断前缀缓存有没有生效；本地响应缓存命中时会额外追加 `本地缓存=命中`。
 
 标签包括 `回复`、`记忆整理`、`长期记忆合并`、`永久记忆合并`、`提醒识别`、`提醒确认生成`、`提醒内容生成`、`情绪分析`。调用失败时输出 `sendWarn`，包含错误类型和耗时。
 

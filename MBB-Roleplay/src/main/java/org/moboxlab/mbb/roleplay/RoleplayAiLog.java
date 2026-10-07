@@ -23,6 +23,7 @@ public class RoleplayAiLog {
         JSONObject usage = response.getJSONObject("usage");
         int promptTokens = usage == null ? 0 : usage.getIntValue("promptTokens");
         int completionTokens = usage == null ? 0 : usage.getIntValue("completionTokens");
+        int cachedPromptTokens = usage == null ? 0 : usage.getIntValue("cachedPromptTokens");
         int reasoningLength = safe(response.getString("reasoningContent")).length();
         logger.sendInfo("[角色] "+tag+" 群"+groupID
                 +" profile="+safe(response.getString("profile"))
@@ -30,10 +31,19 @@ public class RoleplayAiLog {
                 +" 耗时="+elapsedMillis+"ms"
                 +" finish="+safe(response.getString("finishReason"))
                 +" token="+promptTokens+"/"+completionTokens
-                +" 缓存="+(response.getBooleanValue("cached") ? "是" : "否")
+                +" 提示词缓存="+cachedPromptTokens+"/"+promptTokens+"("+cacheRate(cachedPromptTokens,promptTokens)+"%)"
+                +(response.getBooleanValue("cached") ? " 本地缓存=命中" : "")
                 +(reasoningLength > 0 ? " 思考="+reasoningLength : "")
                 +" 长度="+safe(response.getString("content")).length()
                 +" 内容="+shortText(safe(response.getString("content")),80));
+    }
+
+    /**
+     * 服务端提示词缓存命中率，保留一位小数
+     */
+    private static String cacheRate(int cachedPromptTokens,int promptTokens) {
+        if (promptTokens <= 0) return "0.0";
+        return String.valueOf(Math.round(1000.0 * cachedPromptTokens / promptTokens) / 10.0);
     }
 
     public static String shortText(String text,int limit) {

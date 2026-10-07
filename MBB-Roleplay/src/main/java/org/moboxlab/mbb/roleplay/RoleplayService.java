@@ -3023,6 +3023,16 @@ public class RoleplayService {
                 }
             }
             if (cut <= 0) cut = maxChars;
+            //省略号是「……」，别把它从中间劈开：整对挪到下一段，这样既不拆散也不超上限
+            if (cut > 0 && cut < text.length() && text.charAt(cut) == '…') {
+                int runStart = cut;
+                while (runStart > 0 && text.charAt(runStart - 1) == '…') runStart--;
+                if (runStart > 0) {
+                    cut = runStart;
+                } else {
+                    while (cut < text.length() && text.charAt(cut) == '…') cut++;
+                }
+            }
             result.add(text.substring(0,cut).trim());
             text = text.substring(cut).trim();
         }
