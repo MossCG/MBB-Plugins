@@ -44,6 +44,8 @@ public class RoleplayService {
     private static final String MEMORY_TABLE = "plugin_mbb_roleplay_memory";
     private static final String STATE_TABLE = "plugin_mbb_roleplay_state";
     private static final String GROUP_TABLE = "plugin_mbb_roleplay_group";
+    /** 引用回复里被引用内容的截断长度 */
+    private static final int QUOTE_CONTEXT_MAX_CHARS = 60;
 
     private final Plugin plugin;
     private final RoleplayReminderService reminderService;
@@ -699,6 +701,8 @@ public class RoleplayService {
                 groupID,event.getUserID(),senderName(event),relationshipLabel(event,otherRoleBot),
                 content,event.getMessageID(),direct,otherRoleBot);
         if (!otherRoleBot && reminderService.handle(event,content)) return null;
+        //引用回复：把被引用的那条消息一并带给模型，否则角色看不到对方在回哪句话
+        String quoted = quotedText(groupID,event);
         PreparedMessage prepared = new PreparedMessage();
         prepared.event = event;
         prepared.groupID = groupID;
@@ -706,7 +710,7 @@ public class RoleplayService {
         prepared.userID = event.getUserID();
         prepared.userName = senderName(event);
         prepared.relationship = relationshipLabel(event,otherRoleBot);
-        prepared.content = content;
+        prepared.content = quoted.isEmpty() ? content : quoted+content;
         prepared.otherRoleBot = otherRoleBot;
         prepared.direct = direct;
         prepared.hasImage = hasImage;
@@ -1603,6 +1607,7 @@ public class RoleplayService {
                 +"同一件事只回应一次，不要复述自己最近说过的话，也不要换同义词重复同一个细节；没有新信息时只输出 <SKIP>。"
                 +"不要总把话题拉回自己固定的兴趣点或工作内容，优先接当前话题。"
                 +"如果当前消息带有 [表情包：...]，它只表示对方附带的情绪，不要单独评价或回复这个表情包本身。"
+                +"如果消息里出现 [引用 某人：内容]，那是对方引用回复的原话，要结合这句话理解对方在回应什么。"
                 +"不要固定使用同一句式或同一开头：最近 5 条回复里同一种开头最多出现一次；"
                 +"最近 3 条里已经出现过“嗯”开头的，这一轮必须换一种直接的说法。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
@@ -3184,6 +3189,85 @@ public class RoleplayService {
             if (data != null && data.getLongValue("id") == lastBot) return true;
         }
         return false;
+    }
+
+    /**
+     * 被引用消息的 id，没有引用时返回 0
+     */
+    private long quotedMessageID(GroupMessageEvent event) {
+        JSONArray message = event == null ? null : event.getMessage();
+        if (message == null) return 0L;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null || !"reply".equals(segment.getString("type"))) continue;
+            JSONObject data = segment.getJSONObject("data");
+            if (data == null) continue;
+            long id = data.getLongValue("id");
+            if (id > 0) return id;
+        }
+        return 0L;
+    }
+
+    /**
+     * 被引用消息的文本，形如「[引用 某人：内容] 」。
+     * 先从本地消息流水里找，找不到再退回 OneBot 的 get_msg，两者都拿不到就返回空串。
+     */
+    private String quotedText(long groupID,GroupMessageEvent event) {
+        long quotedID = quotedMessageID(event);
+        if (quotedID <= 0) return "";
+        String userName = "";
+        String content = "";
+        JSONObject row = storage().queryOne(
+                "SELECT `userName`,`content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? AND `messageID`=? LIMIT 1",
+                groupID,quotedID);
+        if (row != null) {
+            userName = safe(row.getString("userName"));
+            content = safe(row.getString("content"));
+        }
+        if (content.trim().isEmpty()) {
+            JSONObject fetched = fetchQuotedMessage(quotedID);
+            if (fetched != null) {
+                userName = quotedUserName(fetched,userName);
+                content = extractContent(fetched.getJSONArray("message"));
+                if (content.trim().isEmpty()) content = safe(fetched.getString("raw_message"));
+            }
+        }
+        content = content == null ? "" : content.replaceAll("\\s+"," ").trim();
+        if (content.isEmpty()) return "";
+        if (content.length() > QUOTE_CONTEXT_MAX_CHARS) {
+            content = content.substring(0,QUOTE_CONTEXT_MAX_CHARS)+"...";
+        }
+        return "[引用 "+(userName.isEmpty() ? "某条消息" : userName)+"："+content+"] ";
+    }
+
+    /**
+     * 本地流水里没有这条消息时，向 OneBot 要一次原文
+     */
+    private JSONObject fetchQuotedMessage(long messageID) {
+        OneBotClient client = plugin.getServer().getOneBotClient();
+        if (client == null) return null;
+        try {
+            JSONObject params = new JSONObject(true);
+            params.put("message_id",messageID);
+            JSONObject response = client.callAction("get_msg",params);
+            if (response == null || response.getIntValue("retcode") != 0) return null;
+            return response.getJSONObject("data");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String quotedUserName(JSONObject message,String fallback) {
+        if (message == null) return fallback;
+        JSONObject sender = message.getJSONObject("sender");
+        if (sender != null) {
+            String card = safe(sender.getString("card"));
+            if (!card.isEmpty()) return card;
+            String nickname = safe(sender.getString("nickname"));
+            if (!nickname.isEmpty()) return nickname;
+        }
+        long userID = message.getLongValue("user_id");
+        return userID > 0 ? String.valueOf(userID) : fallback;
     }
 
     /**
