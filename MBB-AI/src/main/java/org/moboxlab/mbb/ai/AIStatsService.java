@@ -149,7 +149,8 @@ public class AIStatsService {
         Map<String,JSONObject> map = new LinkedHashMap<>();
         List<JSONObject> rows = storage().query(
                 "SELECT `statDate`,SUM(`requests`) AS `requests`,SUM(`successes`) AS `successes`,"
-                        + "SUM(`failures`) AS `failures`,SUM(`totalTokens`) AS `totalTokens` "
+                        + "SUM(`failures`) AS `failures`,SUM(`totalTokens`) AS `totalTokens`,"
+                        + "SUM(`cachedPromptTokens`) AS `cachedPromptTokens` "
                         + "FROM `"+TABLE+"` GROUP BY `statDate` ORDER BY `statDate` ASC");
         if (rows != null) {
             for (JSONObject row : rows) {
@@ -169,6 +170,7 @@ public class AIStatsService {
             item.put("successes",value(row,"successes"));
             item.put("failures",value(row,"failures"));
             item.put("totalTokens",value(row,"totalTokens"));
+            item.put("cachedPromptTokens",value(row,"cachedPromptTokens"));
             result.add(item);
             calendar.add(Calendar.DAY_OF_MONTH,1);
         }
