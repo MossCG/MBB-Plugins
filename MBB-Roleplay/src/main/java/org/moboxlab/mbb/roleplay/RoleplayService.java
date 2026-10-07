@@ -912,7 +912,7 @@ public class RoleplayService {
                     +shortText(reply,80));
             sendText = false;
         }
-        if (sendText) reply = polishReply(groupID,reply,content,decision);
+        if (sendText) reply = polishReply(groupID,reply,content,event.getUserID(),decision);
         if (sendText) ensurePokeBackAction(draft,decision,reply);
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (sendText && client != null) {
@@ -987,7 +987,7 @@ public class RoleplayService {
                 sendText = false;
             }
             if (sendText) {
-                reply = polishReply(groupID,reply,target.content,decision);
+                reply = polishReply(groupID,reply,target.content,target.userID,decision);
                 ensurePokeBackAction(segmentDraft,decision,reply);
                 long quoteMessageID = target.event.getMessageID();
                 boolean forceQuote = decision != null && decision.quoteRequired && target == primary;
@@ -1063,14 +1063,14 @@ public class RoleplayService {
     }
 
     private String polishReply(long groupID,String reply,String content,
-                               RoleplayRouteDecision decision) {
+                               long userID,RoleplayRouteDecision decision) {
         if (!config.styleEnable) return reply;
         boolean proactive = config.styleProactiveEnable
                 && decision != null && "ambient".equals(decision.addressed);
         String trigger = RoleplayStyleDetector.reason(config,reply,proactive);
         if (trigger.isEmpty()) return reply;
         String polished = styler.polish(config,persona,groupID,reply,trigger,
-                speechCorpusService.promptText(content,recentContext(groupID)));
+                speechPrompt(groupID,userID,content,false,decision));
         if (polished.isEmpty() || polished.equals(reply)) return reply;
         plugin.getLogger().sendInfo("[角色] 风格 群"+groupID+" 触发="+trigger
                 +" 原文="+shortText(reply,40)+" 改写="+shortText(polished,40));
@@ -1473,7 +1473,7 @@ public class RoleplayService {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONArray messages = new JSONArray();
-        String speechPrompt = speechCorpusService.promptText(content,recentContext(groupID));
+        String speechPrompt = speechPrompt(groupID,userID,content,otherRoleBot,decision);
         messages.add(message("system",buildSystemPrompt(groupID,userID,otherRoleBot,relationship,
                 speechPrompt,content,decision,batchCount)));
         String userText;
@@ -1582,7 +1582,8 @@ public class RoleplayService {
                 +"只有对方明确叫你、提出新问题、或真人正在参与时才简短回应；不要追问、捧哏或主动延长话题。" : "")
                 +(messageText != null && messageText.contains("[戳一戳]")
                 ? "当前是戳一戳事件：可以只回一句话，也可以使用 poke-back 戳回去；不要长篇解释。" : "")
-                +"每条消息优先控制在 12 字以内，硬上限 20 字。"
+                +"每条消息控制在 15 到 30 字之间，硬上限 30 字。"
+                +"不要用过短的单句敷衍，例如只回“嗯”“哦”“好”“知道了”，除非确实无话可说。"
                 +(batchCount > 1 ? "" : "一条说不完可以在 text 里用换行分成两段，最多两段。")
                 +"回复只保留与当前消息直接相关的内容，不要塞入无关背景、解释或补充信息。"
                 +"不要使用“稳、没问题、放心、交给我、没丢、记下、记账上”这些词，也不要使用“收到、记住了、已记录、明白、为你”等助理式确认。"
@@ -1743,6 +1744,46 @@ public class RoleplayService {
         String text = knowledgeService.visionReferenceText(persona.name,persona.appearance,
                 config.visionReferenceMaxChars);
         return text.isEmpty() ? persona.visionReferenceText() : text;
+    }
+
+    /**
+     * 语料检索用的情绪提示。
+     * 只在情绪明显偏离基线时才给：语料里 neutral 占四分之三，给成 neutral 等于没给。
+     */
+    private String speechEmotionHint(long groupID,long userID,boolean otherRoleBot) {
+        if (!config.emotionEnable || groupID <= 0) return "";
+        List<String> hints = new ArrayList<>();
+        double annoyance = otherRoleBot || userID <= 0 ? 0 : emotionService.annoyance(groupID,userID);
+        int valence = emotionService.valence(groupID);
+        int patience = emotionService.patience(groupID);
+        if (annoyance >= 65 || patience < 30) {
+            hints.add("annoyed");
+            hints.add("serious");
+        } else if (valence >= 70) {
+            hints.add("happy");
+            hints.add("excited");
+            hints.add("proud");
+        } else if (valence < 35) {
+            hints.add("sad");
+            hints.add("serious");
+        }
+        return String.join(",",hints);
+    }
+
+    /**
+     * 语料检索用的场景提示，取值必须是语料里出现过的 scene
+     */
+    private String speechScene(String content,RoleplayRouteDecision decision) {
+        String text = safe(content);
+        if (text.contains("[戳一戳]")) return "group_chat";
+        if (decision != null && "direct".equals(decision.addressed)) return "reply";
+        return "daily";
+    }
+
+    private String speechPrompt(long groupID,long userID,String content,boolean otherRoleBot,
+                                RoleplayRouteDecision decision) {
+        return speechCorpusService.promptText(content,recentContext(groupID),
+                speechEmotionHint(groupID,userID,otherRoleBot),speechScene(content,decision));
     }
 
     String emotionRouterText(long groupID,long userID,boolean otherRoleBot) {

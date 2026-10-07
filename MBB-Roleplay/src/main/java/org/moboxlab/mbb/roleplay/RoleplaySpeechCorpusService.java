@@ -46,7 +46,16 @@ public class RoleplaySpeechCorpusService {
     }
 
     public String promptText(String query,String context) {
-        List<SpeechCorpusEntry> selected = retrieve(query,context,
+        return promptText(query,context,"","");
+    }
+
+    /**
+     * 带情绪与场景提示的检索。
+     * 情绪与场景是加成而不是过滤条件：语料里 neutral 占大多数，
+     * 硬过滤会把可用台词砍掉大半，加成只影响同类候选之间的排序。
+     */
+    public String promptText(String query,String context,String emotionHint,String sceneHint) {
+        List<SpeechCorpusEntry> selected = retrieve(query,context,emotionHint,sceneHint,
                 config.speechRetrievalCount,config.speechRetrievalMaxChars);
         if (selected.isEmpty()) return "";
         StringBuilder builder = new StringBuilder("参考语气示例（只参考表达方式，不要直接照抄）：\n");
@@ -58,7 +67,7 @@ public class RoleplaySpeechCorpusService {
 
     public JSONArray search(String query,int limit) {
         JSONArray result = new JSONArray();
-        List<SpeechCorpusEntry> selected = retrieve(query,"",limit,Integer.MAX_VALUE);
+        List<SpeechCorpusEntry> selected = retrieve(query,"","","",limit,Integer.MAX_VALUE);
         for (SpeechCorpusEntry entry : selected) {
             JSONObject item = new JSONObject(true);
             item.put("id",entry.id);
@@ -94,16 +103,22 @@ public class RoleplaySpeechCorpusService {
         return false;
     }
 
-    private List<SpeechCorpusEntry> retrieve(String query,String context,int limit,int maxChars) {
+    private List<SpeechCorpusEntry> retrieve(String query,String context,String emotionHint,
+                                             String sceneHint,int limit,int maxChars) {
         if (!config.speechCorpusEnable || entries.isEmpty() || limit <= 0) return new ArrayList<>();
         String queryText = SpeechCorpusEntry.normalize(query);
         String contextText = SpeechCorpusEntry.normalize(context);
         Set<String> queryBigrams = SpeechCorpusEntry.bigrams(queryText);
         Set<String> contextBigrams = SpeechCorpusEntry.bigrams(contextText);
-        if (queryBigrams.isEmpty() && contextBigrams.isEmpty()) return new ArrayList<>();
+        Set<String> emotions = splitHint(emotionHint);
+        String scene = safe(sceneHint).trim();
+        if (queryBigrams.isEmpty() && contextBigrams.isEmpty()
+                && emotions.isEmpty() && scene.isEmpty()) return new ArrayList<>();
 
         List<ScoredEntry> scored = new ArrayList<>();
         for (SpeechCorpusEntry entry : entries) {
+            //超过允许等级的剧透台词直接不参与检索
+            if (entry.spoiler > config.speechSpoilerLevel) continue;
             double score = dice(queryBigrams,entry.bigrams);
             if (!contextBigrams.isEmpty()) {
                 score = score * 0.8 + dice(contextBigrams,entry.bigrams) * 0.2;
@@ -114,8 +129,10 @@ public class RoleplaySpeechCorpusService {
                     score += 0.12;
                 }
             }
+            //情绪与场景命中给加成：让“什么场合说哪种话”参与排序，而不是只看字面相似
+            if (!emotions.isEmpty() && emotions.contains(entry.emotion)) score += 0.2;
+            if (!scene.isEmpty() && scene.equals(entry.scene)) score += 0.12;
             score += (entry.weight - 1.0) * 0.05;
-            if (entry.spoiler > 0) score -= entry.spoiler * 0.05;
             if (score >= config.speechRetrievalMinScore) scored.add(new ScoredEntry(entry,score));
         }
         Collections.sort(scored,new Comparator<ScoredEntry>() {
@@ -126,9 +143,13 @@ public class RoleplaySpeechCorpusService {
         });
 
         List<SpeechCorpusEntry> result = new ArrayList<>();
+        //同一出处最多取一条，避免整批示例都来自同一段剧情、语气高度雷同
+        Set<String> usedSources = new LinkedHashSet<>();
         int totalChars = 0;
         for (ScoredEntry scoredEntry : scored) {
             SpeechCorpusEntry entry = scoredEntry.entry;
+            String source = safe(entry.source).trim();
+            if (!source.isEmpty() && usedSources.contains(source)) continue;
             boolean tooSimilar = false;
             for (SpeechCorpusEntry selected : result) {
                 if (dice(entry.bigrams,selected.bigrams) >= 0.85) {
@@ -139,8 +160,23 @@ public class RoleplaySpeechCorpusService {
             if (tooSimilar) continue;
             if (totalChars + entry.text.length() > maxChars && !result.isEmpty()) break;
             result.add(entry);
+            if (!source.isEmpty()) usedSources.add(source);
             totalChars += entry.text.length();
             if (result.size() >= limit) break;
+        }
+        return result;
+    }
+
+    /**
+     * 把逗号分隔的情绪提示拆成集合
+     */
+    private Set<String> splitHint(String value) {
+        Set<String> result = new LinkedHashSet<>();
+        String text = safe(value).trim();
+        if (text.isEmpty()) return result;
+        for (String item : text.split(",")) {
+            String label = item == null ? "" : item.trim();
+            if (!label.isEmpty()) result.add(label);
         }
         return result;
     }

@@ -525,6 +525,14 @@ public class RoleplayEmotionService {
         return mood(groupID).patience;
     }
 
+    public synchronized int valence(long groupID) {
+        return mood(groupID).valence;
+    }
+
+    public synchronized double annoyance(long groupID,long userID) {
+        return relation(groupID,userID).annoyance;
+    }
+
     public synchronized void clearRelationReason(long groupID,long userID) {
         RelationState relation = relation(groupID,userID);
         relation.emotionReason = "";

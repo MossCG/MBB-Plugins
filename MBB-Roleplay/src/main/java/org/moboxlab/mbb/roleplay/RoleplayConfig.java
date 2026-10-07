@@ -90,6 +90,7 @@ public class RoleplayConfig {
     public int speechRetrievalCount = 8;
     public int speechRetrievalMaxChars = 1200;
     public double speechRetrievalMinScore = 0.35;
+    public int speechSpoilerLevel = 1;
     public double speechSimilarityThreshold = 0.78;
     public int speechSimilarityMinChars = 6;
     public boolean activeMemory = true;
@@ -136,7 +137,7 @@ public class RoleplayConfig {
     public int maxLongMemories = 150;
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
-    public int replySegmentMaxChars = 20;
+    public int replySegmentMaxChars = 30;
     public String replySplitPunctuation = "。！？!?；;，、：,:～~";
     public int replyMaxSegments = 2;
     public int recentReplyCheckCount = 8;
@@ -310,6 +311,7 @@ public class RoleplayConfig {
         } catch (Exception e) {
             config.speechRetrievalMinScore = 0.35;
         }
+        config.speechSpoilerLevel = plugin.getConfig().getInt("speechSpoilerLevel",1);
         try {
             config.speechSimilarityThreshold = Double.parseDouble(
                     plugin.getConfig().getString("speechSimilarityThreshold","0.78"));
@@ -365,7 +367,7 @@ public class RoleplayConfig {
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
-        config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",20);
+        config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",30);
         config.replySplitPunctuation = plugin.getConfig().getString(
                 "replySplitPunctuation","。！？!?；;，、：,:～~");
         config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
@@ -524,6 +526,8 @@ public class RoleplayConfig {
         if (config.speechRetrievalMaxChars > 6000) config.speechRetrievalMaxChars = 6000;
         if (config.speechRetrievalMinScore < 0) config.speechRetrievalMinScore = 0;
         if (config.speechRetrievalMinScore > 1) config.speechRetrievalMinScore = 1;
+        if (config.speechSpoilerLevel < 0) config.speechSpoilerLevel = 0;
+        if (config.speechSpoilerLevel > 2) config.speechSpoilerLevel = 2;
         if (config.speechSimilarityThreshold < 0.3) config.speechSimilarityThreshold = 0.3;
         if (config.speechSimilarityThreshold > 1) config.speechSimilarityThreshold = 1;
         if (config.speechSimilarityMinChars < 2) config.speechSimilarityMinChars = 2;
@@ -578,7 +582,7 @@ public class RoleplayConfig {
         if (config.replyImageMaxTokens < 400) config.replyImageMaxTokens = 400;
         if (config.replyImageMaxTokens > 16000) config.replyImageMaxTokens = 16000;
         if (config.replySegmentMaxChars < 8) config.replySegmentMaxChars = 8;
-        if (config.replySegmentMaxChars > 30) config.replySegmentMaxChars = 30;
+        if (config.replySegmentMaxChars > 60) config.replySegmentMaxChars = 60;
         if (config.replySplitPunctuation == null || config.replySplitPunctuation.isEmpty()) {
             config.replySplitPunctuation = "。！？!?；;，、：,:～~";
         }

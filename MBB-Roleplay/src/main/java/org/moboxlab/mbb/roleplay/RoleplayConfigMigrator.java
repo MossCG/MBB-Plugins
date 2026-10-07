@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "23";
+    private static final String CURRENT_VERSION = "24";
 
     private static class ConfigEntry {
         private final String key;
@@ -102,6 +102,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("speechRetrievalCount","8","每次注入多少条参考台词"),
             new ConfigEntry("speechRetrievalMaxChars","1200","参考台词注入的最大字符数"),
             new ConfigEntry("speechRetrievalMinScore","0.35","台词检索最低分数"),
+            new ConfigEntry("speechSpoilerLevel","1","允许检索的台词剧透等级：0 只取无剧透，1 允许轻度，2 全部"),
             new ConfigEntry("speechSimilarityThreshold","0.78","回复与台词语料相似度达到多少时视为照抄"),
             new ConfigEntry("speechSimilarityMinChars","6","少于多少字的回复不做照抄检测"),
             new ConfigEntry("knowledgeEnable","true","是否启用可选知识库"),
@@ -157,7 +158,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("globalMemoryRelevanceMaxChars","4000","永久记忆按相关性注入的字符上限"),
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
-            new ConfigEntry("replySegmentMaxChars","20","单段回复硬上限字符数，提示词默认按 12 字以内生成"),
+            new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，提示词默认按 15 到 30 字生成"),
             new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~","回复拆分时优先使用的断句符号"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
@@ -196,6 +197,8 @@ public class RoleplayConfigMigrator {
                 config.getString("routerReasoningEffort",""));
         boolean legacyEmotionAnalyzeMaxDelta08 = version < 23 && "0.8".equals(
                 config.getString("emotionAnalyzeMaxDelta",""));
+        boolean legacyReplySegmentMaxChars20 = version < 24 && "20".equals(
+                config.getString("replySegmentMaxChars",""));
         boolean legacyReplySegmentMaxChars = version < 12 && "160".equals(
                 config.getString("replySegmentMaxChars",""));
         boolean legacyReplySplitPunctuation = version < 13
@@ -231,7 +234,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 23) {
+        if (version < 24) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -316,11 +319,16 @@ public class RoleplayConfigMigrator {
             config.set("emotionAnalyzeMaxDelta","0.5");
             changed++;
         }
-        if (version < 23 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (legacyReplySegmentMaxChars20) {
+            config.set("replySegmentMaxChars","30");
+            changed++;
+        }
+        if (version < 24 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort
-                || legacyEmotionAnalyzeMaxDelta08 || legacyReplySegmentMaxChars
+                || legacyEmotionAnalyzeMaxDelta08 || legacyReplySegmentMaxChars20
+                || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose
                 || legacyRelationDailyMax || legacyEmotionEventCooldown

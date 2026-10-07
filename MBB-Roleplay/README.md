@@ -32,6 +32,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 支持所有群共享的永久记忆，学习来源可限制到白名单群，并支持查看和 JSON 备份
 - 合并记忆前会把短期、长期、永久记忆一起快照到 `backup/`，支持按文件名恢复
 - 支持角色台词语料检索，按当前消息和上下文注入少量参考台词，并拦截高度照抄
+- 回复长度按 15 到 30 字要求，并明确禁止用“嗯”“哦”“好”“知道了”这类过短单句敷衍
 - 启动和重载时自动补全 `config.yml` 缺失项，并补充中文注释
 - 群主和管理员视为老师，其他真人成员视为朋友，另一个角色机器人不按群权限归类
 - 所有真人成员使用可配置的初始好感度，默认 `70/100`
@@ -175,6 +176,9 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 世界观中同时接受“奇普托斯”和“基沃托斯”两种称呼。桃井和绿明确认识凯伊，并知道她与爱丽丝的关系。
 
 默认口癖包括“邦邦咔邦！”、“爱丽丝，了解！”、“光呀！”等，要求低频自然使用，不会每句话都变成游戏台词。
+
+绿的吐槽已收紧到**无语、无奈**那一类：可以用叹气、扶额、“……算了”“你开心就好”这类表达，
+明确禁止挖苦、阴阳怪气、人身攻击和刻意贬低群友，也不允许为了吐槽而吐槽。
 
 “邦邦咔邦”只会出现在回复句首，作为类似任务启动提示音使用，不会放在句中或句尾。
 
@@ -360,7 +364,7 @@ styleMaxTokens: 400
 styleReasoningEffort: "low"
 styleProactiveEnable: false
 replyImageMaxTokens: 4000
-replySegmentMaxChars: 20
+replySegmentMaxChars: 30
 replySplitPunctuation: "。！？!?；;，、：,:～~"
 replyMaxSegments: 2
 maxLongMemories: 150
@@ -626,6 +630,15 @@ speech-corpus/speech-corpus-midori.jsonl
 
 插件会使用当前消息和最近群聊上下文做本地字符 n-gram 检索，把少量参考台词注入角色提示词。参考示例只用于学习表达方式，生成后还会做相似度检测，避免直接照抄台词。
 
+检索除了字面相似度，还会用到语料自带的元信息：
+
+1. **情绪加成**：角色当前厌烦偏高或耐心偏低时偏好 `annoyed`/`serious`，心情好时偏好 `happy`/`excited`/`proud`，心情低时偏好 `sad`/`serious`。情绪只在明显偏离基线时才参与，因为语料里 `neutral` 占了四分之三。
+2. **场景加成**：直接点名或引用回复偏好 `reply`，戳一戳偏好 `group_chat`，其余走 `daily`。
+3. **同一出处只取一条**：避免整批示例来自同一段剧情，语气高度雷同。
+4. **剧透过滤**：`spoiler` 超过 `speechSpoilerLevel` 的台词直接不参与检索，默认只排除严重剧透。
+
+情绪与场景是加成而不是过滤条件：语料里 neutral 占大多数，硬过滤会把可用台词砍掉大半，加成只影响同类候选之间的排序。
+
 相关配置：
 
 ```yaml
@@ -634,6 +647,7 @@ speechCorpusDirectory: "speech-corpus"
 speechRetrievalCount: 8
 speechRetrievalMaxChars: 1200
 speechRetrievalMinScore: 0.35
+speechSpoilerLevel: 1
 speechSimilarityThreshold: 0.78
 speechSimilarityMinChars: 6
 ```
