@@ -60,6 +60,20 @@ public class RoleplayKnowledgeService {
         return result;
     }
 
+    /**
+     * 学生档案库是否已经启用。
+     * 启用时插件自带的 students.json 详细设定不再注入，避免同一份学生信息出现两次。
+     */
+    public boolean isStudentsLibraryEnabled() {
+        if (!config.knowledgeEnable) return false;
+        String expected = config.knowledgeStudentsLibrary;
+        if (expected == null || expected.trim().isEmpty()) return false;
+        for (RoleplayKnowledgeLibrary library : enabledLibraries()) {
+            if (expected.trim().equals(library.id)) return true;
+        }
+        return false;
+    }
+
     public int entryCount() {
         int count = 0;
         for (RoleplayKnowledgeLibrary library : libraryMap.values()) {

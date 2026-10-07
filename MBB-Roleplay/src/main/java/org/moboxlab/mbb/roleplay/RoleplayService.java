@@ -1573,8 +1573,11 @@ public class RoleplayService {
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
                 +"只有话题符合你的兴趣、有人直接艾特回复或提及你、或群友正在接续你参与过的话题时才参与；"
                 +"其他人之间的闲聊和无关话题只输出 <SKIP>。"
-                +"如果有人问起某位学生是谁、长什么样或有什么特点，优先参考“被提到的学生详细设定”里的外貌、社团、性格和关系；"
-                +"没有该区块时再用“了解的学生”里的信息回答，不要只给名字。"
+                +(knowledgeService.isStudentsLibraryEnabled()
+                ? "如果有人问起某位学生是谁、长什么样或有什么特点，优先用知识库里的学生条目回答，"
+                +"写清外貌、社团、性格或关系，不要只给名字。"
+                : "如果有人问起某位学生是谁、长什么样或有什么特点，优先参考“被提到的学生详细设定”里的外貌、社团、性格和关系；"
+                +"没有该区块时再用“了解的学生”里的信息回答，不要只给名字。")
                 +(otherRoleBot ? "当前发言者是另一个角色机器人。不要和另一个机器人旁若无人地连续互动，"
                 +"只有对方明确叫你、提出新问题、或真人正在参与时才简短回应；不要追问、捧哏或主动延长话题。" : "")
                 +(messageText != null && messageText.contains("[戳一戳]")
@@ -1656,8 +1659,11 @@ public class RoleplayService {
                 () -> persona.appearanceText()));
         materials.add(new RoleplayMaterial("students.brief",true,70,4000,
                 () -> persona.studentBriefText()));
-        materials.add(new RoleplayMaterial("students.detail",false,80,4000,
-                () -> persona.studentDetailText(messageText)));
+        //学生档案库已经启用时不再注册自带的详细设定，避免同一份学生信息被注入两次
+        if (!knowledgeService.isStudentsLibraryEnabled()) {
+            materials.add(new RoleplayMaterial("students.detail",false,80,4000,
+                    () -> persona.studentDetailText(messageText)));
+        }
         materials.add(new RoleplayMaterial("memory.long",true,90,5200,
                 () -> "长期记忆：\n"+longMemoryText(groupID,userID,memoryQuery)));
         materials.add(new RoleplayMaterial("memory.global",true,85,4200,
@@ -1692,8 +1698,11 @@ public class RoleplayService {
      * 可选资料清单，给路由层点名用
      */
     String materialCatalogue() {
-        String catalogue = "persona.appearance：角色自己的外貌，被问到长相或外貌时带上\n"
-                +"students.detail：被提到的学生的完整外貌，问起某位学生时带上\n";
+        String catalogue = "persona.appearance：角色自己的外貌，被问到长相或外貌时带上\n";
+        //学生档案库接管学生资料后，不再向路由层推荐插件自带的详细设定
+        if (!knowledgeService.isStudentsLibraryEnabled()) {
+            catalogue += "students.detail：被提到的学生的完整外貌，问起某位学生时带上\n";
+        }
         String knowledge = knowledgeService.catalogueText();
         if (!knowledge.isEmpty()) {
             catalogue += "可选知识库（问到相关内容时点选，不需要就不要选）：\n"+knowledge;

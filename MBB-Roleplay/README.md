@@ -655,6 +655,11 @@ knowledge/
 
 知识库由路由层按需点选，不是每条消息都注入；单条、单库和提示词总量三层预算同时生效。命中的库、条目数、小节数和占用字符会打印在控制台日志里。
 
+`knowledgeStudentsLibrary` 指向学生档案库的库名（默认 `ba.students`）。这个库启用后，插件会**停用自带的学生详细设定资料**：
+`students.json` 里的 69 人只有外貌，而知识库的学生条目覆盖 153 人并且含性格、关系、梗与剧情，
+两者同时存在会让同一份学生信息被注入两次。停用后路由层不再推荐 `students.detail`，问起学生时统一由知识库回答。
+把这一项留空，或者知识库里没有该库，就会退回原来的自带名录，不会丢功能。
+
 首次启动时插件会在 `knowledge/` 下释放一个 `example/` 示例库（`enabled: false`，不参与检索），
 用来演示目录与文件格式。这个示例只在知识库目录第一次创建时写入，**直接删掉 `example/` 后不会在重启时被补回来**；
 只有把整个 `knowledge/` 目录删掉，插件才会重新释放一份示例。
@@ -671,6 +676,7 @@ knowledge/
 ```yaml
 knowledgeEnable: true
 knowledgeDirectory: "knowledge"
+knowledgeStudentsLibrary: "ba.students"
 knowledgeMaxEntries: 4
 knowledgeMaxSectionsPerEntry: 2
 knowledgeMinScore: 1.0

@@ -106,6 +106,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("speechSimilarityMinChars","6","少于多少字的回复不做照抄检测"),
             new ConfigEntry("knowledgeEnable","true","是否启用可选知识库"),
             new ConfigEntry("knowledgeDirectory","knowledge","知识库目录，相对插件数据目录"),
+            new ConfigEntry("knowledgeStudentsLibrary","ba.students","学生档案库的库名；该库启用后不再注入插件自带的学生详细设定，留空表示不做这个替换"),
             new ConfigEntry("knowledgeMaxEntries","4","单次最多注入几个知识库条目"),
             new ConfigEntry("knowledgeMaxSectionsPerEntry","2","每个条目最多注入几个小节"),
             new ConfigEntry("knowledgeMinScore","1.0","知识库检索最低分，低于该分数不注入"),

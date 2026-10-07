@@ -81,6 +81,7 @@ public class RoleplayConfig {
     public String speechCorpusDirectory = "speech-corpus";
     public boolean knowledgeEnable = true;
     public String knowledgeDirectory = "knowledge";
+    public String knowledgeStudentsLibrary = "ba.students";
     public int knowledgeMaxEntries = 4;
     public int knowledgeMaxSectionsPerEntry = 2;
     public double knowledgeMinScore = 1.0;
@@ -287,6 +288,8 @@ public class RoleplayConfig {
         config.speechCorpusDirectory = plugin.getConfig().getString("speechCorpusDirectory","speech-corpus");
         config.knowledgeEnable = plugin.getConfig().getBoolean("knowledgeEnable",true);
         config.knowledgeDirectory = plugin.getConfig().getString("knowledgeDirectory","knowledge");
+        config.knowledgeStudentsLibrary =
+                plugin.getConfig().getString("knowledgeStudentsLibrary","ba.students");
         config.knowledgeMaxEntries = plugin.getConfig().getInt("knowledgeMaxEntries",4);
         config.knowledgeMaxSectionsPerEntry =
                 plugin.getConfig().getInt("knowledgeMaxSectionsPerEntry",2);
@@ -501,6 +504,7 @@ public class RoleplayConfig {
         if (config.knowledgeDirectory == null || config.knowledgeDirectory.trim().isEmpty()) {
             config.knowledgeDirectory = "knowledge";
         }
+        if (config.knowledgeStudentsLibrary == null) config.knowledgeStudentsLibrary = "";
         if (config.knowledgeMaxEntries < 1) config.knowledgeMaxEntries = 1;
         if (config.knowledgeMaxEntries > 20) config.knowledgeMaxEntries = 20;
         if (config.knowledgeMaxSectionsPerEntry < 1) config.knowledgeMaxSectionsPerEntry = 1;
