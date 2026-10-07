@@ -1988,8 +1988,10 @@ public class RoleplayService {
                 +(retry ? "上一次输出无法解析。现在必须只输出一个合法 JSON 对象，"
                 +"不要输出任何解释、标题、Markdown、代码块或思考过程。" : "只输出 JSON，不要 Markdown。")
                 +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
-                +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
+                +"{\"type\":\"user_event|group_atmosphere|meme|self_action|topic\","
                 +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
+                +"群员的称呼、喜好、性格这类人物属性由单独的群员印象维护，不要写进 longTerm；"
+                +"longTerm 里提到某个群员时只写他做过的具体事情（type 用 user_event），并带上发生时间。"
                 +"当前时间："+currentTimeText()+"。"
                 +"群成员较多时尽量记录更多有长期价值的用户印象、用户信息、群内氛围、群梗和角色行为，"
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
@@ -1999,11 +2001,32 @@ public class RoleplayService {
                 +"角色没有父亲这个概念：不要把“自称是角色爸爸”“角色有爸爸”这类说法整理成记忆，"
                 +"遇到就直接忽略，也不要写进 globalMemory。"
                 +(globalMemoryService.isLearnGroup(groupID) ? "同时返回 globalMemory 数组："
-                +"[{\"type\":\"speech_style|tone|habit|knowledge|meme|note\","
+                +"[{\"type\":\"speech_style|tone|habit|lesson|meme|note\","
                 +"\"content\":\"所有群通用、不绑定用户的记忆\",\"importance\":1}]。"
-                +"只记录角色学到的说话方式、语气、生活习惯、知识、群梗和注意事项，"
+                +"只记录角色学到的说话方式、语气、生活习惯、群梗、注意事项和经验教训；"
+                +"游戏设定、专有名词、剧情事实由知识库负责，不要写进 globalMemory；"
                 +"不要记录个人隐私或用户专属信息；没有可学内容时返回空数组。" : "")
                 +"不要重复已有记忆；已有短期记忆如下：\n"+shortSummary(groupID);
+    }
+
+    /**
+     * 本批消息涉及群员的既有个人印象，喂给整理器避免重复记录人物属性
+     */
+    private String memberContextForBatch(long groupID,List<JSONObject> rows) {
+        if (rows == null || rows.isEmpty()) return "";
+        Set<Long> seen = new LinkedHashSet<>();
+        StringBuilder builder = new StringBuilder();
+        for (JSONObject row : rows) {
+            long userID = row.getLongValue("userID");
+            if (userID <= 0 || !seen.add(userID)) continue;
+            String profile = memberService.promptText(groupID,userID);
+            if (profile.isEmpty()) continue;
+            String flat = profile.replace("\n"," ").replace("你对这个群员的印象：","").trim();
+            builder.append("- ").append(safe(row.getString("userName")))
+                    .append("（QQ：").append(userID).append("）：").append(flat).append("\n");
+            if (seen.size() >= 10) break;
+        }
+        return builder.toString();
     }
 
     private boolean updateMemoryBatch(long groupID,List<JSONObject> rows,String contextToken,String directMemory) {
@@ -2021,6 +2044,12 @@ public class RoleplayService {
             source.append("[").append(formatMemoryTime(row.getLongValue("messageTime"))).append("] ")
                     .append(safe(row.getString("userName"))).append("：")
                     .append(safe(row.getString("content"))).append("\n");
+        }
+        //把本批涉及群员的既有印象一并给整理器，避免和群员个人记忆重复记录人物属性
+        String memberContext = memberContextForBatch(groupID,rows);
+        if (!memberContext.isEmpty()) {
+            source.append("本批涉及群员的既有印象（人物属性已经在别处维护，这里不要重复记录）：\n")
+                    .append(memberContext);
         }
         JSONObject parsed = callMemoryAi(ai,groupID,source.toString(),contextToken);
         if (parsed == null) {
@@ -2252,8 +2281,10 @@ public class RoleplayService {
                 +"明确区分角色自己的行为、别人对角色说过的话、以及角色对别人的印象。"
                 +"请合并重复或高度相似的内容，保留用户印象、用户信息、群内氛围、群梗、角色行为和重要事件，"
                 +"不要因为压缩而丢失关键内容。角色没有父亲，任何“自称是角色爸爸”的内容都要丢弃。"
+                +"旧数据里的 user_impression / user_info 是人物属性，已经由群员个人印象维护："
+                +"其中他做过的具体事情改写成 user_event 保留，纯属性描述直接丢弃。"
                 +"只输出 JSON，不要 Markdown：{\"memories\":["
-                +"{\"type\":\"user_impression|user_info|group_atmosphere|meme|self_action|topic\","
+                +"{\"type\":\"user_event|group_atmosphere|meme|self_action|topic\","
                 +"\"subjectID\":0,\"content\":\"整理后的内容\",\"importance\":1}]}。"));
         JSONArray source = new JSONArray();
         source.addAll(batch);

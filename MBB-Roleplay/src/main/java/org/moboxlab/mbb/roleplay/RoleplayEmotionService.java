@@ -819,6 +819,12 @@ public class RoleplayEmotionService {
             builder.append("已有情绪原因：").append(relation.emotionReason)
                     .append("，强度 ").append(relation.reasonStrength).append("\n");
         }
+        //把已有印象一起给模型，让它做增量修订而不是每次从零重写
+        String existingProfile = memberService.promptText(groupID,userID);
+        if (!existingProfile.isEmpty()) {
+            builder.append("该群员已有的印象（在此基础上补充或修正，没有新信息就把对应字段留空）：\n")
+                    .append(existingProfile);
+        }
         if (localEvent != null && localEvent.isPresent()) {
             builder.append("本地规则初步判断：").append(localEvent.type)
                     .append("，原因：").append(localEvent.reason).append("\n");
@@ -839,7 +845,9 @@ public class RoleplayEmotionService {
                 .append("- alias：他希望被怎么称呼，或角色应该怎么称呼他\n")
                 .append("- likes / dislikes：他明确说过的喜好与不喜欢\n")
                 .append("- notes：应该怎么和他相处，例如他喜欢被吐槽还是不喜欢被开玩笑\n")
-                .append("- 只写他自己说过或明确表现出来的，没有新信息就留空字符串，不要复述旧印象，也不要猜\n")
+                .append("- 只写他自己说过或明确表现出来的新信息；上面已有的印象不要原样重复，"
+                        +"没有新信息就把对应字段留空字符串，也不要猜\n")
+                .append("- 发现旧印象不准时可以改写得更准确，但不要因为一次玩笑就推翻长期印象\n")
                 .append("- 单项不超过 ").append(config.memberFieldMaxChars).append(" 个字符\n")
                 .append("- 不记录真实姓名、住址、电话、账号等现实隐私\n");
         builder.append("输出格式：{\"event\":\"impersonation|attack|praise|friendly|neutral\",")

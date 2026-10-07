@@ -182,9 +182,10 @@ public class RoleplayGlobalMemoryService {
         messages.add(message("system","你是永久记忆整理器。只处理当前这一批记忆，"
                 +"当前角色："+service.getRoleName()+"。整理时必须基于该角色的视角，"
                 +"区分角色自己的说话方式、习惯、知识，以及群友提供的通用信息。"
+                +"游戏设定、专有名词、剧情事实由知识库负责，不要写进永久记忆；"
                 +"请合并重复或高度相似的内容，保留所有有价值的信息，不要因为压缩而丢失关键内容。"
                 +"只输出 JSON，不要 Markdown：{\"memories\":[{\"type\":\"speech_style|tone|habit|"
-                +"knowledge|meme|note\",\"content\":\"整理后的内容\",\"importance\":1}]}。"));
+                +"lesson|meme|note\",\"content\":\"整理后的内容\",\"importance\":1}]}。"));
         JSONArray source = new JSONArray();
         source.addAll(batch);
         messages.add(message("user",source.toJSONString()));
