@@ -1658,7 +1658,7 @@ public class RoleplayService {
         materials.add(new RoleplayMaterial("persona.appearance",false,60,1200,
                 () -> persona.appearanceText()));
         materials.add(new RoleplayMaterial("students.brief",true,70,4000,
-                () -> persona.studentBriefText()));
+                () -> studentBriefText()));
         //学生档案库已经启用时不再注册自带的详细设定，避免同一份学生信息被注入两次
         if (!knowledgeService.isStudentsLibraryEnabled()) {
             materials.add(new RoleplayMaterial("students.detail",false,80,4000,
@@ -1708,6 +1708,41 @@ public class RoleplayService {
             catalogue += "可选知识库（问到相关内容时点选，不需要就不要选）：\n"+knowledge;
         }
         return catalogue;
+    }
+
+    /**
+     * 角色了解的学生一句话印象。
+     * 学生档案库启用时用条目 summary 覆盖人设里写死的印象，避免两处说法不一致。
+     */
+    private String studentBriefText() {
+        if (!knowledgeService.isStudentsLibraryEnabled()) return persona.studentBriefText();
+        if (persona.otherStudents.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder("了解的学生：");
+        boolean first = true;
+        for (String item : persona.otherStudents) {
+            String text = safe(item).trim();
+            if (text.isEmpty()) continue;
+            String name = text;
+            int colon = text.indexOf('：');
+            if (colon > 0) name = text.substring(0,colon).trim();
+            String summary = knowledgeService.studentsSummary(name);
+            if (!summary.isEmpty()) text = name+"："+summary;
+            if (!first) builder.append("；");
+            builder.append(text);
+            first = false;
+        }
+        builder.append("\n");
+        return builder.toString();
+    }
+
+    /**
+     * 识图用的学生外貌参考。
+     * 知识库学生库启用时从条目取外貌并按总预算均分，否则退回插件自带的学生图鉴。
+     */
+    private String visionReferenceText() {
+        String text = knowledgeService.visionReferenceText(persona.name,persona.appearance,
+                config.visionReferenceMaxChars);
+        return text.isEmpty() ? persona.visionReferenceText() : text;
     }
 
     String emotionRouterText(long groupID,long userID,boolean otherRoleBot) {
@@ -3848,7 +3883,7 @@ public class RoleplayService {
         params.put("url",data == null ? "" : safe(data.getString("url")));
         params.put("file",data == null ? "" : safe(data.getString("file")));
         params.put("context",context);
-        params.put("reference",persona.visionReferenceText());
+        params.put("reference",visionReferenceText());
         params.put("profile",config.imageUnderstandingProfile);
         JSONObject result = vision.call("describe",params);
         if (result == null || !result.getBooleanValue("status")) {

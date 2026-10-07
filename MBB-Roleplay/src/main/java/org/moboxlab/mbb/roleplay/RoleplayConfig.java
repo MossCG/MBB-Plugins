@@ -99,6 +99,7 @@ public class RoleplayConfig {
     public boolean imageUnderstandingInjectOcr = true;
     public String imageUnderstandingProfile = "";
     public int imageUnderstandingMaxChars = 600;
+    public int visionReferenceMaxChars = 32000;
     public int imageContextTimeoutSecond = 300;
     public boolean imageAsyncEnable = true;
     public boolean memoryRelevanceSort = true;
@@ -323,6 +324,8 @@ public class RoleplayConfig {
         config.imageUnderstandingInjectOcr = plugin.getConfig().getBoolean("imageUnderstandingInjectOcr",true);
         config.imageUnderstandingProfile = plugin.getConfig().getString("imageUnderstandingProfile","");
         config.imageUnderstandingMaxChars = plugin.getConfig().getInt("imageUnderstandingMaxChars",600);
+        config.visionReferenceMaxChars =
+                plugin.getConfig().getInt("visionReferenceMaxChars",32000);
         config.imageContextTimeoutSecond = plugin.getConfig().getInt("imageContextTimeoutSecond",300);
         config.imageAsyncEnable = plugin.getConfig().getBoolean("imageAsyncEnable",true);
         config.memoryRelevanceSort = plugin.getConfig().getBoolean("memoryRelevanceSort",true);
@@ -538,6 +541,8 @@ public class RoleplayConfig {
         if (config.imageUnderstandingProfile == null) config.imageUnderstandingProfile = "";
         if (config.imageUnderstandingMaxChars < 100) config.imageUnderstandingMaxChars = 100;
         if (config.imageUnderstandingMaxChars > 3000) config.imageUnderstandingMaxChars = 3000;
+        if (config.visionReferenceMaxChars < 4000) config.visionReferenceMaxChars = 4000;
+        if (config.visionReferenceMaxChars > 120000) config.visionReferenceMaxChars = 120000;
         if (config.imageContextTimeoutSecond < 10) config.imageContextTimeoutSecond = 10;
         if (config.imageContextTimeoutSecond > 3600) config.imageContextTimeoutSecond = 3600;
         if (config.stickerAttachWindowSecond < 3) config.stickerAttachWindowSecond = 3;

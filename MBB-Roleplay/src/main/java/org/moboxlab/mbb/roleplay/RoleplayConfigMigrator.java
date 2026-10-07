@@ -119,6 +119,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("imageUnderstandingInjectOcr","true","识图结果是否把 OCR 文字注入角色上下文"),
             new ConfigEntry("imageUnderstandingProfile","","图片理解使用的模型配置名，留空则使用 MBB-Vision 默认配置"),
             new ConfigEntry("imageUnderstandingMaxChars","600","图片理解结果注入角色的最大字符数"),
+            new ConfigEntry("visionReferenceMaxChars","32000","识图时学生外貌参考的总字符预算，按学生数均分"),
             new ConfigEntry("imageContextTimeoutSecond","300","用户发送图片后，后续提问可复用原图作为上下文的时间窗口秒数"),
             new ConfigEntry("imageAsyncEnable","true","纯图片与表情消息的识图放到独立异步任务，不阻塞回复线程"),
             new ConfigEntry("stickerAttachEnable","true","是否等待用户补发表情包后再生成一次回复"),

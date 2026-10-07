@@ -61,17 +61,78 @@ public class RoleplayKnowledgeService {
     }
 
     /**
+     * 学生档案库对象，没启用或没装时返回 null
+     */
+    public RoleplayKnowledgeLibrary studentsLibrary() {
+        if (!config.knowledgeEnable) return null;
+        String expected = config.knowledgeStudentsLibrary;
+        if (expected == null || expected.trim().isEmpty()) return null;
+        RoleplayKnowledgeLibrary library = libraryMap.get(expected.trim());
+        return library != null && library.enabled ? library : null;
+    }
+
+    /**
      * 学生档案库是否已经启用。
      * 启用时插件自带的 students.json 详细设定不再注入，避免同一份学生信息出现两次。
      */
     public boolean isStudentsLibraryEnabled() {
-        if (!config.knowledgeEnable) return false;
-        String expected = config.knowledgeStudentsLibrary;
-        if (expected == null || expected.trim().isEmpty()) return false;
-        for (RoleplayKnowledgeLibrary library : enabledLibraries()) {
-            if (expected.trim().equals(library.id)) return true;
+        return studentsLibrary() != null;
+    }
+
+    /**
+     * 按名字或别名取学生条目的 summary，用来把角色人设里的学生印象对齐到知识库
+     */
+    public String studentsSummary(String name) {
+        RoleplayKnowledgeLibrary library = studentsLibrary();
+        if (library == null || name == null || name.trim().isEmpty()) return "";
+        String key = name.trim();
+        for (RoleplayKnowledgeEntry entry : library.entries) {
+            if (entry == null) continue;
+            if (key.equals(entry.name) || entry.aliases.contains(key)) {
+                return entry.summary == null ? "" : entry.summary.trim();
+            }
         }
-        return false;
+        return "";
+    }
+
+    /**
+     * 识图用的学生外貌参考。
+     * 总预算平均分给每个条目，保证所有学生都能进候选，而不是被截断掉一半。
+     */
+    public String visionReferenceText(String selfName,String selfAppearance,int maxChars) {
+        RoleplayKnowledgeLibrary library = studentsLibrary();
+        if (library == null || library.entries.isEmpty()) return "";
+        int budget = maxChars < 4000 ? 4000 : maxChars;
+        //预留标题与每行名字、学园社团的开销，保证预算内能把所有学生都列完
+        int usable = (int) (budget * 0.92);
+        int perEntry = Math.max(100,Math.min(400,usable / library.entries.size() - 35));
+        StringBuilder builder = new StringBuilder(
+                "蔚蓝档案学生外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
+        if (selfAppearance != null && !selfAppearance.trim().isEmpty()) {
+            builder.append("- 本人").append(selfName == null ? "" : selfName)
+                    .append("：").append(shortText(selfAppearance,perEntry)).append("\n");
+        }
+        for (RoleplayKnowledgeEntry entry : library.entries) {
+            if (entry == null) continue;
+            String appearance = sectionText(entry,"外貌");
+            if (appearance.isEmpty()) continue;
+            String line = "- "+entry.name;
+            if (!entry.school.isEmpty() || !entry.club.isEmpty()) {
+                line += "（"+entry.school+"/"+entry.club+"）";
+            }
+            line += "："+shortText(appearance,perEntry)+"\n";
+            if (builder.length()+line.length() > budget) break;
+            builder.append(line);
+        }
+        return builder.toString();
+    }
+
+    private String sectionText(RoleplayKnowledgeEntry entry,String title) {
+        if (entry == null || entry.sections == null) return "";
+        for (RoleplayKnowledgeEntry.Section section : entry.sections) {
+            if (section != null && title.equals(section.title)) return flatten(section.text);
+        }
+        return "";
     }
 
     public int entryCount() {
