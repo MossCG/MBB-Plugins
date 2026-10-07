@@ -140,7 +140,7 @@ public class RoleplayConfig {
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
     public int replySegmentMaxChars = 30;
-    public String replySplitPunctuation = "。！？!?；;，、：,:～~";
+    public String replySplitPunctuation = "。！？!?；;，、：,:～~…";
     public int replyMaxSegments = 2;
     public int recentReplyCheckCount = 8;
     public double repeatSimilarityThreshold = 0.72;
@@ -374,7 +374,7 @@ public class RoleplayConfig {
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",30);
         config.replySplitPunctuation = plugin.getConfig().getString(
-                "replySplitPunctuation","。！？!?；;，、：,:～~");
+                "replySplitPunctuation","。！？!?；;，、：,:～~…");
         config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
         config.recentReplyCheckCount = plugin.getConfig().getInt("recentReplyCheckCount",8);
         try {
@@ -593,7 +593,7 @@ public class RoleplayConfig {
         if (config.replySegmentMaxChars < 8) config.replySegmentMaxChars = 8;
         if (config.replySegmentMaxChars > 60) config.replySegmentMaxChars = 60;
         if (config.replySplitPunctuation == null || config.replySplitPunctuation.isEmpty()) {
-            config.replySplitPunctuation = "。！？!?；;，、：,:～~";
+            config.replySplitPunctuation = "。！？!?；;，、：,:～~…";
         }
         if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;
         if (config.replyMaxSegments > 2) config.replyMaxSegments = 2;

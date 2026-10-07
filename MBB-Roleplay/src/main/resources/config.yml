@@ -202,7 +202,7 @@ replyImageMaxTokens: 4000
 #单段回复硬上限字符数，提示词默认按 12 字以内生成
 replySegmentMaxChars: 20
 #回复拆分时优先使用的断句符号
-replySplitPunctuation: "。！？!?；;，、：,:～~"
+replySplitPunctuation: "。！？!?；;，、：,:～~…"
 #最多拆分发送多少段
 replyMaxSegments: 2
 #重复检测时参考最近多少条角色回复

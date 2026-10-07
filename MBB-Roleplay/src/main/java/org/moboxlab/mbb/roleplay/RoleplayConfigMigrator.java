@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "24";
+    private static final String CURRENT_VERSION = "25";
 
     private static class ConfigEntry {
         private final String key;
@@ -161,7 +161,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
             new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，提示词默认按 15 到 30 字生成"),
-            new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~","回复拆分时优先使用的断句符号"),
+            new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
@@ -206,6 +206,8 @@ public class RoleplayConfigMigrator {
                 config.getString("replySegmentMaxChars",""));
         boolean legacyReplySplitPunctuation = version < 13
                 && "。！？!?；;，、：,:".equals(config.getString("replySplitPunctuation",""));
+        boolean legacyReplySplitPunctuationEllipsis = version < 25
+                && "。！？!?；;，、：,:～~".equals(config.getString("replySplitPunctuation",""));
         boolean legacyInitialAffinity = version < 16
                 && ("70".equals(config.getString("initialAffinity",""))
                 || "85".equals(config.getString("initialAffinity","")));
@@ -237,7 +239,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 24) {
+        if (version < 25) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -279,7 +281,11 @@ public class RoleplayConfigMigrator {
             changed++;
         }
         if (legacyReplySplitPunctuation) {
-            config.set("replySplitPunctuation","。！？!?；;，、：,:～~");
+            config.set("replySplitPunctuation","。！？!?；;，、：,:～~…");
+            changed++;
+        }
+        if (legacyReplySplitPunctuationEllipsis) {
+            config.set("replySplitPunctuation","。！？!?；;，、：,:～~…");
             changed++;
         }
         if (legacyInitialAffinity) {
@@ -326,12 +332,12 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 24 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 25 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort
                 || legacyEmotionAnalyzeMaxDelta08 || legacyReplySegmentMaxChars20
-                || legacyReplySegmentMaxChars
+                || legacyReplySegmentMaxChars || legacyReplySplitPunctuationEllipsis
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose
                 || legacyRelationDailyMax || legacyEmotionEventCooldown
