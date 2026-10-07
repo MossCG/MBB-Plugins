@@ -46,6 +46,8 @@ public class RoleplayService {
     private static final String GROUP_TABLE = "plugin_mbb_roleplay_group";
     /** 引用回复里被引用内容的截断长度 */
     private static final int QUOTE_CONTEXT_MAX_CHARS = 60;
+    /** 分句时优先保留的句末标点 */
+    private static final String STRONG_SPLIT_PUNCTUATION = "。！？!?…";
 
     private final Plugin plugin;
     private final RoleplayReminderService reminderService;
@@ -3014,14 +3016,8 @@ public class RoleplayService {
 
     private void addParagraph(List<String> result,String text,int maxChars) {
         while (text.length() > maxChars) {
-            int cut = -1;
-            int start = Math.max(0,maxChars - 20);
-            for (int i = Math.min(maxChars - 1,text.length() - 1); i >= start; i--) {
-                if (isSplitPunctuation(text.charAt(i))) {
-                    cut = i + 1;
-                    break;
-                }
-            }
+            int cut = findSplitCut(text,maxChars,true);
+            if (cut <= 0) cut = findSplitCut(text,maxChars,false);
             if (cut <= 0) cut = maxChars;
             //省略号是「……」，别把它从中间劈开：整对挪到下一段，这样既不拆散也不超上限
             if (cut > 0 && cut < text.length() && text.charAt(cut) == '…') {
@@ -3033,15 +3029,43 @@ public class RoleplayService {
                     while (cut < text.length() && text.charAt(cut) == '…') cut++;
                 }
             }
-            result.add(text.substring(0,cut).trim());
+            String segment = trimWeakSplitPunctuation(text.substring(0,cut).trim());
+            if (!segment.isEmpty()) result.add(segment);
             text = text.substring(cut).trim();
         }
         if (!text.isEmpty()) result.add(text);
     }
 
+    private int findSplitCut(String text,int maxChars,boolean strong) {
+        int start = Math.max(0,maxChars - 20);
+        for (int i = Math.min(maxChars - 1,text.length() - 1); i >= start; i--) {
+            char value = text.charAt(i);
+            if (strong ? isStrongSplitPunctuation(value) : isWeakSplitPunctuation(value)) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
     private boolean isSplitPunctuation(char value) {
         String punctuation = config.replySplitPunctuation;
         return punctuation != null && punctuation.indexOf(value) >= 0;
+    }
+
+    private boolean isStrongSplitPunctuation(char value) {
+        return isSplitPunctuation(value) && STRONG_SPLIT_PUNCTUATION.indexOf(value) >= 0;
+    }
+
+    private boolean isWeakSplitPunctuation(char value) {
+        return isSplitPunctuation(value) && !isStrongSplitPunctuation(value);
+    }
+
+    private String trimWeakSplitPunctuation(String text) {
+        String value = text == null ? "" : text.trim();
+        while (!value.isEmpty() && isWeakSplitPunctuation(value.charAt(value.length() - 1))) {
+            value = value.substring(0,value.length() - 1).trim();
+        }
+        return value;
     }
 
     private String senderName(GroupMessageEvent event) {

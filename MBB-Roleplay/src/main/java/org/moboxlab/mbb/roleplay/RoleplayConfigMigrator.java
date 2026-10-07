@@ -161,7 +161,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replyMaxTokens","1200","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
             new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，提示词默认按 15 到 30 字生成"),
-            new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号"),
+            new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号，先找句末标点，再找弱标点"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
