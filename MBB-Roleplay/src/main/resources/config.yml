@@ -45,7 +45,7 @@ emotionAnalyzeProfile: ""
 #同一用户两次 AI 情绪分析的最小间隔秒数
 emotionAnalyzeCooldownSecond: 300
 #情绪分析输出 Token 上限
-emotionAnalyzeMaxTokens: 1200
+emotionAnalyzeMaxTokens: 2400
 #情绪分析思考强度：low / medium / high，留空表示不发送
 emotionAnalyzeReasoningEffort: "low"
 #单次 AI 情绪分析对单项数值的最大变化

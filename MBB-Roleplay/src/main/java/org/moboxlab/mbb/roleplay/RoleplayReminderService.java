@@ -307,7 +307,8 @@ public class RoleplayReminderService {
             messages.add(message("user",content));
             JSONObject params = new JSONObject(true);
             params.put("profile",config.aiProfile);
-            params.put("maxTokens",800);
+            //reasoning 模型会把思考算进输出预算，留小了会出现 finish=length 且正文为空
+            params.put("maxTokens",2400);
             params.put("temperature",0.1);
             params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-parse-"+groupID+"-"+userID);
@@ -465,7 +466,7 @@ public class RoleplayReminderService {
             messages.add(message("user","请生成提醒创建成功的确认。"));
             JSONObject params = new JSONObject(true);
             params.put("profile",config.aiProfile);
-            params.put("maxTokens",800);
+            params.put("maxTokens",2400);
             params.put("temperature",0.7);
             params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-create-"+id+"-"+groupID);
@@ -510,7 +511,7 @@ public class RoleplayReminderService {
             messages.add(message("user","请生成到点提醒内容。"));
             JSONObject params = new JSONObject(true);
             params.put("profile",config.aiProfile);
-            params.put("maxTokens",800);
+            params.put("maxTokens",2400);
             params.put("temperature",0.7);
             params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-"+id+"-"+groupID);

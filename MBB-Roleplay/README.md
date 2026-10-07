@@ -333,7 +333,7 @@ emotionAnalyzeEnable: true
 emotionAnalyzeMode: "significant"
 emotionAnalyzeProfile: ""
 emotionAnalyzeCooldownSecond: 300
-emotionAnalyzeMaxTokens: 1200
+emotionAnalyzeMaxTokens: 2400
 emotionAnalyzeReasoningEffort: "low"
 emotionAnalyzeMaxDelta: 0.5
 emotionAnalyzeMaxDecreaseDelta: 0.3
@@ -409,7 +409,7 @@ routerReasoningEffort: "none"
 styleEnable: true
 styleMaxChars: 60
 styleProfile: ""
-styleMaxTokens: 400
+styleMaxTokens: 1200
 styleReasoningEffort: "low"
 styleProactiveEnable: false
 replyImageMaxTokens: 4000
@@ -466,6 +466,19 @@ minMessageLength: 2
 
 预算上，稳定资料按各自的单项上限计算（角色核心 6000、外貌 1200、学生名录 4000 字），固定规则约 1950 字；
 动态资料共享 `promptTotalChars` 扣掉稳定块之后剩余的预算。
+
+全插件的 AI 提示词都按这个原则核对过一遍：
+
+| 调用 | 结构 | 说明 |
+|---|---|---|
+| 回复层 | 稳定块 → 动态块 → 输出格式 | 已重排，实测可缓存前缀 3584 token |
+| 路由层 | 角色/技能/资料 → 判断规则 → 输出格式 → 对话状态 | 已重排，把「对话状态」移到末尾 |
+| 记忆整理 | 角色/规则 → 已有短期记忆 | 本来就正确，动态部分在末尾 |
+| 长期/永久记忆合并 | system 放规则，user 放批次数据 | 本来就正确 |
+| 风格层 | 硬性要求 → 触发原因/台词示例 | 本来就正确，动态部分在末尾 |
+| 提醒确认/到点提醒 | 角色设定 → 规则 → 时间与任务 | 本来就正确，动态部分在末尾 |
+| 情绪分析 | 角色/性格 → 动态信息 → 判断原则 | 结构上同类，但整条只有约 600 token，低于服务商的最小缓存粒度，重排没有收益，暂不动 |
+| 提醒识别 | 「你是定时提醒识别器。当前时间：…」+ 规则 | 动态时间在最前，但整条约 250 token，同样低于缓存粒度，暂不动 |
 
 ## 分层处理
 

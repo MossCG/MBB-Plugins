@@ -38,7 +38,7 @@ public class RoleplayConfig {
     public String emotionAnalyzeMode = "significant";
     public String emotionAnalyzeProfile = "";
     public int emotionAnalyzeCooldownSecond = 300;
-    public int emotionAnalyzeMaxTokens = 1200;
+    public int emotionAnalyzeMaxTokens = 2400;
     public String emotionAnalyzeReasoningEffort = "low";
     public double emotionAnalyzeMaxDelta = 0.5;
     public double emotionAnalyzeMaxDecreaseDelta = 0.3;
@@ -133,7 +133,7 @@ public class RoleplayConfig {
     public boolean styleEnable = true;
     public int styleMaxChars = 60;
     public String styleProfile = "";
-    public int styleMaxTokens = 400;
+    public int styleMaxTokens = 1200;
     public String styleReasoningEffort = "low";
     public boolean styleProactiveEnable = false;
     public int maxLongMemories = 150;
@@ -198,7 +198,7 @@ public class RoleplayConfig {
         config.emotionAnalyzeMode = plugin.getConfig().getString("emotionAnalyzeMode","significant");
         config.emotionAnalyzeProfile = plugin.getConfig().getString("emotionAnalyzeProfile","");
         config.emotionAnalyzeCooldownSecond = plugin.getConfig().getInt("emotionAnalyzeCooldownSecond",300);
-        config.emotionAnalyzeMaxTokens = plugin.getConfig().getInt("emotionAnalyzeMaxTokens",1200);
+        config.emotionAnalyzeMaxTokens = plugin.getConfig().getInt("emotionAnalyzeMaxTokens",2400);
         config.emotionAnalyzeReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("emotionAnalyzeReasoningEffort","low"));
         try {
@@ -365,7 +365,7 @@ public class RoleplayConfig {
         config.styleEnable = plugin.getConfig().getBoolean("styleEnable",true);
         config.styleMaxChars = plugin.getConfig().getInt("styleMaxChars",60);
         config.styleProfile = plugin.getConfig().getString("styleProfile","");
-        config.styleMaxTokens = plugin.getConfig().getInt("styleMaxTokens",400);
+        config.styleMaxTokens = plugin.getConfig().getInt("styleMaxTokens",1200);
         config.styleReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("styleReasoningEffort","low"));
         config.styleProactiveEnable = plugin.getConfig().getBoolean("styleProactiveEnable",false);

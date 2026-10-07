@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "25";
+    private static final String CURRENT_VERSION = "26";
 
     private static class ConfigEntry {
         private final String key;
@@ -56,7 +56,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("emotionAnalyzeMode","significant","AI 情绪分析范围：off / direct / significant"),
             new ConfigEntry("emotionAnalyzeProfile","","情绪分析使用的模型配置名，留空则使用 aiProfile"),
             new ConfigEntry("emotionAnalyzeCooldownSecond","300","同一用户两次 AI 情绪分析的最小间隔秒数"),
-            new ConfigEntry("emotionAnalyzeMaxTokens","1200","情绪分析输出 Token 上限"),
+            new ConfigEntry("emotionAnalyzeMaxTokens","2400","情绪分析输出 Token 上限，reasoning 模型需要留出思考预算"),
             new ConfigEntry("emotionAnalyzeReasoningEffort","low","情绪分析思考强度：low / medium / high，留空表示不发送"),
             new ConfigEntry("emotionAnalyzeMaxDelta","0.5","单次 AI 情绪分析对单项数值的最大提升幅度"),
             new ConfigEntry("emotionAnalyzeMaxDecreaseDelta","0.3","单次 AI 情绪分析对单项数值的最大降低幅度，不应大于提升幅度"),
@@ -150,7 +150,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("styleEnable","true","是否在回复带 AI 味时调用风格层改写"),
             new ConfigEntry("styleMaxChars","60","回复超过多少字触发风格层"),
             new ConfigEntry("styleProfile","","风格层使用的模型配置名，留空则使用 aiProfile"),
-            new ConfigEntry("styleMaxTokens","400","风格层输出 Token 上限"),
+            new ConfigEntry("styleMaxTokens","1200","风格层输出 Token 上限，reasoning 模型需要留出思考预算"),
             new ConfigEntry("styleReasoningEffort","low","风格层思考强度：low / medium / high，留空表示不发送"),
             new ConfigEntry("styleProactiveEnable","false","主动发言时是否也触发风格层"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
@@ -208,6 +208,10 @@ public class RoleplayConfigMigrator {
                 && "。！？!?；;，、：,:".equals(config.getString("replySplitPunctuation",""));
         boolean legacyReplySplitPunctuationEllipsis = version < 25
                 && "。！？!?；;，、：,:～~".equals(config.getString("replySplitPunctuation",""));
+        boolean legacyEmotionAnalyzeMaxTokens = version < 26 && "1200".equals(
+                config.getString("emotionAnalyzeMaxTokens",""));
+        boolean legacyStyleMaxTokens = version < 26 && "400".equals(
+                config.getString("styleMaxTokens",""));
         boolean legacyInitialAffinity = version < 16
                 && ("70".equals(config.getString("initialAffinity",""))
                 || "85".equals(config.getString("initialAffinity","")));
@@ -239,7 +243,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 25) {
+        if (version < 26) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -288,6 +292,14 @@ public class RoleplayConfigMigrator {
             config.set("replySplitPunctuation","。！？!?；;，、：,:～~…");
             changed++;
         }
+        if (legacyEmotionAnalyzeMaxTokens) {
+            config.set("emotionAnalyzeMaxTokens","2400");
+            changed++;
+        }
+        if (legacyStyleMaxTokens) {
+            config.set("styleMaxTokens","1200");
+            changed++;
+        }
         if (legacyInitialAffinity) {
             config.set("initialAffinity","65");
             changed++;
@@ -332,12 +344,13 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 25 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 26 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort
                 || legacyEmotionAnalyzeMaxDelta08 || legacyReplySegmentMaxChars20
                 || legacyReplySegmentMaxChars || legacyReplySplitPunctuationEllipsis
+                || legacyEmotionAnalyzeMaxTokens || legacyStyleMaxTokens
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose
                 || legacyRelationDailyMax || legacyEmotionEventCooldown

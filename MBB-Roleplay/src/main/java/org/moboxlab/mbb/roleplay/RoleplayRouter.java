@@ -109,7 +109,6 @@ public class RoleplayRouter {
         }
         builder.append("可用技能：\n").append(registry.catalogue(config));
         builder.append("可选资料（常驻资料不需要点名）：\n").append(service.materialCatalogue());
-        builder.append("对话状态：").append(stateSummary(state)).append("\n");
         builder.append("判断规则：\n")
                 .append("- 先判断这句话是不是对角色说的：只有明确艾特或回复角色、叫角色名字、")
                 .append("或延续角色参与的话题，才算对角色说\n")
@@ -123,6 +122,8 @@ public class RoleplayRouter {
                 .append("- 只有确实需要某份资料时才写进 materials，没有就留空数组\n");
         builder.append("输出格式：{\"reply\":true,\"addressed\":\"direct|thread|ambient|none\",")
                 .append("\"confidence\":0.8,\"skills\":[],\"materials\":[],\"reason\":\"一句话原因\"}");
+        //对话状态每轮都变，放在稳定部分之后，否则服务端缓存前缀会在这里断掉
+        builder.append("\n对话状态：").append(stateSummary(state));
         return builder.toString();
     }
 
