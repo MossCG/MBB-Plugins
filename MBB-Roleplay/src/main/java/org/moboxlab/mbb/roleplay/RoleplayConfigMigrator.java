@@ -48,6 +48,8 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("intimacyCloseAffinity","75","达到该好感度时，常态允许轻微亲密互动"),
             new ConfigEntry("intimacyVeryCloseAffinity","90","达到该好感度时，允许明显的撒娇和日常亲密举动"),
             new ConfigEntry("emotionEnable","true","是否启用角色情绪与用户关系机制"),
+            new ConfigEntry("memberMemoryEnable","true","是否启用群员个人记忆：记录角色对每个群员的称呼、喜好与相处方式"),
+            new ConfigEntry("memberFieldMaxChars","120","群员个人记忆单项的最大字符数"),
             new ConfigEntry("emotionDecayMinute","30","情绪回落间隔，每隔多少分钟向角色人格基线靠近一次"),
             new ConfigEntry("emotionEventCooldownSecond","300","同一用户同一类情绪事件的规则更新冷却秒数"),
             new ConfigEntry("emotionAnalyzeEnable","true","是否异步调用 AI 分析语义情绪原因"),

@@ -30,6 +30,8 @@ public class RoleplayConfig {
     public int intimacyCloseAffinity = 75;
     public int intimacyVeryCloseAffinity = 90;
     public boolean emotionEnable = true;
+    public boolean memberMemoryEnable = true;
+    public int memberFieldMaxChars = 120;
     public int emotionDecayMinute = 30;
     public int emotionEventCooldownSecond = 300;
     public boolean emotionAnalyzeEnable = true;
@@ -187,6 +189,8 @@ public class RoleplayConfig {
         config.intimacyCloseAffinity = plugin.getConfig().getInt("intimacyCloseAffinity",75);
         config.intimacyVeryCloseAffinity = plugin.getConfig().getInt("intimacyVeryCloseAffinity",90);
         config.emotionEnable = plugin.getConfig().getBoolean("emotionEnable",true);
+        config.memberMemoryEnable = plugin.getConfig().getBoolean("memberMemoryEnable",true);
+        config.memberFieldMaxChars = plugin.getConfig().getInt("memberFieldMaxChars",120);
         config.emotionDecayMinute = plugin.getConfig().getInt("emotionDecayMinute",30);
         config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",300);
         config.emotionAnalyzeEnable = plugin.getConfig().getBoolean("emotionAnalyzeEnable",true);
@@ -407,6 +411,8 @@ public class RoleplayConfig {
         if (config.intimacyVeryCloseAffinity > 100) config.intimacyVeryCloseAffinity = 100;
         if (config.emotionDecayMinute < 5) config.emotionDecayMinute = 5;
         if (config.emotionDecayMinute > 1440) config.emotionDecayMinute = 1440;
+        if (config.memberFieldMaxChars < 20) config.memberFieldMaxChars = 20;
+        if (config.memberFieldMaxChars > 400) config.memberFieldMaxChars = 400;
         if (config.emotionEventCooldownSecond < 0) config.emotionEventCooldownSecond = 0;
         if (config.emotionEventCooldownSecond > 3600) config.emotionEventCooldownSecond = 3600;
         if (config.emotionAnalyzeMode == null || config.emotionAnalyzeMode.trim().isEmpty()) {

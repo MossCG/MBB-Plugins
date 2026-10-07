@@ -57,6 +57,8 @@ public class RoleplayCommand extends BotCommand {
                 "/role reload",
                 "/role config [repair]",
                 "/role blacklist [list|add|remove|clear] [QQ] [原因]",
+                "/role member [QQ]",
+                "/role member clear <QQ>",
                 "/role mood",
                 "/role mood reset",
                 "/role emotion [QQ] [页码]",
@@ -146,6 +148,10 @@ public class RoleplayCommand extends BotCommand {
         }
         if ("blacklist".equals(action)) {
             handleBlacklist(sender,args);
+            return true;
+        }
+        if ("member".equals(action)) {
+            handleMember(sender,args);
             return true;
         }
         if ("bot".equals(action)) {
@@ -756,6 +762,55 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         sender.sendMessage("用法：/role blacklist add <QQ> [原因] | remove <QQ> | clear | list");
+    }
+
+    /**
+     * /role member [QQ]：查看角色对某个群员的个人印象
+     */
+    private void handleMember(CommandSender sender,String[] args) {
+        long groupID = sender.getGroupID();
+        if (groupID <= 0) {
+            sender.sendMessage("请在群聊中使用。");
+            return;
+        }
+        String action = args.length > 2 ? args[2].toLowerCase() : "";
+        if ("clear".equals(action)) {
+            if (args.length < 4) {
+                sender.sendMessage("用法：/role member clear <QQ>");
+                return;
+            }
+            long targetID = parseUserID(args[3]);
+            if (targetID <= 0) {
+                sender.sendMessage("QQ 格式不正确。");
+                return;
+            }
+            sender.sendMessage(service.getMemberService().remove(groupID,targetID)
+                    ? "已清空对 "+targetID+" 的个人印象。"
+                    : "没有找到 "+targetID+" 的个人印象。");
+            return;
+        }
+        long userID = sender.getUserID();
+        if (args.length > 2 && !action.isEmpty()) {
+            userID = parseUserID(args[2]);
+            if (userID <= 0) {
+                sender.sendMessage("QQ 格式不正确。");
+                return;
+            }
+        }
+        JSONObject profile = service.getMemberService().profile(groupID,userID);
+        if (profile == null) {
+            sender.sendMessage("还没有对 "+userID+" 的个人印象。");
+            return;
+        }
+        sender.sendMessage("对 "+userID+"（"+profile.getString("userName")+"）的个人印象："
+                +"\n称呼："+orDash(profile.getString("alias"))
+                +"\n喜欢："+orDash(profile.getString("likes"))
+                +"\n不喜欢："+orDash(profile.getString("dislikes"))
+                +"\n相处方式："+orDash(profile.getString("notes")));
+    }
+
+    private String orDash(String value) {
+        return value == null || value.trim().isEmpty() ? "暂无" : value.trim();
     }
 
     private long parseUserID(String value) {

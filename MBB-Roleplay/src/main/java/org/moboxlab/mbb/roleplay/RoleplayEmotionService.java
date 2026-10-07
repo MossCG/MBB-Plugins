@@ -31,6 +31,7 @@ public class RoleplayEmotionService {
 
     private final Plugin plugin;
     private final RoleplayService service;
+    private final RoleplayMemberService memberService;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,MoodState> moodCache = new ConcurrentHashMap<>();
@@ -110,11 +111,12 @@ public class RoleplayEmotionService {
     }
 
     public RoleplayEmotionService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona,
-                                  RoleplayService service) {
+                                  RoleplayService service,RoleplayMemberService memberService) {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
         this.service = service;
+        this.memberService = memberService;
     }
 
     public void init() {
@@ -789,6 +791,8 @@ public class RoleplayEmotionService {
                     +" 厌烦"+formatDelta(applied.annoyanceDelta)
                     +(reason.isEmpty() ? "" : " 原因="+reason));
         }
+        //同一轮调用顺手更新群员个人印象，不额外增加 AI 调用
+        memberService.applyAi(groupID,userID,userName,parsed.getJSONObject("member"));
     }
 
     private String analyzeSystemPrompt(long groupID,long userID,String userName,String relationship,
@@ -831,10 +835,18 @@ public class RoleplayEmotionService {
                 .append(config.emotionAnalyzeMaxDecreaseDelta).append("\n")
                 .append("- 关系数值降得比升得慢：除非是明确的欺骗、辱骂或持续骚扰，否则不要给负值\n")
                 .append("- 来源：“他在冒名顶替我”“他刚才夸过我”“他反复戳我”\n");
+        builder.append("同时给这个群员维护一份个人印象，字段含义：\n")
+                .append("- alias：他希望被怎么称呼，或角色应该怎么称呼他\n")
+                .append("- likes / dislikes：他明确说过的喜好与不喜欢\n")
+                .append("- notes：应该怎么和他相处，例如他喜欢被吐槽还是不喜欢被开玩笑\n")
+                .append("- 只写他自己说过或明确表现出来的，没有新信息就留空字符串，不要复述旧印象，也不要猜\n")
+                .append("- 单项不超过 ").append(config.memberFieldMaxChars).append(" 个字符\n")
+                .append("- 不记录真实姓名、住址、电话、账号等现实隐私\n");
         builder.append("输出格式：{\"event\":\"impersonation|attack|praise|friendly|neutral\",")
                 .append("\"reason\":\"\",\"persistReason\":false,")
                 .append("\"delta\":{\"valence\":0,\"energy\":0,\"patience\":0,")
-                .append("\"affinity\":0.0,\"trust\":0.0,\"annoyance\":0.0}}");
+                .append("\"affinity\":0.0,\"trust\":0.0,\"annoyance\":0.0},")
+                .append("\"member\":{\"alias\":\"\",\"likes\":\"\",\"dislikes\":\"\",\"notes\":\"\"}}");
         return builder.toString();
     }
 

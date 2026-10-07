@@ -54,6 +54,7 @@ public class RoleplayService {
     private final RoleplayKnowledgeService knowledgeService;
     private final RoleplayActionService actionService;
     private final RoleplayEmotionService emotionService;
+    private final RoleplayMemberService memberService;
     private final RoleplayBlacklistService blacklistService;
     private final RoleplaySkillRegistry skillRegistry;
     private final RoleplayRouter router;
@@ -277,7 +278,8 @@ public class RoleplayService {
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
         this.knowledgeService = new RoleplayKnowledgeService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
-        this.emotionService = new RoleplayEmotionService(plugin,config,persona,this);
+        this.memberService = new RoleplayMemberService(plugin,config);
+        this.emotionService = new RoleplayEmotionService(plugin,config,persona,this,memberService);
         this.blacklistService = new RoleplayBlacklistService(plugin);
         this.skillRegistry = new RoleplaySkillRegistry(this);
         this.router = new RoleplayRouter(plugin,this);
@@ -327,6 +329,7 @@ public class RoleplayService {
         speechCorpusService.init();
         knowledgeService.init();
         emotionService.init();
+        memberService.init();
         blacklistService.init();
         ensureTurnExecutor();
         ensureBackgroundExecutor();
@@ -340,6 +343,7 @@ public class RoleplayService {
         speechCorpusService.reload(config);
         knowledgeService.reload(config);
         emotionService.reload(config,persona);
+        memberService.reload(config);
         ensureTurnExecutor();
         ensureBackgroundExecutor();
     }
@@ -1464,6 +1468,10 @@ public class RoleplayService {
         return persona.interests.size();
     }
 
+    public RoleplayMemberService getMemberService() {
+        return memberService;
+    }
+
     private JSONObject reply(long groupID,long userID,String userName,String content,
                              boolean otherRoleBot,String relationship,RecentImage imageContext,
                              RoleplayRouteDecision decision) {
@@ -1574,7 +1582,11 @@ public class RoleplayService {
                 +"涉及现实隐私时，不要主动挖掘、复述或公开真实姓名、住址、账号、联系方式等信息；"
                 +"可以模糊化、转移话题或用角色语气拒绝。"
                 +"你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
-                +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
+                +"群里每个 QQ 都是不同的人，必须按 QQ 区分发言者：上下文里每条消息都带 QQ，"
+                +"同一个人随时可能改昵称或群名片，不要靠名字认人，也不要把不同群员当成同一个人。"
+                +"群友的昵称和群名片只是显示名，不代表他是蔚蓝档案里的那个学生；"
+                +"即使有人把昵称改成优香、小绿这类名字，他也只是普通群友，不要把他当成设定里的学生本人，"
+                +"也不要对他套用学生之间的关系。"
                 +"只有话题符合你的兴趣、有人直接艾特回复或提及你、或群友正在接续你参与过的话题时才参与；"
                 +"其他人之间的闲聊和无关话题只输出 <SKIP>。"
                 +(knowledgeService.isStudentsLibraryEnabled()
@@ -1675,6 +1687,9 @@ public class RoleplayService {
         materials.add(new RoleplayMaterial("memory.global",true,85,4200,
                 () -> "全局永久记忆：\n"+globalMemoryService.promptText(memoryQuery,userID,
                         config.globalMemoryRelevanceMaxChars)));
+        //群员个人印象是当前发言者专属的，优先级放在长期记忆之上
+        materials.add(new RoleplayMaterial("member.profile",true,88,600,
+                () -> memberService.promptText(groupID,userID)));
         materials.add(new RoleplayMaterial("memory.short",true,80,1500,
                 () -> "短期记忆：\n"+shortSummary(groupID)));
         materials.add(new RoleplayMaterial("context.recent",true,75,2500,
@@ -2308,7 +2323,7 @@ public class RoleplayService {
         try {
             File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
-            root.put("version",2);
+            root.put("version",3);
             root.put("type","mbb-roleplay-memory-backup");
             root.put("createTime",System.currentTimeMillis());
             root.put("reason",safe(reason));
@@ -2317,6 +2332,7 @@ public class RoleplayService {
             root.put("globalMemory",globalMemoryService.exportAll());
             root.put("emotion",emotionService.exportState());
             root.put("blacklist",blacklistService.exportAll());
+            root.put("member",memberService.exportAll());
             String name = "memory-backup-"
                     +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
                     +".json";
@@ -2378,12 +2394,14 @@ public class RoleplayService {
             JSONArray globalMemory = root.getJSONArray("globalMemory");
             JSONObject emotion = root.getJSONObject("emotion");
             JSONArray blacklist = root.getJSONArray("blacklist");
+            JSONArray member = root.getJSONArray("member");
             backupAllMemories("before-restore-"+name);
             storage().update("DELETE FROM `"+MEMORY_TABLE+"`");
             storage().update("DELETE FROM `"+STATE_TABLE+"`");
             globalMemoryService.replaceAll(globalMemory);
             emotionService.restoreState(emotion);
             blacklistService.restoreAll(blacklist);
+            memberService.restoreAll(member);
             int shortSaved = restoreShortTerm(shortTerm);
             int longSaved = restoreLongTerm(longTerm);
             clearRuntimeMemoryState();
@@ -2394,6 +2412,7 @@ public class RoleplayService {
             result.put("globalMemory",globalMemory == null ? 0 : globalMemory.size());
             result.put("emotion",emotion != null);
             result.put("blacklist",blacklist == null ? 0 : blacklist.size());
+            result.put("member",member == null ? 0 : member.size());
             plugin.getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
                     +" 条，长期 "+longSaved+" 条，永久 "
                     +(globalMemory == null ? 0 : globalMemory.size())+" 条");
@@ -2547,15 +2566,18 @@ public class RoleplayService {
 
     private String recentContext(long groupID) {
         List<JSONObject> rows = storage().query(
-                "SELECT `userName`,`content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? "
+                "SELECT `userID`,`userName`,`content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? "
                         + "AND `userID` NOT IN (SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` "
                         + "WHERE `groupID`=?) ORDER BY `messageTime` DESC LIMIT ?",
                 groupID,groupID,config.shortContextMessages);
         if (rows == null || rows.isEmpty()) return "无";
         StringBuilder builder = new StringBuilder();
         for (int i = rows.size() - 1; i >= 0; i--) {
-            builder.append(safe(rows.get(i).getString("userName"))).append("：")
-                    .append(safe(rows.get(i).getString("content"))).append("\n");
+            JSONObject row = rows.get(i);
+            //带上 QQ，群友随时可能改昵称，只靠名字会让模型把 A 的发言记到 B 头上
+            builder.append(safe(row.getString("userName")))
+                    .append("（QQ：").append(row.getLongValue("userID")).append("）：")
+                    .append(safe(row.getString("content"))).append("\n");
         }
         return builder.toString();
     }
