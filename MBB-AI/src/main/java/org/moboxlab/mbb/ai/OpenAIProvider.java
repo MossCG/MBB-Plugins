@@ -255,12 +255,29 @@ public class OpenAIProvider {
             result.put("promptTokens",0);
             result.put("completionTokens",0);
             result.put("totalTokens",0);
+            result.put("cachedPromptTokens",0);
             return result;
         }
         result.put("promptTokens",usage.getIntValue("prompt_tokens"));
         result.put("completionTokens",usage.getIntValue("completion_tokens"));
         result.put("totalTokens",usage.getIntValue("total_tokens"));
+        result.put("cachedPromptTokens",readCachedPromptTokens(usage));
         return result;
+    }
+
+    /**
+     * 服务端提示词缓存命中的 token 数。
+     * DeepSeek 用 prompt_cache_hit_tokens，OpenAI 用 prompt_tokens_details.cached_tokens，
+     * 部分网关直接给 cached_tokens，三种都认一下。
+     */
+    private static int readCachedPromptTokens(JSONObject usage) {
+        int value = usage.getIntValue("prompt_cache_hit_tokens");
+        if (value <= 0) value = usage.getIntValue("cached_tokens");
+        if (value <= 0) {
+            JSONObject details = usage.getJSONObject("prompt_tokens_details");
+            if (details != null) value = details.getIntValue("cached_tokens");
+        }
+        return Math.max(0,value);
     }
 
     private static String readContent(Object content) {

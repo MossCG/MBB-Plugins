@@ -40,10 +40,29 @@ public class AIStatsService {
                 + "`totalTokens` INTEGER NOT NULL DEFAULT 0,"
                 + "`totalLatencyMs` INTEGER NOT NULL DEFAULT 0,"
                 + "`cachedHits` INTEGER NOT NULL DEFAULT 0,"
+                + "`cachedPromptTokens` INTEGER NOT NULL DEFAULT 0,"
                 + "`lastRequestTime` INTEGER NOT NULL DEFAULT 0,"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0,"
                 + "UNIQUE(`statDate`,`profile`,`model`,`action`)"
                 + ")");
+        ensureColumn("cachedPromptTokens","INTEGER NOT NULL DEFAULT 0");
+    }
+
+    /**
+     * 老库补列，避免升级后统计写入失败
+     */
+    private void ensureColumn(String column,String definition) {
+        try {
+            List<JSONObject> columns = storage().query("PRAGMA table_info(`"+TABLE+"`)");
+            if (columns != null) {
+                for (JSONObject row : columns) {
+                    if (column.equalsIgnoreCase(row.getString("name"))) return;
+                }
+            }
+            storage().update("ALTER TABLE `"+TABLE+"` ADD COLUMN `"+column+"` "+definition);
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("补充 AI 统计表字段失败："+column+" "+e.getMessage());
+        }
     }
 
     public void record(AIProfile profile,String action,boolean success,boolean cached,
@@ -55,24 +74,27 @@ public class AIStatsService {
         long prompt = usage == null ? 0L : usage.getLongValue("promptTokens");
         long completion = usage == null ? 0L : usage.getLongValue("completionTokens");
         long total = usage == null ? 0L : usage.getLongValue("totalTokens");
+        long cachedPrompt = usage == null ? 0L : usage.getLongValue("cachedPromptTokens");
         synchronized (lock) {
             JSONObject exists = storage().queryOne(
                     "SELECT `ID` FROM `"+TABLE+"` WHERE `statDate`=? AND `profile`=? AND `model`=? AND `action`=?",
                     date,profile.name,model,act);
             long now = System.currentTimeMillis();
             if (exists == null) {
-                storage().insert("INSERT INTO `"+TABLE+"` (`statDate`,`profile`,`model`,`action`,`requests`,`successes`,`failures`,`promptTokens`,`completionTokens`,`totalTokens`,`totalLatencyMs`,`cachedHits`,`lastRequestTime`,`updateTime`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                storage().insert("INSERT INTO `"+TABLE+"` (`statDate`,`profile`,`model`,`action`,`requests`,`successes`,`failures`,`promptTokens`,`completionTokens`,`totalTokens`,`totalLatencyMs`,`cachedHits`,`cachedPromptTokens`,`lastRequestTime`,`updateTime`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         date,profile.name,model,act,1,success ? 1 : 0,success ? 0 : 1,
-                        prompt,completion,total,Math.max(0,latencyMs),cached ? 1 : 0,now,now);
+                        prompt,completion,total,Math.max(0,latencyMs),cached ? 1 : 0,cachedPrompt,now,now);
             } else {
                 storage().update("UPDATE `"+TABLE+"` SET `requests`=`requests`+1,"
                                 + "`successes`=`successes`+?,`failures`=`failures`+?,"
                                 + "`promptTokens`=`promptTokens`+?,`completionTokens`=`completionTokens`+?,"
                                 + "`totalTokens`=`totalTokens`+?,`totalLatencyMs`=`totalLatencyMs`+?,"
-                                + "`cachedHits`=`cachedHits`+?,`lastRequestTime`=?,`updateTime`=? "
+                                + "`cachedHits`=`cachedHits`+?,`cachedPromptTokens`=`cachedPromptTokens`+?,"
+                                + "`lastRequestTime`=?,`updateTime`=? "
                                 + "WHERE `statDate`=? AND `profile`=? AND `model`=? AND `action`=?",
                         success ? 1 : 0,success ? 0 : 1,prompt,completion,total,
-                        Math.max(0,latencyMs),cached ? 1 : 0,now,now,date,profile.name,model,act);
+                        Math.max(0,latencyMs),cached ? 1 : 0,cachedPrompt,
+                        now,now,date,profile.name,model,act);
             }
         }
     }
@@ -95,7 +117,8 @@ public class AIStatsService {
         String sql = "SELECT SUM(`requests`) AS `requests`,SUM(`successes`) AS `successes`,"
                 + "SUM(`failures`) AS `failures`,SUM(`promptTokens`) AS `promptTokens`,"
                 + "SUM(`completionTokens`) AS `completionTokens`,SUM(`totalTokens`) AS `totalTokens`,"
-                + "SUM(`totalLatencyMs`) AS `totalLatencyMs`,SUM(`cachedHits`) AS `cachedHits` "
+                + "SUM(`totalLatencyMs`) AS `totalLatencyMs`,SUM(`cachedHits`) AS `cachedHits`,"
+                + "SUM(`cachedPromptTokens`) AS `cachedPromptTokens` "
                 + "FROM `"+TABLE+"`";
         List<JSONObject> rows;
         if (date == null) {
@@ -113,8 +136,11 @@ public class AIStatsService {
         result.put("totalTokens",value(row,"totalTokens"));
         result.put("totalLatencyMs",value(row,"totalLatencyMs"));
         result.put("cachedHits",value(row,"cachedHits"));
+        result.put("cachedPromptTokens",value(row,"cachedPromptTokens"));
         result.put("successRate",rate(value(row,"successes"),value(row,"requests")));
         result.put("cacheHitRate",rate(value(row,"cachedHits"),value(row,"requests")));
+        //服务端提示词缓存命中率：命中的输入 token 占全部输入 token 的比例
+        result.put("promptCacheHitRate",rate(value(row,"cachedPromptTokens"),value(row,"promptTokens")));
         result.put("averageLatencyMs",value(row,"requests") <= 0 ? 0 : value(row,"totalLatencyMs") / value(row,"requests"));
         return result;
     }

@@ -49,8 +49,8 @@ public class AIImageRenderer {
                     formatNumber(value(total,"totalTokens")),"");
             drawMetric(graphics,PADDING + (cardWidth + GAP) * 2,totalY,cardWidth,96,"成功率",
                     formatPercent(total == null ? 0 : total.getDoubleValue("successRate")),"");
-            drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,totalY,cardWidth,96,"缓存命中",
-                    formatPercent(total == null ? 0 : total.getDoubleValue("cacheHitRate")),"");
+            drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,totalY,cardWidth,96,"提示词缓存",
+                    formatPercent(total == null ? 0 : total.getDoubleValue("promptCacheHitRate")),"");
 
             int profileY = totalY + 132;
             drawPanel(graphics,PADDING,profileY,WIDTH - PADDING * 2,250,"模型配置");
@@ -98,14 +98,17 @@ public class AIImageRenderer {
                     formatNumber(value(total,"totalTokens")),"");
             drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,cardY,cardWidth,96,"平均耗时",
                     formatMillis(total == null ? 0 : total.getLongValue("averageLatencyMs")),"");
-            drawMetric(graphics,PADDING + (cardWidth + GAP) * 4,cardY,cardWidth,96,"缓存命中",
-                    formatPercent(total == null ? 0 : total.getDoubleValue("cacheHitRate")),"");
+            drawMetric(graphics,PADDING + (cardWidth + GAP) * 4,cardY,cardWidth,96,"提示词缓存",
+                    formatPercent(total == null ? 0 : total.getDoubleValue("promptCacheHitRate")),"");
 
             int todayY = cardY + 124;
             drawText(graphics,"今日：请求 "+value(today,"requests")
                     +" | Token "+formatNumber(value(today,"totalTokens"))
                     +" | 成功 "+value(today,"successes")
-                    +" | 失败 "+value(today,"failures"),PADDING,todayY,new Color(120,113,108),Font.PLAIN,16);
+                    +" | 失败 "+value(today,"failures")
+                    +" | 服务端缓存 "+formatNumber(value(today,"cachedPromptTokens"))+" token"
+                    +" | 本地缓存 "+value(today,"cachedHits")+" 次",
+                    PADDING,todayY,new Color(120,113,108),Font.PLAIN,16);
 
             int chartY = todayY + 24;
             drawChart(graphics,PADDING,chartY,WIDTH - PADDING * 2,220,daily);
