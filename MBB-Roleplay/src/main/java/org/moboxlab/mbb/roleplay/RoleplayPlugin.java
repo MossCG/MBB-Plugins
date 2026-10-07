@@ -239,11 +239,14 @@ public class RoleplayPlugin extends Plugin {
 
     private void saveDefaultKnowledge() {
         try {
-            File root = new File(getDataFolder(),"knowledge");
-            if (!root.exists()) root.mkdirs();
+            String directory = getConfig().getString("knowledgeDirectory","knowledge");
+            if (directory == null || directory.trim().isEmpty()) directory = "knowledge";
+            File root = new File(getDataFolder(),directory.trim());
+            //只在知识库目录第一次创建时释放示例；用户删掉示例后不再自动补回
+            if (root.exists()) return;
+            root.mkdirs();
             for (String name : KNOWLEDGE_EXAMPLE_FILES) {
                 File file = new File(root,name);
-                if (file.exists()) continue;
                 File parent = file.getParentFile();
                 if (parent != null && !parent.exists()) parent.mkdirs();
                 byte[] bytes = readResource("knowledge/"+name);
