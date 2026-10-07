@@ -66,7 +66,7 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 学生图鉴不会整份塞进每条请求：常驻的「了解的学生」只保留一句话印象，被点名的学生才按需注入完整外貌，省下的上下文留给聊天本身
 - 安装 `MBB-Sticker` 后，角色可以按当前真实标签集输出 `<sticker>tag</sticker>` 发送匹配表情包，不会调用不存在的标签
 - 表情包是可选表达，提示词会要求低频自然使用，不会每句话都携带
-- 响应戳一戳：被人戳时由角色自己决定是回一句话、戳回去、还是两者都做，戳回去对同一用户有冷却
+- 响应戳一戳：被人戳时由角色自己决定是回一句话、戳回去、还是两者都做，戳回去对同一用户有冷却；单次戳一戳算主动互动的加分项，只有短时间内连续戳很多次才会涨厌烦
 - 正文出现“戳回去/回戳/戳你”时会自动补齐 `poke-back` 动作，避免只说不做
 - 新增群级短期情绪与用户关系机制：心情、精力、耐心会影响参与意愿，好感、信任、厌烦会影响对具体群员的语气
 - `(群号, QQ)` 关系记录支持用户级情绪原因，例如“讨厌这个人，因为他在冒名顶替我”，原因不会直接发送到 QQ
@@ -76,7 +76,8 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 - 初始好感和信任提高，群主/群管理员、botAdmin、botOwner 拥有不同的初始好感倍率
 - botOwner 初始好感直接满值且不会下降，角色会把 botOwner 当作妈妈一样亲近、依赖和听劝
 - 好感度达到阈值后，角色会逐步接受抱抱、牵手、贴贴、摸头和撒娇式互动
-- 戳一戳回复加入轮换策略，不再每次都机械地戳回去
+- 戳一戳回复加入轮换策略，不再每次都机械地戳回去；连续戳触发骚扰判定时不再回戳，语气转为短促制止
+- 路由、回复生成、戳一戳回合、记忆整理、情绪分析与识图都走插件自己的线程池，不再占用主程序共享的定时任务线程
 - 提及其他角色不再作为硬跳过条件；明确在和小绿聊天时可以自然提到小桃
 - 安装 `MBB-ComfyUI` 后开放 `draw` 技能；需求不完整时角色会自行补全背景、动作、风格和尺寸，并优先写完整角色名
 - 生图完成后角色会基于 prompt 生成简短完成提醒，图片先发、提醒后发，不再二次识图
@@ -205,9 +206,11 @@ MoBoxBot 角色扮演插件，根据角色设定文件进行群聊扮演，并�
 他连续冒犯角色
 ```
 
-好感、信任和厌烦的变化频率已收紧：普通闲聊和戳一戳只影响群级情绪，不再直接改关系；关系数值只由带明确原因的高信号事件、AI 语义事件或管理员命令改变。每次关系数值变化都会写入情绪事件流水，并保留变化原因；没有原因的关系变化会被直接忽略。每日单项累计变化默认限制为 `2` 点。
+好感、信任和厌烦的变化频率已收紧：普通闲聊只影响群级情绪，不直接改关系；关系数值只由带明确原因的高信号事件、AI 语义事件或管理员命令改变。每次关系数值变化都会写入情绪事件流水，并保留变化原因；没有原因的关系变化会被直接忽略。每日单项累计变化默认限制为 `2` 点。
 
-关系数值支持小数。每次事件通常只增加或减少 `0.1` 到 `0.5`。同一天内的原始增量会持续累计，但当日实际值最多只能比当日开始值高或低 `relationDailyMaxDelta`。例如当日累计 `5.9`，上限是 `2`，长期生效值仍然只增加 `2`，超出的 `3.9` 会在跨日时丢弃。这样不会因为单次取整或短时间多次小幅波动而浪费变化量。
+关系数值支持小数。每次事件通常只增加或减少 `0.1` 到 `0.5`；降低幅度单独限得更小（`emotionAnalyzeMaxDecreaseDelta`，默认 `0.3`，且不允许超过提升上限），保证关系数值跌得比涨得慢。同一天内的原始增量会持续累计，但当日实际值最多只能比当日开始值高或低 `relationDailyMaxDelta`。例如当日累计 `5.9`，上限是 `2`，长期生效值仍然只增加 `2`，超出的 `3.9` 会在跨日时丢弃。这样不会因为单次取整或短时间多次小幅波动而浪费变化量。
+
+厌烦高时角色不会变得尖刻：提示词要求把厌烦表现成话变短、敷衍、回避话题或冷淡，禁止辱骂、人身攻击和命令式语气，避免模型把“讨厌”演成骂人。
 
 群级短期情绪包含心情、精力和耐心，会随时间回落到角色人格基线。桃井、绿、爱丽丝的基线分别存放在各自 persona 文件的 `emotionBaseline` 中。
 
@@ -278,7 +281,8 @@ emotionAnalyzeProfile: ""
 emotionAnalyzeCooldownSecond: 300
 emotionAnalyzeMaxTokens: 1200
 emotionAnalyzeReasoningEffort: "low"
-emotionAnalyzeMaxDelta: 0.8
+emotionAnalyzeMaxDelta: 0.5
+emotionAnalyzeMaxDecreaseDelta: 0.3
 emotionReasonMaxChars: 120
 emotionReasonMinStrength: 40
 emotionReasonDecayDays: 30
@@ -327,6 +331,7 @@ messageBatchWindowSecond: 2
 messageBatchMaxMessages: 10
 messageBatchMaxAgeSecond: 20
 batchMaxSegments: 4
+turnThreads: 4
 addressedOtherMemberSkip: true
 splitMessageSuppressSecond: 20
 splitMessageSuppressMaxChars: 20
@@ -338,12 +343,14 @@ globalMemoryRelevanceMaxChars: 4000
 pokeReplyEnable: true
 pokeBackEnable: true
 pokeBackCooldownSecond: 60
+pokeStreakWindowSecond: 60
+pokeStreakThreshold: 3
 quoteReplyEnable: true
 promptTotalChars: 26000
 routerEnable: true
 routerProfile: ""
 routerMaxTokens: 2400
-routerReasoningEffort: "low"
+routerReasoningEffort: "none"
 styleEnable: true
 styleMaxChars: 60
 styleProfile: ""
@@ -396,7 +403,7 @@ minMessageLength: 2
 routerEnable: true
 routerProfile: ""            #留空则使用 aiProfile
 routerMaxTokens: 2400
-routerReasoningEffort: "low"
+routerReasoningEffort: "none"
 ```
 
 **技能注册表**：技能按声明注册，执行层只能调用已注册且在开放清单内的技能。当前注册了
@@ -431,7 +438,13 @@ styleProactiveEnable: false   #主动发言时是否也触发风格层
 pokeReplyEnable: true       #是否响应戳一戳
 pokeBackEnable: true        #是否允许戳回去
 pokeBackCooldownSecond: 60  #对同一用户戳回去的最小间隔
+pokeStreakWindowSecond: 60  #连续戳一戳的统计窗口
+pokeStreakThreshold: 3      #窗口内戳几次开始算骚扰
 ```
+
+戳一戳默认是**主动互动的加分项**：单独戳一下只会小幅提升心情、好感和信任，不会涨厌烦。
+只有在 `pokeStreakWindowSecond` 秒内被同一个人戳到 `pokeStreakThreshold` 次以上，才升级成骚扰事件，
+开始涨厌烦并压低耐心；这一轮也不会再戳回去，角色会用一句短促的话让对方别戳，但不会辱骂或发火。
 
 `MBB-Poke` 已经在处理戳一戳，所以本插件检测到它处于启用状态时会自动跳过戳一戳事件，
 避免同一件事回两次。

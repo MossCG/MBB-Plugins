@@ -23,13 +23,16 @@ public class RoleplayReminderService {
     public static final String REMINDER_MARKER = "\u200B";
 
     private final Plugin plugin;
+    private final RoleplayService service;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
 
-    public RoleplayReminderService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona) {
+    public RoleplayReminderService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona,
+                                   RoleplayService service) {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
+        this.service = service;
     }
 
     public void init() {
@@ -396,8 +399,10 @@ public class RoleplayReminderService {
     private void schedule(long id,long groupID,long userID,String task,String relation,
                           String target,String context,long expectedRemindTime,long runAtTime) {
         long delay = Math.max(1L,(runAtTime - System.currentTimeMillis() + 999L) / 1000L);
+        //到点生成提醒文本同样要调用 AI，交给后台线程池，不占用定时任务线程
         plugin.getServer().getPluginManager().runTaskLater(plugin,
-                () -> trigger(id,groupID,userID,task,relation,target,context,expectedRemindTime),delay);
+                () -> service.submitBackground(() -> trigger(id,groupID,userID,task,relation,
+                        target,context,expectedRemindTime)),delay);
     }
 
     private void trigger(long id,long groupID,long userID,String task,String relation,

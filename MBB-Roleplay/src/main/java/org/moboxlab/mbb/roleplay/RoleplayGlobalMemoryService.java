@@ -252,7 +252,7 @@ public class RoleplayGlobalMemoryService {
 
     private void mergeIfNeeded() {
         if (count() <= config.globalMemoryMaxItems) return;
-        plugin.getServer().getPluginManager().runTask(plugin,this::mergeNow);
+        service.submitBackground(this::mergeNow);
     }
 
     private JSONObject parseJson(String content) {

@@ -30,6 +30,9 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,6 +75,11 @@ public class RoleplayService {
             new ConcurrentHashMap<Long,Boolean>());
     private final Object groupQueueLock = new Object();
     private final Map<Long,Boolean> groupBusyMap = new HashMap<>();
+    //回合执行线程池：路由与生成都是长耗时 AI 调用，不再占用共享的定时任务线程
+    private volatile ExecutorService turnExecutor;
+    private volatile int turnThreads = 0;
+    //后台任务线程池：记忆整理、情绪分析、识图这类长耗时调用同样不占共享定时线程
+    private volatile ExecutorService backgroundExecutor;
     //合批缓冲：同一群在窗口内到达的消息先攒起来，窗口结束后当成一个回合处理
     private final Map<Long,List<GroupMessageEvent>> batchBufferMap = new HashMap<>();
     private final Map<Long,Integer> batchGenerationMap = new HashMap<>();
@@ -262,12 +270,12 @@ public class RoleplayService {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
-        this.reminderService = new RoleplayReminderService(plugin,config,persona);
+        this.reminderService = new RoleplayReminderService(plugin,config,persona,this);
         this.globalMemoryService = new RoleplayGlobalMemoryService(plugin,config,this);
         this.speechCorpusService = new RoleplaySpeechCorpusService(plugin,config);
         this.knowledgeService = new RoleplayKnowledgeService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
-        this.emotionService = new RoleplayEmotionService(plugin,config,persona);
+        this.emotionService = new RoleplayEmotionService(plugin,config,persona,this);
         this.blacklistService = new RoleplayBlacklistService(plugin);
         this.skillRegistry = new RoleplaySkillRegistry(this);
         this.router = new RoleplayRouter(plugin,this);
@@ -318,6 +326,8 @@ public class RoleplayService {
         knowledgeService.init();
         emotionService.init();
         blacklistService.init();
+        ensureTurnExecutor();
+        ensureBackgroundExecutor();
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {
@@ -328,6 +338,76 @@ public class RoleplayService {
         speechCorpusService.reload(config);
         knowledgeService.reload(config);
         emotionService.reload(config,persona);
+        ensureTurnExecutor();
+        ensureBackgroundExecutor();
+    }
+
+    /**
+     * 回合执行线程池按配置维护，配置变更时重建
+     */
+    private void ensureTurnExecutor() {
+        int threads = config.turnThreads < 1 ? 1 : Math.min(config.turnThreads,16);
+        if (turnExecutor != null && turnThreads == threads) return;
+        ExecutorService previous = turnExecutor;
+        turnExecutor = Executors.newFixedThreadPool(threads,runnable -> {
+            Thread thread = new Thread(runnable,"MoBoxBot-Roleplay-Turn");
+            thread.setDaemon(true);
+            return thread;
+        });
+        turnThreads = threads;
+        if (previous != null) previous.shutdown();
+    }
+
+    private void ensureBackgroundExecutor() {
+        if (backgroundExecutor != null) return;
+        backgroundExecutor = Executors.newFixedThreadPool(2,runnable -> {
+            Thread thread = new Thread(runnable,"MoBoxBot-Roleplay-Background");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    /**
+     * 把一整个回合丢到独立线程池执行；线程池不可用时退回当前线程，保证功能不丢
+     */
+    private void submitTurn(Runnable task) {
+        if (task == null) return;
+        ExecutorService executor = turnExecutor;
+        if (executor == null) {
+            task.run();
+            return;
+        }
+        try {
+            executor.submit(task);
+        } catch (RejectedExecutionException e) {
+            task.run();
+        }
+    }
+
+    /**
+     * 记忆整理、情绪分析、识图等后台 AI 调用统一走这个线程池
+     */
+    void submitBackground(Runnable task) {
+        if (task == null) return;
+        ExecutorService executor = backgroundExecutor;
+        if (executor == null) {
+            task.run();
+            return;
+        }
+        try {
+            executor.submit(task);
+        } catch (RejectedExecutionException e) {
+            task.run();
+        }
+    }
+
+    public void shutdown() {
+        ExecutorService executor = turnExecutor;
+        turnExecutor = null;
+        if (executor != null) executor.shutdownNow();
+        ExecutorService background = backgroundExecutor;
+        backgroundExecutor = null;
+        if (background != null) background.shutdownNow();
     }
 
     /**
@@ -457,6 +537,12 @@ public class RoleplayService {
             if (current == null || current != generation) return;
             batch = batchBufferMap.remove(groupID);
         }
+        //定时任务线程只负责调度，真正耗时的路由与生成交给独立线程池
+        final List<GroupMessageEvent> taken = batch;
+        submitTurn(() -> runBatchTurn(groupID,taken));
+    }
+
+    private void runBatchTurn(long groupID,List<GroupMessageEvent> batch) {
         boolean deferred = false;
         try {
             if (batch != null && !batch.isEmpty()) {
@@ -1008,6 +1094,11 @@ public class RoleplayService {
                     +userID+" 的戳一戳");
             return;
         }
+        //戳一戳同样走独立线程池，不占用定时任务线程
+        submitTurn(() -> runPokeTurn(groupID,userID,selfID));
+    }
+
+    private void runPokeTurn(long groupID,long userID,long selfID) {
         if (!canReply(groupID)) return;
 
         RoleplayRouteDecision decision = new RoleplayRouteDecision();
@@ -1019,13 +1110,21 @@ public class RoleplayService {
         JSONObject member = pokeMember(groupID,userID);
         String userName = pokeMemberName(member,userID);
         String relationship = pokeRelationship(member,userID);
+        //先结算这一戳的情绪，再按结算结果决定本轮语气提示
+        RoleplayEmotionService.LocalEvent emotionEvent = emotionService.observePoke(
+                groupID,userID,userName);
+        boolean pokeSpam = emotionEvent.isPresent() && "poke-spam".equals(emotionEvent.type);
         RoleplayConversationState pokeState = state(groupID);
         int pokeVariant = pokeState.pokeVariant++ % 6;
         double affinity = emotionService.affinity(groupID,userID);
         int patience = emotionService.patience(groupID);
         boolean allowPokeBack = config.pokeBackEnable;
         String hint;
-        if (patience < 35) {
+        if (pokeSpam) {
+            allowPokeBack = false;
+            hint = "对方在很短时间里连续戳了你很多次，已经有点烦了：可以用一句短促的话让他别戳了，"
+                    +"或者敷衍、装没反应；不要辱骂，也不要用攻击性语气。";
+        } else if (patience < 35) {
             hint = pokeVariant % 3 == 0
                     ? "服务端心情不太好，用一句短促的吐槽回敬，不要长篇解释。"
                     : "服务端耐心偏低，可以简短回敬；不要连续重复同一句话。";
@@ -1047,8 +1146,6 @@ public class RoleplayService {
         decision.reason = "被戳一戳："+hint;
         if (config.pokeBackEnable && allowPokeBack) decision.actions.add("poke-back");
         String content = "[戳一戳] "+userName+" 戳了你一下。本轮建议："+hint;
-        RoleplayEmotionService.LocalEvent emotionEvent = emotionService.observePoke(
-                groupID,userID,userName);
         JSONObject result = reply(groupID,userID,userName,content,false,relationship,null,decision);
         if (result == null || !result.getBooleanValue("status")) {
             emotionService.afterTurn(groupID,userID,userName,relationship,content,
@@ -1472,22 +1569,21 @@ public class RoleplayService {
                 +"不要输出露骨性内容、性行为细节或性化描写，也不要主动升级话题。"
                 +"涉及现实隐私时，不要主动挖掘、复述或公开真实姓名、住址、账号、联系方式等信息；"
                 +"可以模糊化、转移话题或用角色语气拒绝。"
-                +"规则：你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
-                +"只有话题符合你的兴趣，或有人直接艾特、回复、提及你时才回复。"
+                +"你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"群里每个 QQ 都是不同的人，必须区分发言者，不能把不同群员当成同一个人。"
+                +"只有话题符合你的兴趣、有人直接艾特回复或提及你、或群友正在接续你参与过的话题时才参与；"
+                +"其他人之间的闲聊和无关话题只输出 <SKIP>。"
                 +"如果有人问起某位学生是谁、长什么样或有什么特点，优先参考“被提到的学生详细设定”里的外貌、社团、性格和关系；"
                 +"没有该区块时再用“了解的学生”里的信息回答，不要只给名字。"
-                +"如果其他群员正在接续当前话题，可以自然参与；如果只是无关话题，只输出 <SKIP>。"
                 +(otherRoleBot ? "当前发言者是另一个角色机器人。不要和另一个机器人旁若无人地连续互动，"
                 +"只有对方明确叫你、提出新问题、或真人正在参与时才简短回应；不要追问、捧哏或主动延长话题。" : "")
                 +(messageText != null && messageText.contains("[戳一戳]")
                 ? "当前是戳一戳事件：可以只回一句话，也可以使用 poke-back 戳回去；不要长篇解释。" : "")
-                +"如果这条消息不适合参与，只输出 <SKIP>。"
-                +"每条消息优先控制在 12 字以内，硬上限 20 字；一条说不完可以在 text 里用换行分成两段，最多两段。"
-                +"同一条回复和最近回复里都不要重复同一件事或同一个细节，不要把无关背景、解释或补充信息塞进回复。"
-                +"回复只保留与当前消息直接相关的内容，和当前话题关系不大的内容可以不写。"
+                +"每条消息优先控制在 12 字以内，硬上限 20 字。"
+                +(batchCount > 1 ? "" : "一条说不完可以在 text 里用换行分成两段，最多两段。")
+                +"回复只保留与当前消息直接相关的内容，不要塞入无关背景、解释或补充信息。"
                 +"不要使用“稳、没问题、放心、交给我、没丢、记下、记账上”这些词，也不要使用“收到、记住了、已记录、明白、为你”等助理式确认。"
-                +"消除 AI 味：不要总结、复述、列点、解释或给出完整方案，不要像客服一样端着说话。"
+                +"不要总结、复述、列点、解释或给出完整方案，不要端着说话。"
                 +"像真人 QQ 聊天一样直接接话，可以省略主语，偶尔短促、吐槽、反问或只接半句。"
                 +"少用破折号，不要用“——”；只有确实表示拖长音时才用波浪号，例如“欸~”。"
                 +"波浪号要低频，不要每句结尾都带~，也不要把波浪号当固定句尾；"
@@ -1500,18 +1596,15 @@ public class RoleplayService {
                 +"但要保持角色人设，并且只在情绪确实出现时使用，不要一直反话。"
                 +"如果话题涉及今天、现在、日期、周末、早晚或时间安排，必须以“当前时间”为准，不要自行猜测日期。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
-                +"不要复述自己最近说过的话，也不要换同义词继续重复同一个细节。"
-                +"同一件小事最多回应一次，除非出现了明确的新进展；没有新信息时只输出 <SKIP>。"
-                +"不要总把话题拉回自己固定的兴趣点或工作内容；最近几次已经提过画稿、剧本、游戏开发等细节时，"
-                +"这一轮不要再重复，优先接当前话题。"
+                +"同一件事只回应一次，不要复述自己最近说过的话，也不要换同义词重复同一个细节；没有新信息时只输出 <SKIP>。"
+                +"不要总把话题拉回自己固定的兴趣点或工作内容，优先接当前话题。"
                 +"如果当前消息带有 [表情包：...]，它只表示对方附带的情绪，不要单独评价或回复这个表情包本身。"
-                +"不要固定使用同一句式或同一开头。像“姐姐……”“哼哼！”这类口癖在最近几条回复里出现过时，"
-                +"必须换一种自然说法；最近 5 条回复中，同一种开头最多出现一次。"
-                +"不要把“嗯”“嗯……”当作固定开场；最近 3 条回复里已经出现过“嗯”开头时，必须换一种直接的说法。"
-                +"若使用“邦邦咔邦”，必须放在回复句首，像任务启动提示音，不要放在句中或句尾。"
+                +"不要固定使用同一句式或同一开头：最近 5 条回复里同一种开头最多出现一次；"
+                +"最近 3 条里已经出现过“嗯”开头的，这一轮必须换一种直接的说法。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
-                +"如果正文表达要戳回去、回戳或戳你，actions 必须同时包含 {\"type\":\"poke-back\"}；"
-                +"不能只在 text 里说，也不能把动作写成普通文本。"
+                +(actionIds.contains("poke-back")
+                ? "如果正文表达要戳回去、回戳或戳你，actions 必须同时包含 {\"type\":\"poke-back\"}；"
+                +"不能只在 text 里说，也不能把动作写成普通文本。" : "")
                 +(batchCount > 1
                 ? "这一轮是把很短时间内连续到达的多条消息合并后一起给你，批内可能来自不同的人。"
                 +"你可以只挑真正值得接的消息，用多段分别回应不同的人，每段对应一句话；"
@@ -1675,7 +1768,7 @@ public class RoleplayService {
             }
             memoryUpdatingMap.put(groupID,true);
         }
-        plugin.getServer().getPluginManager().runTask(plugin,() -> runMemoryUpdate(groupID,reason,memory));
+        submitBackground(() -> runMemoryUpdate(groupID,reason,memory));
     }
 
     private void runMemoryUpdate(long groupID,String reason,String directMemory) {
@@ -1918,7 +2011,7 @@ public class RoleplayService {
             if (merging != null && merging) return false;
             memoryMergingMap.put(groupID,true);
         }
-        plugin.getServer().getPluginManager().runTask(plugin,() -> {
+        submitBackground(() -> {
             try {
                 mergeLongMemory(groupID,force);
             } finally {
@@ -3573,6 +3666,10 @@ public class RoleplayService {
         }
         //只有真正摘掉待处理回合的那一次调用继续往下走，避免并发唤醒导致同一回合回两次
         if (!pendingTurnMap.remove(key,pending)) return;
+        submitTurn(() -> runPendingTurn(pending));
+    }
+
+    private void runPendingTurn(PendingTurn pending) {
         long groupID = pending.event.getGroupID();
         try {
             if (blacklistService.contains(groupID,pending.event.getUserID())) {
@@ -3689,7 +3786,7 @@ public class RoleplayService {
         if (!shouldUnderstandImages(event,"",direct,sameUserContinuation)) return;
         final long userID = event.getUserID();
         final boolean sticker = hasSticker;
-        plugin.getServer().getPluginManager().runTask(plugin,() -> {
+        submitBackground(() -> {
             try {
                 String content = enrichImageContent(event,"",groupID,imageContext);
                 if (sticker) {

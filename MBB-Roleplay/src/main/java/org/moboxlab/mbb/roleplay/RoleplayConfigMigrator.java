@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "22";
+    private static final String CURRENT_VERSION = "23";
 
     private static class ConfigEntry {
         private final String key;
@@ -56,7 +56,8 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("emotionAnalyzeCooldownSecond","300","同一用户两次 AI 情绪分析的最小间隔秒数"),
             new ConfigEntry("emotionAnalyzeMaxTokens","1200","情绪分析输出 Token 上限"),
             new ConfigEntry("emotionAnalyzeReasoningEffort","low","情绪分析思考强度：low / medium / high，留空表示不发送"),
-            new ConfigEntry("emotionAnalyzeMaxDelta","0.8","单次 AI 情绪分析对单项数值的最大变化"),
+            new ConfigEntry("emotionAnalyzeMaxDelta","0.5","单次 AI 情绪分析对单项数值的最大提升幅度"),
+            new ConfigEntry("emotionAnalyzeMaxDecreaseDelta","0.3","单次 AI 情绪分析对单项数值的最大降低幅度，不应大于提升幅度"),
             new ConfigEntry("emotionReasonMaxChars","120","用户级情绪原因的最大字符数"),
             new ConfigEntry("emotionReasonMinStrength","40","低于该强度时不再把情绪原因注入提示词"),
             new ConfigEntry("emotionReasonDecayDays","30","情绪原因在无新证据时完全衰减的固定参考天数"),
@@ -129,15 +130,18 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("messageBatchMaxMessages","10","单个批次最多合并多少条消息，超出时丢弃最旧的非直接点名消息"),
             new ConfigEntry("messageBatchMaxAgeSecond","20","合批消息最多等待多少秒，超过且没有点名时直接丢弃，0 表示不丢弃"),
             new ConfigEntry("batchMaxSegments","4","合批回合最多回复几段，每段可以回应批内不同的消息"),
+            new ConfigEntry("turnThreads","4","角色回合的执行线程数，路由与生成都在这个线程池里跑"),
             new ConfigEntry("pokeReplyEnable","true","是否响应戳一戳；MBB-Poke 启用时本插件自动跳过"),
             new ConfigEntry("pokeBackEnable","true","被戳时是否允许角色戳回去"),
             new ConfigEntry("pokeBackCooldownSecond","60","对同一用户戳回去的最小间隔秒数"),
+            new ConfigEntry("pokeStreakWindowSecond","60","连续戳一戳的统计窗口秒数，窗口内超过阈值才算骚扰"),
+            new ConfigEntry("pokeStreakThreshold","3","窗口内戳几次开始算骚扰，达到后才会涨厌烦"),
             new ConfigEntry("quoteReplyEnable","true","回复被艾特或被直接回复的消息时是否引用原消息"),
             new ConfigEntry("promptTotalChars","26000","注入执行层的资料总字符预算，超出部分按优先级截断"),
             new ConfigEntry("routerEnable","true","是否启用 AI 路由层判断要不要回复、挂哪些技能和资料"),
             new ConfigEntry("routerProfile","","路由层使用的模型配置名，留空则使用 aiProfile"),
             new ConfigEntry("routerMaxTokens","2400","路由层输出 Token 上限，reasoning 模型建议不低于 2400"),
-            new ConfigEntry("routerReasoningEffort","low","路由层思考强度：low / medium / high，留空表示不发送"),
+            new ConfigEntry("routerReasoningEffort","none","路由层思考强度：none / low / medium / high，留空表示不发送"),
             new ConfigEntry("styleEnable","true","是否在回复带 AI 味时调用风格层改写"),
             new ConfigEntry("styleMaxChars","60","回复超过多少字触发风格层"),
             new ConfigEntry("styleProfile","","风格层使用的模型配置名，留空则使用 aiProfile"),
@@ -186,6 +190,10 @@ public class RoleplayConfigMigrator {
                 config.getString("memoryRelevanceMaxChars",""));
         boolean legacyGlobalMemoryRelevanceMaxChars = version < 22 && "1200".equals(
                 config.getString("globalMemoryRelevanceMaxChars",""));
+        boolean legacyRouterReasoningEffort = version < 23 && "low".equals(
+                config.getString("routerReasoningEffort",""));
+        boolean legacyEmotionAnalyzeMaxDelta08 = version < 23 && "0.8".equals(
+                config.getString("emotionAnalyzeMaxDelta",""));
         boolean legacyReplySegmentMaxChars = version < 12 && "160".equals(
                 config.getString("replySegmentMaxChars",""));
         boolean legacyReplySplitPunctuation = version < 13
@@ -221,7 +229,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 22) {
+        if (version < 23) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -295,13 +303,22 @@ public class RoleplayConfigMigrator {
             changed++;
         }
         if (legacyEmotionAnalyzeMaxDelta) {
-            config.set("emotionAnalyzeMaxDelta","0.8");
+            config.set("emotionAnalyzeMaxDelta","0.5");
             changed++;
         }
-        if (version < 22 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (legacyRouterReasoningEffort) {
+            config.set("routerReasoningEffort","none");
+            changed++;
+        }
+        if (legacyEmotionAnalyzeMaxDelta08) {
+            config.set("emotionAnalyzeMaxDelta","0.5");
+            changed++;
+        }
+        if (version < 23 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
-                || legacyGlobalMemoryRelevanceMaxChars || legacyReplySegmentMaxChars
+                || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort
+                || legacyEmotionAnalyzeMaxDelta08 || legacyReplySegmentMaxChars
                 || legacyReplySplitPunctuation || legacyInitialAffinity
                 || legacyInitialTrust || legacyIntimacyClose || legacyIntimacyVeryClose
                 || legacyRelationDailyMax || legacyEmotionEventCooldown

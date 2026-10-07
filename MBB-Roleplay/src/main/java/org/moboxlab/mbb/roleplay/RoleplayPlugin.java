@@ -54,6 +54,7 @@ public class RoleplayPlugin extends Plugin {
 
     @Override
     public void onDisable() {
+        if (service != null) service.shutdown();
         getLogger().sendInfo("MBB-Roleplay 已停用！");
     }
 

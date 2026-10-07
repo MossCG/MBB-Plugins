@@ -38,7 +38,8 @@ public class RoleplayConfig {
     public int emotionAnalyzeCooldownSecond = 300;
     public int emotionAnalyzeMaxTokens = 1200;
     public String emotionAnalyzeReasoningEffort = "low";
-    public double emotionAnalyzeMaxDelta = 0.8;
+    public double emotionAnalyzeMaxDelta = 0.5;
+    public double emotionAnalyzeMaxDecreaseDelta = 0.3;
     public int emotionReasonMaxChars = 120;
     public int emotionReasonMinStrength = 40;
     public int emotionReasonDecayDays = 30;
@@ -112,15 +113,18 @@ public class RoleplayConfig {
     public int messageBatchMaxMessages = 10;
     public int messageBatchMaxAgeSecond = 20;
     public int batchMaxSegments = 4;
+    public int turnThreads = 4;
     public boolean pokeReplyEnable = true;
     public boolean pokeBackEnable = true;
     public int pokeBackCooldownSecond = 60;
+    public int pokeStreakWindowSecond = 60;
+    public int pokeStreakThreshold = 3;
     public boolean quoteReplyEnable = true;
     public int promptTotalChars = 26000;
     public boolean routerEnable = true;
     public String routerProfile = "";
     public int routerMaxTokens = 2400;
-    public String routerReasoningEffort = "low";
+    public String routerReasoningEffort = "none";
     public boolean styleEnable = true;
     public int styleMaxChars = 60;
     public String styleProfile = "";
@@ -191,9 +195,15 @@ public class RoleplayConfig {
                 plugin.getConfig().getString("emotionAnalyzeReasoningEffort","low"));
         try {
             config.emotionAnalyzeMaxDelta = Double.parseDouble(
-                    plugin.getConfig().getString("emotionAnalyzeMaxDelta","0.8"));
+                    plugin.getConfig().getString("emotionAnalyzeMaxDelta","0.5"));
         } catch (Exception e) {
-            config.emotionAnalyzeMaxDelta = 0.8;
+            config.emotionAnalyzeMaxDelta = 0.5;
+        }
+        try {
+            config.emotionAnalyzeMaxDecreaseDelta = Double.parseDouble(
+                    plugin.getConfig().getString("emotionAnalyzeMaxDecreaseDelta","0.3"));
+        } catch (Exception e) {
+            config.emotionAnalyzeMaxDecreaseDelta = 0.3;
         }
         config.emotionReasonMaxChars = plugin.getConfig().getInt("emotionReasonMaxChars",120);
         config.emotionReasonMinStrength = plugin.getConfig().getInt("emotionReasonMinStrength",40);
@@ -338,7 +348,7 @@ public class RoleplayConfig {
         config.routerProfile = plugin.getConfig().getString("routerProfile","");
         config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",2400);
         config.routerReasoningEffort = normalizeEffort(
-                plugin.getConfig().getString("routerReasoningEffort","low"));
+                plugin.getConfig().getString("routerReasoningEffort","none"));
         config.styleEnable = plugin.getConfig().getBoolean("styleEnable",true);
         config.styleMaxChars = plugin.getConfig().getInt("styleMaxChars",60);
         config.styleProfile = plugin.getConfig().getString("styleProfile","");
@@ -407,6 +417,13 @@ public class RoleplayConfig {
         if (config.emotionAnalyzeMaxTokens > 4000) config.emotionAnalyzeMaxTokens = 4000;
         if (config.emotionAnalyzeMaxDelta < 0.1) config.emotionAnalyzeMaxDelta = 0.1;
         if (config.emotionAnalyzeMaxDelta > 3) config.emotionAnalyzeMaxDelta = 3;
+        //关系数值降低的幅度不允许超过提升的幅度
+        if (config.emotionAnalyzeMaxDecreaseDelta < 0.05) {
+            config.emotionAnalyzeMaxDecreaseDelta = 0.05;
+        }
+        if (config.emotionAnalyzeMaxDecreaseDelta > config.emotionAnalyzeMaxDelta) {
+            config.emotionAnalyzeMaxDecreaseDelta = config.emotionAnalyzeMaxDelta;
+        }
         if (config.emotionReasonMaxChars < 20) config.emotionReasonMaxChars = 20;
         if (config.emotionReasonMaxChars > 500) config.emotionReasonMaxChars = 500;
         if (config.emotionReasonMinStrength < 1) config.emotionReasonMinStrength = 1;
@@ -569,11 +586,12 @@ public class RoleplayConfig {
         return config;
     }
 
-    // 思考强度只允许 low/medium/high，留空表示不向接口发送该字段
+    // 思考强度只允许 none/low/medium/high，留空表示不向接口发送该字段
     private static String normalizeEffort(String value) {
         if (value == null) return "";
         String text = value.trim().toLowerCase(Locale.ROOT);
-        if ("low".equals(text) || "medium".equals(text) || "high".equals(text)) return text;
+        if ("none".equals(text) || "low".equals(text)
+                || "medium".equals(text) || "high".equals(text)) return text;
         return "";
     }
 }

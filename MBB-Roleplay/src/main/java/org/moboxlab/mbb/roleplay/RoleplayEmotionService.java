@@ -30,11 +30,14 @@ public class RoleplayEmotionService {
     private static final long DAY_MILLIS = 86400000L;
 
     private final Plugin plugin;
+    private final RoleplayService service;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     private final Map<Long,MoodState> moodCache = new ConcurrentHashMap<>();
     private final Map<String,RelationState> relationCache = new ConcurrentHashMap<>();
     private final Map<String,Long> eventCooldownMap = new ConcurrentHashMap<>();
+    //短时间内的连续戳一戳计数，key 是 群号-用户号
+    private final Map<String,long[]> pokeStreakMap = new ConcurrentHashMap<>();
     private final Map<String,Long> analyzeCooldownMap = new ConcurrentHashMap<>();
     private final Map<String,RecentMessage> recentMessageMap = new ConcurrentHashMap<>();
     private final AtomicInteger eventWriteCount = new AtomicInteger();
@@ -106,10 +109,12 @@ public class RoleplayEmotionService {
         }
     }
 
-    public RoleplayEmotionService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona) {
+    public RoleplayEmotionService(Plugin plugin,RoleplayConfig config,RoleplayPersona persona,
+                                  RoleplayService service) {
         this.plugin = plugin;
         this.config = config;
         this.persona = persona;
+        this.service = service;
     }
 
     public void init() {
@@ -209,26 +214,26 @@ public class RoleplayEmotionService {
         LocalEvent event = null;
         if (otherRoleBot) {
             if (allowEvent(groupID,userID,"bot-interaction",60)) {
-                event = event("bot-interaction","其他角色机器人接续发言",false,0,0,-1,0,0,1);
+                event = event("bot-interaction","其他角色机器人接续发言",false,0,0,-1,0,0,0.2);
             }
         } else if (isImpersonation(text,userName)
                 && allowEvent(groupID,userID,"impersonation",
                 Math.max(300,config.emotionEventCooldownSecond))) {
-            event = event("impersonation","他在冒名顶替你",true,-3,-1,-5,-0.8,-0.6,1.2);
+            event = event("impersonation","他在冒名顶替你",true,-3,-1,-5,-0.3,-0.25,0.5);
             event.persistReason = true;
         } else if (isAttack(text)
                 && allowEvent(groupID,userID,"attack",config.emotionEventCooldownSecond)) {
-            event = event("attack","他刚才说了攻击性的话",true,-6,-2,-8,-0.6,-0.4,1.0);
+            event = event("attack","他刚才说了攻击性的话",true,-6,-2,-8,-0.25,-0.2,0.4);
             event.persistReason = true;
         } else if (isPraise(text)
                 && allowEvent(groupID,userID,"praise",config.emotionEventCooldownSecond)) {
-            event = event("praise","他刚才夸过你",true,4,2,2,0.4,0.3,-0.2);
+            event = event("praise","他刚才夸过你",true,4,2,2,0.35,0.25,-0.1);
             event.persistReason = true;
         } else if (isRepeatedMessage(groupID,userID,text)
                 && allowEvent(groupID,userID,"spam",Math.max(30,config.emotionEventCooldownSecond))) {
-            event = event("spam","他连续重复发送消息",false,-2,0,-3,0,0,0);
+            event = event("spam","他连续重复发送消息",false,-2,0,-3,0,0,0.1);
         } else if (direct && allowEvent(groupID,userID,"friendly",config.emotionEventCooldownSecond)) {
-            event = event("friendly","他主动找你说话了",false,2,1,1,0,0,0);
+            event = event("friendly","他主动找你说话了",false,2,1,1,0.15,0.1,0);
         }
         if (event == null || !event.isPresent()) return LocalEvent.none();
 
@@ -246,23 +251,50 @@ public class RoleplayEmotionService {
 
     /**
      * 戳一戳事件。规则层先更新，避免 AI 分析失败时完全没有反应。
+     * 戳一戳是主动互动的加分项：单独一次只给正反馈；
+     * 只有短时间内连续戳很多次才升级成骚扰，才开始涨厌烦。
      */
     public synchronized LocalEvent observePoke(long groupID,long userID,String userName) {
         if (!config.emotionEnable || groupID <= 0 || userID <= 0) return LocalEvent.none();
-        if (!allowEvent(groupID,userID,"poke",Math.max(5,config.emotionEventCooldownSecond / 2))) {
+        int streak = bumpPokeStreak(groupID,userID);
+        boolean spam = streak >= Math.max(2,config.pokeStreakThreshold);
+        String type = spam ? "poke-spam" : "poke";
+        if (!allowEvent(groupID,userID,type,spam
+                ? Math.max(30,config.pokeStreakWindowSecond)
+                : Math.max(5,config.emotionEventCooldownSecond / 6))) {
             return LocalEvent.none();
         }
         MoodState mood = mood(groupID);
         RelationState relation = relation(groupID,userID);
-        LocalEvent event = event("poke",userName+"戳了你一下",false,-1,0,-1,0,0,0);
+        LocalEvent event = spam
+                ? event(type,userName+"在短时间内连续戳了你 "+streak+" 次",true,-3,-1,-2,-0.1,-0.05,0.35)
+                : event(type,userName+"戳了你一下，是主动来找你互动",false,2,1,0,0.15,0.1,0);
         LocalEvent applied = applyEvent(groupID,userID,0L,mood,relation,event,"rule");
         plugin.getLogger().sendInfo("[情绪] 群"+groupID+" 用户"+userID
-                +" 事件=poke 心情"+applied.valenceDelta
+                +" 事件="+type+" 连戳="+streak
+                +" 心情"+formatDelta(applied.valenceDelta)
                 +" 耐心"+applied.patienceDelta
                 +" 好感"+formatDelta(applied.affinityDelta)
                 +" 厌烦"+formatDelta(applied.annoyanceDelta)
                 +" 原因="+event.reason);
         return applied;
+    }
+
+    /**
+     * 统计短时间内的连续戳一戳次数，超过窗口自动重新计数
+     */
+    private int bumpPokeStreak(long groupID,long userID) {
+        String key = groupID+"-"+userID;
+        long now = System.currentTimeMillis();
+        long window = Math.max(10,config.pokeStreakWindowSecond) * 1000L;
+        long[] state = pokeStreakMap.get(key);
+        if (state == null || now - state[0] > window) {
+            if (pokeStreakMap.size() > 2000) pokeStreakMap.clear();
+            state = new long[]{now,0L};
+            pokeStreakMap.put(key,state);
+        }
+        state[1]++;
+        return (int)state[1];
     }
 
     /**
@@ -279,7 +311,7 @@ public class RoleplayEmotionService {
         Long last = analyzeCooldownMap.get(key);
         if (last != null && now - last < config.emotionAnalyzeCooldownSecond * 1000L) return;
         analyzeCooldownMap.put(key,now);
-        plugin.getServer().getPluginManager().runTask(plugin,
+        service.submitBackground(
                 () -> analyzeEmotion(groupID,userID,userName,relationship,content,localEvent));
     }
 
@@ -311,6 +343,7 @@ public class RoleplayEmotionService {
                     ? "亲密程度：这是 botOwner，角色把他当成妈妈，亲近、依赖、听劝，可以用撒娇和撒娇式抱怨，"
                     +"但不要往恋爱或性意味方向表达。\n"
                     : intimacyPrompt(relation)).append("\n");
+            builder.append(annoyancePrompt(relation));
         }
         builder.append("情绪只影响语气和参与意愿，不能取消被直接提及时的回复，也不能违反权限、安全或事实规则。\n");
         return builder.toString();
@@ -785,8 +818,10 @@ public class RoleplayEmotionService {
                 .append("- 正面互动可以提升好感和信任，但原因要短\n")
                 .append("- 原因只描述当前用户做了什么，不记录隐私信息\n")
                 .append("- 原因最多 ").append(config.emotionReasonMaxChars).append(" 个字符\n")
-                .append("- 单项数值变化使用小数，普通事件建议 0.1 到 0.5\n")
-                .append("- 单项数值变化绝对值不超过 ").append(config.emotionAnalyzeMaxDelta).append("\n")
+                .append("- 单项数值变化必须用小数：提升建议 0.1 到 ")
+                .append(config.emotionAnalyzeMaxDelta).append("，降低不超过 ")
+                .append(config.emotionAnalyzeMaxDecreaseDelta).append("\n")
+                .append("- 关系数值降得比升得慢：除非是明确的欺骗、辱骂或持续骚扰，否则不要给负值\n")
                 .append("- 来源：“他在冒名顶替我”“他刚才夸过我”“他反复戳我”\n");
         builder.append("输出格式：{\"event\":\"impersonation|attack|praise|friendly|neutral\",")
                 .append("\"reason\":\"\",\"persistReason\":false,")
@@ -1331,6 +1366,24 @@ public class RoleplayEmotionService {
         return "亲密程度：还不算亲近。亲密举动要保持距离，先害羞、吐槽或转移话题，不要表现成恋人式亲近。";
     }
 
+    /**
+     * 厌烦时的语气约束。
+     * 厌烦的表现是冷淡、敷衍、回避，不是攻击性，避免模型把厌烦演成骂人。
+     */
+    private String annoyancePrompt(RelationState relation) {
+        if (relation.annoyance >= 75) {
+            return "语气约束：你现在对这个人相当厌烦。表现方式是话变短、敷衍应付、回避话题、"
+                    +"只回必要的一句，或者干脆不想接话；可以用冷淡、无奈、嫌弃的口气。"
+                    +"但不要辱骂、不要人身攻击、不要用命令式或威胁性的语气，也不要真的发火；"
+                    +"角色是有教养的学生，厌烦不等于攻击。\n";
+        }
+        if (relation.annoyance >= 50) {
+            return "语气约束：你对这个人有点不耐烦。可以简短、敷衍、吐槽或半开玩笑地嫌弃，"
+                    +"但不要辱骂、不要人身攻击，也不要突然发火。\n";
+        }
+        return "";
+    }
+
     private String levelText(double value) {
         if (value >= 80) return "很高";
         if (value >= 65) return "较高";
@@ -1369,7 +1422,10 @@ public class RoleplayEmotionService {
         if (delta == null) return 0;
         double value = delta.getDoubleValue(key);
         if (value > config.emotionAnalyzeMaxDelta) value = config.emotionAnalyzeMaxDelta;
-        if (value < -config.emotionAnalyzeMaxDelta) value = -config.emotionAnalyzeMaxDelta;
+        //降低的幅度单独限得更小，保证关系数值跌得比涨得慢
+        if (value < -config.emotionAnalyzeMaxDecreaseDelta) {
+            value = -config.emotionAnalyzeMaxDecreaseDelta;
+        }
         return value;
     }
 
