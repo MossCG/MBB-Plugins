@@ -416,6 +416,7 @@ recentReplyCheckCount: 8
 repeatSimilarityThreshold: 0.72
 repeatCheckMinChars: 6
 repeatOpeningLimit: 2
+repeatCommonRunMinChars: 8
 minMessageLength: 2
 ```
 
@@ -773,7 +774,19 @@ knowledgeSpoilerLevel: 0
 <reminder>{"action":"edit","id":12,"time":"2026-10-05 08:00:00","task":"开会"}</reminder>
 ```
 
-角色提示词中会包含当前用户的待触发提醒列表，因此可以直接回答“我有哪些提醒”，不需要额外查询命令。
+角色提示词里会带当前用户的待触发提醒，但**分两种粒度**：只有对方确实在问提醒安排（消息里出现“提醒 / 几点 / 什么时候 / 安排 / 记了”）时才给完整清单，
+其他情况只给“共几条 + 最近一条”，并附带一句“只是背景资料，不要在回复里逐条复述时间与内容”。
+这样既能回答“我有哪些提醒”，又不会在普通闲聊里把待办当成素材念一遍。
+
+## 重复回复拦截
+
+生成回复后会跟最近的角色回复做两道比对，命中就整条丢弃：
+
+1. **字面相似度**：bigram Dice 达到 `repeatSimilarityThreshold`（默认 0.72）
+2. **长公共片段**：最长公共子串达到 `repeatCommonRunMinChars`（默认 8 字）
+
+第 2 条是为“同一组信息换个尾巴”的复读准备的。实测“布丁明早验，咖喱七点，别糊锅”和“布丁明早验，咖喱七点，再不睡就凉了”的 bigram 相似度只有 0.516，够不着 0.72；
+但两者的公共片段有 9 个字，会被第 2 条拦下。同一开头重复和“嗯”开头另有 `repeatOpeningLimit` 限制。
 
 ## 多角色部署
 

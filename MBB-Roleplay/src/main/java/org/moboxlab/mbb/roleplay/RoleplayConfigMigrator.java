@@ -167,6 +167,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
             new ConfigEntry("repeatCheckMinChars","6","少于多少字的回复不进行重复检测"),
             new ConfigEntry("repeatOpeningLimit","2","同一开头在最近角色回复中出现多少次后禁止再次使用"),
+            new ConfigEntry("repeatCommonRunMinChars","8","与最近回复的最长公共片段达到多少字时判为复读，抓同一组信息换尾巴的情况"),
             new ConfigEntry("commandPrefixes","/,!,＃,#","忽略以这些前缀开头的指令消息，英文逗号分隔"),
             new ConfigEntry("personaFile","persona-aris.json","角色设定文件：persona-aris.json（爱丽丝/Aris）/ persona-momoi.json（桃井）/ persona-midori.json（绿）"),
             new ConfigEntry("minMessageLength","2","忽略少于多少字的纯文本消息"));

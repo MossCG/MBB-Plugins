@@ -1561,8 +1561,7 @@ public class RoleplayService {
                 +"当前时间："+currentTimeText()+"\n"
                 +"当前发言者关系："+relationship+"\n"
                 +emotionService.promptText(groupID,userID,otherRoleBot)
-                +(actionIds.contains("reminder") ? "当前用户的待触发提醒：\n"
-                +reminderService.pendingText(groupID,userID)+"\n" : "")
+                +(actionIds.contains("reminder") ? reminderPromptText(groupID,userID,messageText) : "")
                 +"关系规则：群主和管理员若不是另一个角色机器人，统一视为老师；其他真人成员都是朋友；"
                 +"另一个角色机器人不按群权限归类，按角色设定中的同伴关系处理。"
                 +"对老师要尊重、亲近、自然；对朋友要平等、轻松、友善。不要强行把朋友叫成老师。"
@@ -1617,6 +1616,7 @@ public class RoleplayService {
                 +"如果话题涉及今天、现在、日期、周末、早晚或时间安排，必须以“当前时间”为准，不要自行猜测日期。"
                 +"口癖要低频自然，不要每句话都玩游戏梗。"
                 +"同一件事只回应一次，不要复述自己最近说过的话，也不要换同义词重复同一个细节；没有新信息时只输出 <SKIP>。"
+                +"不要把待办、提醒或清单列成一行念出来，那像工单播报；一次只说其中一件，或者用聊天的方式提一句。"
                 +"不要总把话题拉回自己固定的兴趣点或工作内容，优先接当前话题。"
                 +"如果当前消息带有 [表情包：...]，它只表示对方附带的情绪，不要单独评价或回复这个表情包本身。"
                 +"如果消息里出现 [引用 某人：内容]，那是对方引用回复的原话，要结合这句话理解对方在回应什么。"
@@ -1693,7 +1693,8 @@ public class RoleplayService {
         materials.add(new RoleplayMaterial("memory.short",true,80,1500,
                 () -> "短期记忆：\n"+shortSummary(groupID)));
         materials.add(new RoleplayMaterial("context.recent",true,75,2500,
-                () -> "你最近说过的话：\n"+recentReplies));
+                () -> "你最近说过的话（这些已经说过了，不要重复内容，也不要换个说法再说一遍）：\n"
+                        +recentReplies));
         materials.add(new RoleplayMaterial("speech.corpus",true,50,1300,
                 () -> speechPrompt == null ? "" : speechPrompt));
         //知识库按库注册成可选资料，路由点名后才检索并注入命中的小节
@@ -1713,6 +1714,20 @@ public class RoleplayService {
         String reason = decision == null ? "" : safe(decision.reason).trim();
         if (reason.isEmpty()) return text;
         return text.isEmpty() ? reason : text+"\n"+reason;
+    }
+
+    /**
+     * 提醒资料。
+     * 只有对方确实在问提醒安排时才给完整清单，其他情况只给条数与最近一条，
+     * 否则模型会把待办当成聊天素材逐条念出来。
+     */
+    private String reminderPromptText(long groupID,long userID,String content) {
+        String text = safe(content);
+        boolean asking = text.contains("提醒") || text.contains("几点") || text.contains("什么时候")
+                || text.contains("安排") || text.contains("记了") || text.contains("记下");
+        String body = asking ? reminderService.pendingText(groupID,userID)
+                : reminderService.pendingBrief(groupID,userID);
+        return "当前用户的待触发提醒（只是背景资料，不要在回复里逐条复述时间与内容）：\n"+body+"\n";
     }
 
     /**
@@ -3464,6 +3479,8 @@ public class RoleplayService {
             if (opening.length() >= 2 && old.startsWith(opening)) openingCount++;
             if (fillerOpening && old.startsWith("嗯")) fillerCount++;
             if (similarity(candidate,old) >= config.repeatSimilarityThreshold) return true;
+            //字面相似度抓不住“同一组信息换个尾巴”的复读，这种会留下很长的公共片段
+            if (longestCommonRun(candidate,old) >= config.repeatCommonRunMinChars) return true;
         }
         return (opening.length() >= 2 && openingCount >= config.repeatOpeningLimit)
                 || (fillerOpening && fillerCount >= Math.max(1,config.repeatOpeningLimit - 1));
@@ -3473,6 +3490,27 @@ public class RoleplayService {
         if (text == null) return "";
         int length = Math.min(2,text.length());
         return length <= 0 ? "" : text.substring(0,length);
+    }
+
+    /**
+     * 两条回复的最长公共子串长度。
+     * “布丁明早验，咖喱七点，别糊锅”和“布丁明早验，咖喱七点，再不睡就凉了”
+     * 的 bigram 相似度只有 0.5 左右，但公共片段有 10 个字，说明信息是重复的。
+     */
+    private int longestCommonRun(String left,String right) {
+        if (left == null || right == null || left.isEmpty() || right.isEmpty()) return 0;
+        int best = 0;
+        for (int i = 0; i < left.length(); i++) {
+            for (int j = 0; j < right.length(); j++) {
+                int run = 0;
+                while (i + run < left.length() && j + run < right.length()
+                        && left.charAt(i + run) == right.charAt(j + run)) {
+                    run++;
+                }
+                if (run > best) best = run;
+            }
+        }
+        return best;
     }
 
     private double similarity(String left,String right) {

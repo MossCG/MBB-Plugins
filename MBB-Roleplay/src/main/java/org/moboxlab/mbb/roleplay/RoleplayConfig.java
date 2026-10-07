@@ -144,6 +144,7 @@ public class RoleplayConfig {
     public int replyMaxSegments = 2;
     public int recentReplyCheckCount = 8;
     public double repeatSimilarityThreshold = 0.72;
+    public int repeatCommonRunMinChars = 8;
     public int repeatCheckMinChars = 6;
     public int repeatOpeningLimit = 2;
     public String personaFile = "persona-aris.json";
@@ -383,6 +384,8 @@ public class RoleplayConfig {
         }
         config.repeatCheckMinChars = plugin.getConfig().getInt("repeatCheckMinChars",6);
         config.repeatOpeningLimit = plugin.getConfig().getInt("repeatOpeningLimit",2);
+        config.repeatCommonRunMinChars =
+                plugin.getConfig().getInt("repeatCommonRunMinChars",8);
         config.personaFile = plugin.getConfig().getString("personaFile","persona-aris.json");
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
         config.commandPrefixes = plugin.getConfig().getString("commandPrefixes","/,!,＃,#");
@@ -598,6 +601,8 @@ public class RoleplayConfig {
         if (config.recentReplyCheckCount > 30) config.recentReplyCheckCount = 30;
         if (config.repeatSimilarityThreshold < 0.3) config.repeatSimilarityThreshold = 0.3;
         if (config.repeatSimilarityThreshold > 1) config.repeatSimilarityThreshold = 1;
+        if (config.repeatCommonRunMinChars < 4) config.repeatCommonRunMinChars = 4;
+        if (config.repeatCommonRunMinChars > 40) config.repeatCommonRunMinChars = 40;
         if (config.repeatCheckMinChars < 2) config.repeatCheckMinChars = 2;
         if (config.repeatOpeningLimit < 1) config.repeatOpeningLimit = 1;
         if (config.minMessageLength < 1) config.minMessageLength = 1;

@@ -242,6 +242,20 @@ public class RoleplayReminderService {
         return builder.toString();
     }
 
+    /**
+     * 给提示词用的精简版：只报条数与最近一条。
+     * 完整清单会诱导模型把待办逐条念出来，普通聊天里不需要。
+     */
+    public String pendingBrief(long groupID,long userID) {
+        JSONArray rows = listPending(groupID,userID);
+        if (rows.isEmpty()) return "无。";
+        JSONObject first = rows.getJSONObject(0);
+        return "共 "+rows.size()+" 条，最近一条："
+                +formatTime(first.getLongValue("remindTime"))+" "
+                +("self".equals(first.getString("target")) ? "角色自提醒" : "提醒本人")+" "
+                +safe(first.getString("task"));
+    }
+
     public String executeAiAction(long groupID,long userID,String userName,String relation,
                                   String action,long id,String timeText,String task,String target,
                                   String context) {
