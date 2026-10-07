@@ -149,7 +149,9 @@ public class AIStatsService {
         Map<String,JSONObject> map = new LinkedHashMap<>();
         List<JSONObject> rows = storage().query(
                 "SELECT `statDate`,SUM(`requests`) AS `requests`,SUM(`successes`) AS `successes`,"
-                        + "SUM(`failures`) AS `failures`,SUM(`totalTokens`) AS `totalTokens`,"
+                        + "SUM(`failures`) AS `failures`,SUM(`promptTokens`) AS `promptTokens`,"
+                        + "SUM(`completionTokens`) AS `completionTokens`,"
+                        + "SUM(`totalTokens`) AS `totalTokens`,"
                         + "SUM(`cachedPromptTokens`) AS `cachedPromptTokens` "
                         + "FROM `"+TABLE+"` GROUP BY `statDate` ORDER BY `statDate` ASC");
         if (rows != null) {
@@ -169,6 +171,8 @@ public class AIStatsService {
             item.put("requests",value(row,"requests"));
             item.put("successes",value(row,"successes"));
             item.put("failures",value(row,"failures"));
+            item.put("promptTokens",value(row,"promptTokens"));
+            item.put("completionTokens",value(row,"completionTokens"));
             item.put("totalTokens",value(row,"totalTokens"));
             item.put("cachedPromptTokens",value(row,"cachedPromptTokens"));
             result.add(item);

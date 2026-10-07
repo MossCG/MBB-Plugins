@@ -181,7 +181,7 @@ public class AIImageRenderer {
 
     private static void drawChart(Graphics2D graphics,int x,int y,int width,int height,JSONArray daily) {
         drawPanel(graphics,x,y,width,height,"最近 7 天 Token 趋势");
-        drawChartLegend(graphics,x + width - 350,y + 36);
+        drawChartLegend(graphics,x + width - 420,y + 36);
         int chartX = x + 24;
         int chartY = y + 86;
         int chartWidth = width - 48;
@@ -193,41 +193,25 @@ public class AIImageRenderer {
         long max = 0L;
         for (int i = 0; i < daily.size(); i++) {
             JSONObject item = daily.getJSONObject(i);
-            max = Math.max(max,value(item,"totalTokens"));
+            max = Math.max(max,value(item,"promptTokens"));
+            max = Math.max(max,value(item,"completionTokens"));
             max = Math.max(max,value(item,"cachedPromptTokens"));
         }
         if (max <= 0) max = 1L;
         int count = daily.size();
         int slot = chartWidth / Math.max(1,count);
-        int barGap = 10;
-        int barWidth = Math.max(14,(slot - barGap - 24) / 2);
-        int groupWidth = barWidth * 2 + barGap;
+        int barGap = 8;
+        int barWidth = Math.max(12,(slot - barGap * 2 - 20) / 3);
+        int groupWidth = barWidth * 3 + barGap * 2;
         for (int i = 0; i < count; i++) {
             JSONObject item = daily.getJSONObject(i);
-            long tokens = value(item,"totalTokens");
-            long cachedTokens = value(item,"cachedPromptTokens");
-            int totalHeight = (int)Math.round(chartHeight * tokens / (double)max);
-            int cachedHeight = (int)Math.round(chartHeight * cachedTokens / (double)max);
             int groupX = chartX + i * slot + (slot - groupWidth) / 2;
-            int totalX = groupX;
-            int cachedX = groupX + barWidth + barGap;
-            int totalY = chartY + chartHeight - totalHeight;
-            int cachedY = chartY + chartHeight - cachedHeight;
-
-            graphics.setColor(new Color(37,99,235));
-            graphics.fillRoundRect(totalX,totalY,barWidth,Math.max(2,totalHeight),7,7);
-            graphics.setColor(new Color(245,158,11));
-            graphics.fillRoundRect(cachedX,cachedY,barWidth,Math.max(2,cachedHeight),7,7);
-
-            graphics.setFont(new Font("Microsoft YaHei",Font.BOLD,11));
-            graphics.setColor(new Color(37,99,235));
-            String totalText = formatMillion(tokens);
-            int totalTextWidth = graphics.getFontMetrics().stringWidth(totalText);
-            graphics.drawString(totalText,totalX + (barWidth - totalTextWidth) / 2,totalY - 8);
-            graphics.setColor(new Color(180,83,9));
-            String cachedText = formatMillion(cachedTokens);
-            int cachedTextWidth = graphics.getFontMetrics().stringWidth(cachedText);
-            graphics.drawString(cachedText,cachedX + (barWidth - cachedTextWidth) / 2,cachedY - 8);
+            drawChartBar(graphics,groupX,chartY,chartHeight,barWidth,
+                    value(item,"promptTokens"),max,new Color(37,99,235),new Color(37,99,235));
+            drawChartBar(graphics,groupX + barWidth + barGap,chartY,chartHeight,barWidth,
+                    value(item,"completionTokens"),max,new Color(16,185,129),new Color(5,150,105));
+            drawChartBar(graphics,groupX + (barWidth + barGap) * 2,chartY,chartHeight,barWidth,
+                    value(item,"cachedPromptTokens"),max,new Color(245,158,11),new Color(180,83,9));
 
             String date = safe(item.getString("date"));
             if (date.length() >= 10) date = date.substring(5);
@@ -238,18 +222,35 @@ public class AIImageRenderer {
         }
     }
 
+    private static void drawChartBar(Graphics2D graphics,int x,int chartY,int chartHeight,int barWidth,
+                                     long value,long max,Color barColor,Color textColor) {
+        int barHeight = (int)Math.round(chartHeight * value / (double)max);
+        int barY = chartY + chartHeight - barHeight;
+        graphics.setColor(barColor);
+        graphics.fillRoundRect(x,barY,barWidth,Math.max(2,barHeight),7,7);
+        graphics.setFont(new Font("Microsoft YaHei",Font.BOLD,10));
+        graphics.setColor(textColor);
+        String text = formatMillion(value);
+        int textWidth = graphics.getFontMetrics().stringWidth(text);
+        graphics.drawString(text,x + (barWidth - textWidth) / 2,barY - 8);
+    }
+
     private static void drawChartLegend(Graphics2D graphics,int x,int baseline) {
         graphics.setFont(new Font("Microsoft YaHei",Font.PLAIN,12));
         graphics.setColor(new Color(37,99,235));
         graphics.fillRoundRect(x,baseline - 10,10,10,3,3);
         graphics.setColor(new Color(120,113,108));
-        graphics.drawString("总 Token",x + 16,baseline);
-        graphics.setColor(new Color(245,158,11));
-        graphics.fillRoundRect(x + 82,baseline - 10,10,10,3,3);
+        graphics.drawString("输入",x + 16,baseline);
+        graphics.setColor(new Color(16,185,129));
+        graphics.fillRoundRect(x + 68,baseline - 10,10,10,3,3);
         graphics.setColor(new Color(120,113,108));
-        graphics.drawString("缓存命中",x + 98,baseline);
+        graphics.drawString("输出",x + 84,baseline);
+        graphics.setColor(new Color(245,158,11));
+        graphics.fillRoundRect(x + 136,baseline - 10,10,10,3,3);
+        graphics.setColor(new Color(120,113,108));
+        graphics.drawString("缓存",x + 152,baseline);
         graphics.setColor(new Color(146,138,130));
-        graphics.drawString("单位：百万 Token（M）",x + 166,baseline + 20);
+        graphics.drawString("单位：百万 Token（M）",x + 220,baseline + 20);
     }
 
     private static void drawTableHeader(Graphics2D graphics,int x,int y) {
