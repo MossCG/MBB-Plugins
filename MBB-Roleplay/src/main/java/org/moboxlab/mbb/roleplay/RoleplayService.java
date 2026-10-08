@@ -2265,7 +2265,8 @@ public class RoleplayService {
                 List<JSONObject> batch = batches.get(i);
                 plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
                         +" 轮 批次 "+(i+1)+"/"+batches.size()+" 开始：输入 "+batch.size()+" 条");
-                List<JSONObject> merged = mergeLongMemoryBatch(ai,groupID,batch,round,i+1,batches.size());
+                List<JSONObject> merged = mergeLongMemoryBatchWithRetry(ai,groupID,batch,round,
+                        i+1,batches.size());
                 if (merged == null) {
                     plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
                             +" 轮 批次 "+(i+1)+" 失败，放弃本次合并，原记忆保持不变");
@@ -2296,6 +2297,22 @@ public class RoleplayService {
                 +" 条，合并后 "+saved+" 条，合并期间新增保留 "+newRows+" 条");
         return "长期记忆整理合并完成：原 "+original+" 条，合并后 "+saved
                 +" 条，合并期间新增保留 "+newRows+" 条。";
+    }
+
+    private List<JSONObject> mergeLongMemoryBatchWithRetry(PluginService ai,long groupID,
+                                                           List<JSONObject> batch,int round,
+                                                           int batchNo,int batchCount) {
+        int retries = Math.max(0,Math.min(5,config.memoryMergeRetryCount));
+        for (int attempt = 0; attempt <= retries; attempt++) {
+            List<JSONObject> merged = mergeLongMemoryBatch(ai,groupID,batch,round,batchNo,batchCount);
+            if (merged != null) return merged;
+            if (attempt >= retries) break;
+            plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                    +" 轮 批次 "+batchNo+"/"+batchCount+" 第 "+(attempt+1)+" 次失败，"
+                    +"准备重试（"+(attempt+2)+"/"+(retries+1)+"）");
+            if (!sleepQuietly(2000L * (attempt + 1))) return null;
+        }
+        return null;
     }
 
     private long maxLongMemoryId(long groupID) {

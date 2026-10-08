@@ -134,7 +134,7 @@ emotionReasonDecayDays: 30
 
 恢复时先自动备份当前记忆，再用指定文件覆盖记忆和情绪关系状态。恢复操作仅 `OWNER` 可用。
 
-永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是先做相似排序，再按 `memoryMergeBatchSize` 分批调用 AI 合并。合并读取快照内的全部永久记忆，不会只取前 300 条；合并失败时保留原数据。
+永久记忆超过 `globalMemoryMaxItems` 时不会直接删除，而是先做相似排序，再按 `memoryMergeBatchSize` 分批调用 AI 合并。合并读取快照内的全部永久记忆，不会只取前 300 条；单批失败会按 `memoryMergeRetryCount`（默认 1）原地重试，最终仍失败时保留原数据。
 
 永久记忆会做跨类型去重：`speech_style` 会兼容 `speechstyle`、`speech-style`、`speech style` 等旧写法，旧的 `knowledge` 会归一化为 `lesson`。写入和合并写回前会按归一化内容及保守语义相似度查重，同一语义即使被模型分到不同 type，也会尽量合并成一条并保留更具体的 type。旧数据不需要手动迁移，读取、导出和下一次合并时会自动兼容。
 

@@ -147,7 +147,8 @@ public class RoleplayGlobalMemoryService {
                     List<JSONObject> batch = batches.get(i);
                     plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
                             +"/"+batches.size()+" 开始：输入 "+batch.size()+" 条");
-                    List<JSONObject> merged = mergeGlobalBatch(ai,batch,round,i+1,batches.size());
+                    List<JSONObject> merged = mergeGlobalBatchWithRetry(ai,batch,round,
+                            i+1,batches.size());
                     if (merged == null) {
                         plugin.getLogger().sendWarn("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
                                 +" 失败，放弃本次合并，原记忆保持不变");
@@ -188,6 +189,21 @@ public class RoleplayGlobalMemoryService {
         } finally {
             merging = false;
         }
+    }
+
+    private List<JSONObject> mergeGlobalBatchWithRetry(PluginService ai,List<JSONObject> batch,
+                                                       int round,int batchNo,int batchCount) {
+        int retries = Math.max(0,Math.min(5,config.memoryMergeRetryCount));
+        for (int attempt = 0; attempt <= retries; attempt++) {
+            List<JSONObject> merged = mergeGlobalBatch(ai,batch,round,batchNo,batchCount);
+            if (merged != null) return merged;
+            if (attempt >= retries) break;
+            plugin.getLogger().sendWarn("[永久记忆] 合并第 "+round+" 轮 批次 "
+                    +batchNo+"/"+batchCount+" 第 "+(attempt+1)+" 次失败，准备重试（"
+                    +(attempt+2)+"/"+(retries+1)+"）");
+            if (!sleepQuietly(2000L * (attempt + 1))) return null;
+        }
+        return null;
     }
 
     private List<JSONObject> mergeGlobalBatch(PluginService ai,List<JSONObject> batch,
@@ -259,6 +275,16 @@ public class RoleplayGlobalMemoryService {
             resultList.add(memory);
         }
         return resultList.isEmpty() ? null : resultList;
+    }
+
+    private boolean sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     private boolean isMergeResultSafe(int original,int merged) {

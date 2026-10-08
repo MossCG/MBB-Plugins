@@ -73,6 +73,7 @@ public class RoleplayConfig {
     public int memoryMergeMaxTokens = 32000;
     public int memoryMergeBatchSize = 60;
     public int memoryMergeMaxRounds = 3;
+    public int memoryMergeRetryCount = 1;
     public int memoryTimeoutSecond = 300;
     public boolean globalMemoryEnable = true;
     public String globalMemoryLearnGroups = "";
@@ -286,6 +287,7 @@ public class RoleplayConfig {
         config.memoryMergeMaxTokens = plugin.getConfig().getInt("memoryMergeMaxTokens",32000);
         config.memoryMergeBatchSize = plugin.getConfig().getInt("memoryMergeBatchSize",60);
         config.memoryMergeMaxRounds = plugin.getConfig().getInt("memoryMergeMaxRounds",3);
+        config.memoryMergeRetryCount = plugin.getConfig().getInt("memoryMergeRetryCount",1);
         config.memoryTimeoutSecond = plugin.getConfig().getInt("memoryTimeoutSecond",300);
         config.globalMemoryEnable = plugin.getConfig().getBoolean("globalMemoryEnable",true);
         config.globalMemoryLearnGroups = plugin.getConfig().getString("globalMemoryLearnGroups","");
@@ -504,6 +506,8 @@ public class RoleplayConfig {
         if (config.memoryMergeBatchSize > 200) config.memoryMergeBatchSize = 200;
         if (config.memoryMergeMaxRounds < 1) config.memoryMergeMaxRounds = 1;
         if (config.memoryMergeMaxRounds > 10) config.memoryMergeMaxRounds = 10;
+        if (config.memoryMergeRetryCount < 0) config.memoryMergeRetryCount = 0;
+        if (config.memoryMergeRetryCount > 5) config.memoryMergeRetryCount = 5;
         if (config.memoryTimeoutSecond < 30) config.memoryTimeoutSecond = 30;
         if (config.memoryTimeoutSecond > 600) config.memoryTimeoutSecond = 600;
         if (config.globalMemoryLearnGroups == null) config.globalMemoryLearnGroups = "";
