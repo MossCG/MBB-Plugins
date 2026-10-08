@@ -331,7 +331,10 @@ public class RoleplayEmotionService {
         if (mood.reason != null && !mood.reason.isEmpty()) {
             builder.append("最近群情绪原因：").append(mood.reason).append("\n");
         }
-        if (!otherRoleBot && userID > 0) {
+        if (otherRoleBot) {
+            builder.append("对当前发言者的关系：另一个角色机器人，好感很高，信任很高，厌烦很低。\n");
+            builder.append("亲密程度：按角色设定中的同伴关系处理，关系数值保持满值。\n");
+        } else if (userID > 0) {
             RelationState relation = relation(groupID,userID);
             builder.append("对当前发言者的关系：").append(relation.emotionLabel)
                     .append("，好感").append(levelText(relation.affinity))
@@ -362,7 +365,9 @@ public class RoleplayEmotionService {
                 .append("，心情=").append(levelText(mood.valence))
                 .append("，精力=").append(levelText(mood.energy))
                 .append("，耐心=").append(levelText(mood.patience));
-        if (!otherRoleBot && userID > 0) {
+        if (otherRoleBot) {
+            builder.append("；对当前机器人=同伴（关系满值）");
+        } else if (userID > 0) {
             RelationState relation = relation(groupID,userID);
             builder.append("；对当前用户=").append(relation.emotionLabel)
                     .append("，好感=").append(levelText(relation.affinity))
@@ -445,10 +450,12 @@ public class RoleplayEmotionService {
         double oldTrust = relation.trust;
         double oldAnnoyance = relation.annoyance;
         boolean owner = isBotOwner(userID);
-        relation.affinity = owner ? 100 : clamp(config.initialAffinity,0,100);
-        relation.trust = owner ? 100 : clamp(config.initialTrust,0,100);
+        boolean otherBot = isOtherRoleBotUser(userID);
+        boolean full = owner || otherBot;
+        relation.affinity = full ? 100 : clamp(config.initialAffinity,0,100);
+        relation.trust = full ? 100 : clamp(config.initialTrust,0,100);
         relation.annoyance = 0;
-        relation.emotionLabel = owner ? "妈妈" : "普通";
+        relation.emotionLabel = owner ? "妈妈" : (otherBot ? "同伴" : "普通");
         relation.emotionReason = "";
         relation.reasonStrength = 0;
         relation.reasonSource = "";
@@ -477,13 +484,13 @@ public class RoleplayEmotionService {
 
     public synchronized void setRelationReason(long groupID,long userID,String reason) {
         RelationState relation = relation(groupID,userID);
-        if (isBotOwner(userID)) {
+        if (isFullRelationUser(userID)) {
             relation.emotionReason = "";
             relation.reasonStrength = 0;
             relation.reasonSource = "";
             relation.reasonSince = 0L;
             relation.reasonExpire = 0L;
-            relation.emotionLabel = "妈妈";
+            relation.emotionLabel = isBotOwner(userID) ? "妈妈" : "同伴";
             relation.provisionalInitial = false;
             relation.updateTime = System.currentTimeMillis();
             saveRelation(relation);
@@ -504,7 +511,7 @@ public class RoleplayEmotionService {
     public synchronized void setRelationAffinity(long groupID,long userID,double affinity) {
         RelationState relation = relation(groupID,userID);
         double oldAffinity = relation.affinity;
-        relation.affinity = isBotOwner(userID) ? 100 : clampDouble(affinity,0,100);
+        relation.affinity = isFullRelationUser(userID) ? 100 : clampDouble(affinity,0,100);
         relation.emotionLabel = relationLabel(relation);
         relation.updateTime = System.currentTimeMillis();
         relation.dayKey = dayKey(relation.updateTime);
@@ -613,11 +620,11 @@ public class RoleplayEmotionService {
         double annoyance = 0;
         if (relation != null) {
             String relationReason = event.reason == null ? "" : event.reason.trim();
-            if (isBotOwner(userID)) {
+            if (isFullRelationUser(userID)) {
                 relation.affinity = 100;
                 relation.trust = 100;
                 relation.annoyance = 0;
-                relation.emotionLabel = "妈妈";
+                relation.emotionLabel = isBotOwner(userID) ? "妈妈" : "同伴";
                 relation.emotionReason = "";
                 relation.reasonStrength = 0;
                 relation.reasonSource = "";
@@ -998,11 +1005,11 @@ public class RoleplayEmotionService {
 
     private void decayRelation(RelationState relation) {
         long now = System.currentTimeMillis();
-        if (isBotOwner(relation.userID)) {
+        if (isFullRelationUser(relation.userID)) {
             relation.affinity = 100;
             relation.trust = 100;
             relation.annoyance = 0;
-            relation.emotionLabel = "妈妈";
+            relation.emotionLabel = isBotOwner(relation.userID) ? "妈妈" : "同伴";
             relation.emotionReason = "";
             relation.reasonStrength = 0;
             relation.reasonSource = "";
@@ -1091,9 +1098,10 @@ public class RoleplayEmotionService {
         relation.groupID = groupID;
         relation.userID = userID;
         double multiplier = initialMultiplier(userID,relationship);
-        relation.affinity = isBotOwner(userID)
+        boolean full = isFullRelationUser(userID);
+        relation.affinity = full
                 ? 100 : clamp((int) Math.round(config.initialAffinity * multiplier),0,100);
-        relation.trust = isBotOwner(userID) ? 100 : clamp((int) Math.round(config.initialTrust
+        relation.trust = full ? 100 : clamp((int) Math.round(config.initialTrust
                 * Math.min(1.25,multiplier)),0,100);
         relation.annoyance = 0;
         relation.emotionLabel = relationLabel(relation);
@@ -1125,6 +1133,21 @@ public class RoleplayEmotionService {
     private boolean isBotOwner(long userID) {
         List<Long> owners = plugin.getServer().getOwnerList();
         return owners != null && owners.contains(userID);
+    }
+
+    private boolean isFullRelationUser(long userID) {
+        return isBotOwner(userID) || isOtherRoleBotUser(userID);
+    }
+
+    private boolean isOtherRoleBotUser(long userID) {
+        if (userID <= 0 || config == null || config.otherRoleBotQQs == null) return false;
+        for (String item : config.otherRoleBotQQs.split(",")) {
+            try {
+                if (Long.parseLong(item.trim()) == userID) return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
     }
 
     private MoodState moodFromJson(JSONObject json) {
@@ -1359,6 +1382,7 @@ public class RoleplayEmotionService {
 
     private String relationLabel(RelationState relation) {
         if (isBotOwner(relation.userID)) return "妈妈";
+        if (isOtherRoleBotUser(relation.userID)) return "同伴";
         if (relation.annoyance >= 70) return "讨厌";
         if (relation.affinity >= 85 && relation.annoyance < 40) return "亲近";
         if (relation.trust >= 75 && relation.annoyance < 50) return "信任";
