@@ -49,7 +49,7 @@ public class AIImageRenderer {
                     formatNumber(value(total,"totalTokens")),"");
             drawMetric(graphics,PADDING + (cardWidth + GAP) * 2,totalY,cardWidth,96,"成功率",
                     formatPercent(total == null ? 0 : total.getDoubleValue("successRate")),"");
-            drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,totalY,cardWidth,96,"提示词缓存",
+            drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,totalY,cardWidth,96,"累计缓存率",
                     formatPercent(total == null ? 0 : total.getDoubleValue("promptCacheHitRate")),"");
 
             int profileY = totalY + 132;
@@ -98,7 +98,7 @@ public class AIImageRenderer {
                     formatNumber(value(total,"totalTokens")),"");
             drawMetric(graphics,PADDING + (cardWidth + GAP) * 3,cardY,cardWidth,96,"平均耗时",
                     formatMillis(total == null ? 0 : total.getLongValue("averageLatencyMs")),"");
-            drawMetric(graphics,PADDING + (cardWidth + GAP) * 4,cardY,cardWidth,96,"提示词缓存",
+            drawMetric(graphics,PADDING + (cardWidth + GAP) * 4,cardY,cardWidth,96,"累计缓存率",
                     formatPercent(total == null ? 0 : total.getDoubleValue("promptCacheHitRate")),"");
 
             int todayY = cardY + 124;
@@ -107,12 +107,12 @@ public class AIImageRenderer {
                     +" | 成功 "+value(today,"successes")
                     +" | 失败 "+value(today,"failures")
                     +" | 服务端缓存 "+formatNumber(value(today,"cachedPromptTokens"))+" token"
-                    +" | 本地缓存 "+value(today,"cachedHits")+" 次",
+                    +" | 今日缓存命中率 "+formatPercent(today == null ? 0 : today.getDoubleValue("promptCacheHitRate")),
                     PADDING,todayY,new Color(120,113,108),Font.PLAIN,16);
 
             int chartY = todayY + 24;
             int chartPanelHeight = 260;
-            drawChart(graphics,PADDING,chartY,WIDTH - PADDING * 2,chartPanelHeight,daily);
+            drawChart(graphics,PADDING,chartY,WIDTH - PADDING * 2,chartPanelHeight,days,daily);
 
             int tableY = chartY + chartPanelHeight + 28;
             drawPanel(graphics,PADDING,tableY,WIDTH - PADDING * 2,112 + rowCount * 28,"模型配置统计");
@@ -179,8 +179,10 @@ public class AIImageRenderer {
         drawText(graphics,title,x + 20,y + 36,new Color(68,64,60),Font.BOLD,20);
     }
 
-    private static void drawChart(Graphics2D graphics,int x,int y,int width,int height,JSONArray daily) {
-        drawPanel(graphics,x,y,width,height,"最近 7 天 Token 趋势");
+    private static void drawChart(Graphics2D graphics,int x,int y,int width,int height,int days,JSONArray daily) {
+        drawPanel(graphics,x,y,width,height,"最近 "+days+" 天 Token 趋势");
+        drawText(graphics,"近 "+days+" 天缓存率："+formatPercent(cacheRate(daily)),
+                x + 24,y + 62,new Color(180,83,9),Font.BOLD,13);
         drawChartLegend(graphics,x + width - 420,y + 36);
         int chartX = x + 24;
         int chartY = y + 86;
@@ -305,6 +307,19 @@ public class AIImageRenderer {
 
     private static String formatMillion(long value) {
         return String.format(Locale.US,"%.1fM",value / 1_000_000.0);
+    }
+
+    private static double cacheRate(JSONArray daily) {
+        long promptTokens = 0L;
+        long cachedPromptTokens = 0L;
+        if (daily != null) {
+            for (int i = 0; i < daily.size(); i++) {
+                JSONObject item = daily.getJSONObject(i);
+                promptTokens += value(item,"promptTokens");
+                cachedPromptTokens += value(item,"cachedPromptTokens");
+            }
+        }
+        return promptTokens <= 0 ? 0.0 : cachedPromptTokens * 100.0 / promptTokens;
     }
 
     private static String formatPercent(double value) {
