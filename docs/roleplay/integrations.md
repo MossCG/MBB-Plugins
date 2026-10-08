@@ -79,7 +79,7 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 
 用户只能查看和修改自己在当前群的提醒；编辑会重新排期，旧定时器不会提前触发。
 
-自我提醒会保存原始上下文，并在到点生成时明确“这是角色自己该做的事”，避免把“让小桃十点睡觉”误写成提醒用户。
+自我提醒会保存原始上下文，并在到点生成时明确“这是角色自己该做的事”，避免把角色自己的待办误写成提醒用户。
 
 
 ## 台词语料检索
@@ -87,12 +87,10 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 语料文件放在插件数据目录：
 
 ```text
-speech-corpus/speech-corpus-aris.jsonl
-speech-corpus/speech-corpus-momoi.jsonl
-speech-corpus/speech-corpus-midori.jsonl
+speech-corpus/speech-corpus-<persona>.jsonl
 ```
 
-插件内置了三份初始语料，首次运行会自动释放到上述目录；已有语料文件不会被覆盖。
+插件内置示例语料，首次运行会自动释放到上述目录；已有语料文件不会被覆盖。
 
 每行一个 JSON 对象：
 
@@ -129,14 +127,33 @@ speechSimilarityMinChars: 6
 
 知识库用来回答事实类问题，人设、口癖和关系仍然由 persona 负责。格式标准见 [KNOWLEDGE.md](../../MBB-Roleplay/KNOWLEDGE.md)。
 
+推荐直接安装公开知识库：
+
+[MossCG/MBB-Knowledge](https://github.com/MossCG/MBB-Knowledge)
+
+安装步骤：
+
+1. 克隆或下载知识库仓库。
+2. 把仓库里的 `knowledge/` 目录复制到运行目录：
+
+```text
+./MoBoxBot/plugins/MBB-Roleplay/knowledge/
+```
+
+3. 在群里执行：
+
+```text
+/role kb reload
+/role kb list
+```
+
 目录结构：
 
 ```text
 knowledge/
-├─ ba.students/
+├─ <library>/
 │  ├─ _index.md
-│  ├─ midori.md
-│  └─ hina.md
+│  └─ example.md
 └─ REPORT.md
 ```
 

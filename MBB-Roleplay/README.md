@@ -96,6 +96,12 @@ flowchart LR
 
 没有可选插件时，Roleplay 仍可使用文本聊天、记忆、情绪和提醒功能。
 
+推荐知识库：
+
+[MossCG/MBB-Knowledge](https://github.com/MossCG/MBB-Knowledge)
+
+把仓库中的 `knowledge/` 复制到 `plugins/MBB-Roleplay/knowledge/`，再执行 `/role kb reload` 即可使用。
+
 ## 文档分册
 
 | 文档 | 内容 |
