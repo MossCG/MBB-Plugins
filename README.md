@@ -8,27 +8,27 @@ MoBoxBot 独立插件仓库。
 
 | 插件 | 指令/触发 | 权限 | 说明 |
 |---|---|---|---|
-| `MBB-Admin` | `/admin` | `OWNER` | 增删查管理员 |
-| `MBB-AI` | `/ai status/usage/reload` | `OWNER` | 公用 AI 服务，OpenAI 兼容协议 |
-| `MBB-AIGuard` | `/guard ...` | `BOT_ADMIN` | AI 群聊风险审查，支持规则、行为画像和白名单 |
-| `MBB-Chat` | `/chat <内容>`、`/chat new`、`/chat persona` | 管理员或白名单 | AI 对话，每人独立上下文与人设 |
-| `MBB-ChatStat` | `/chatstat group/user` | `BOT_ADMIN` | 统计群聊内容或某人在所有可见群的发言，可接 AI 总结 |
-| `MBB-ComfyUI` | `/comfyui status/reload/test` | `BOT_ADMIN` | 按群独立冷却的 ComfyUI 生图服务，供 Roleplay 的 `draw` 技能调用 |
-| `MBB-Help` | `/help` | `EVERYONE` | 按权限分区的命令帮助图片 |
-| `MBB-PigHub` | `来只猪猪` | `EVERYONE` | 随机 PigHub 猪猪图片 |
-| `MBB-Ping` | `/ping` | `BOT_ADMIN` | 测试机器人是否运行中 |
-| `MBB-Plugins` | `/plugins` | `OWNER` | 插件列表与管理 |
-| `MBB-Poke` | 戳一戳 | 无 | 多行回复序列、回戳、图片 |
-| `MBB-Poll` | `/poll`、`/vote` | `BOT_ADMIN` / `EVERYONE` | 群投票 |
-| `MBB-Random` | `/random` | `EVERYONE` | 指定范围随机数 |
-| `MBB-Reload` | `/reload` | `OWNER` | 重载主程序配置 |
-| `MBB-Remind` | `/remind` | `BOT_ADMIN` | 定时提醒 |
-| `MBB-Roleplay` | `/role ...` | `BOT_ADMIN` | 按角色设定参与群聊，支持长期与短期记忆 |
-| `MBB-Status` | `/status` | `BOT_ADMIN` | 系统运行状态 |
-| `MBB-Sticker` | `/sticker ...` | `EVERYONE` / `BOT_ADMIN` | 表情包收录、AI 情绪标签检索与发送 |
-| `MBB-Vision` | `/vision ...` | `BOT_ADMIN` | 公用识图与本地缓存，供表情包和角色扮演调用 |
-| `MBB-Version` | `/version` | `BOT_ADMIN` | 版本信息图片 |
-| `MBB-Welcome` | `/welcome` | `BOT_ADMIN` | 群进群退群消息 |
+| [MBB-Admin](docs/MBB-Admin.md) | `/admin` | `OWNER` | 增删查管理员 |
+| [MBB-AI](docs/MBB-AI.md) | `/ai status/usage/reload` | `OWNER` | 公用 AI 服务，OpenAI 兼容协议 |
+| [MBB-AIGuard](docs/MBB-AIGuard.md) | `/guard ...` | `BOT_ADMIN` | AI 群聊风险审查，支持规则、行为画像和白名单 |
+| [MBB-Chat](docs/MBB-Chat.md) | `/chat <内容>`、`/chat new`、`/chat persona` | 管理员或白名单 | AI 对话，每人独立上下文与人设 |
+| [MBB-ChatStat](docs/MBB-ChatStat.md) | `/chatstat group/user` | `BOT_ADMIN` | 统计群聊内容或某人在所有可见群的发言，可接 AI 总结 |
+| [MBB-ComfyUI](docs/MBB-ComfyUI.md) | `/comfyui status/reload/test` | `BOT_ADMIN` | 按群独立冷却的 ComfyUI 生图服务，供 Roleplay 的 `draw` 技能调用 |
+| [MBB-Help](docs/MBB-Help.md) | `/help` | `EVERYONE` | 按权限分区的命令帮助图片 |
+| [MBB-PigHub](docs/MBB-PigHub.md) | `来只猪猪` | `EVERYONE` | 随机 PigHub 猪猪图片 |
+| [MBB-Ping](docs/MBB-Ping.md) | `/ping` | `BOT_ADMIN` | 测试机器人是否运行中 |
+| [MBB-Plugins](docs/MBB-Plugins.md) | `/plugins` | `OWNER` | 插件列表与管理 |
+| [MBB-Poke](docs/MBB-Poke.md) | 戳一戳 | 无 | 多行回复序列、回戳、图片 |
+| [MBB-Poll](docs/MBB-Poll.md) | `/poll`、`/vote` | `BOT_ADMIN` / `EVERYONE` | 群投票 |
+| [MBB-Random](docs/MBB-Random.md) | `/random` | `EVERYONE` | 指定范围随机数 |
+| [MBB-Reload](docs/MBB-Reload.md) | `/reload` | `OWNER` | 重载主程序配置 |
+| [MBB-Remind](docs/MBB-Remind.md) | `/remind` | `BOT_ADMIN` | 定时提醒 |
+| [MBB-Roleplay](docs/MBB-Roleplay.md) | `/role ...` | `BOT_ADMIN` | 按角色设定参与群聊，支持长期与短期记忆 |
+| [MBB-Status](docs/MBB-Status.md) | `/status` | `BOT_ADMIN` | 系统运行状态 |
+| [MBB-Sticker](docs/MBB-Sticker.md) | `/sticker ...` | `EVERYONE` / `BOT_ADMIN` | 表情包收录、AI 情绪标签检索与发送 |
+| [MBB-Vision](docs/MBB-Vision.md) | `/vision ...` | `BOT_ADMIN` | 公用识图与本地缓存，供表情包和角色扮演调用 |
+| [MBB-Version](docs/MBB-Version.md) | `/version` | `BOT_ADMIN` | 版本信息图片 |
+| [MBB-Welcome](docs/MBB-Welcome.md) | `/welcome` | `BOT_ADMIN` | 群进群退群消息 |
 
 ## 依赖
 
