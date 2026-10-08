@@ -30,8 +30,10 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -2261,21 +2263,35 @@ public class RoleplayService {
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round+"/"+maxRounds
                     +" 轮开始：输入 "+current.size()+" 条，共 "+batches.size()+" 批");
             List<JSONObject> mergedAll = new ArrayList<>();
-            for (int i = 0; i < batches.size(); i++) {
-                List<JSONObject> batch = batches.get(i);
-                plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
-                        +" 轮 批次 "+(i+1)+"/"+batches.size()+" 开始：输入 "+batch.size()+" 条");
-                List<JSONObject> merged = mergeLongMemoryBatchWithRetry(ai,groupID,batch,round,
-                        i+1,batches.size());
-                if (merged == null) {
-                    plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
-                            +" 轮 批次 "+(i+1)+" 失败，放弃本次合并，原记忆保持不变");
-                    return "长期记忆合并失败，原记忆保持不变。";
+            int concurrency = Math.max(1,Math.min(4,Math.min(config.memoryMergeConcurrency,
+                    batches.size())));
+            final int currentRound = round;
+            ExecutorService executor = Executors.newFixedThreadPool(concurrency);
+            try {
+                List<Future<List<JSONObject>>> futures = new ArrayList<>();
+                for (int i = 0; i < batches.size(); i++) {
+                    List<JSONObject> batch = batches.get(i);
+                    final int batchNo = i + 1;
+                    plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                            +" 轮 批次 "+batchNo+"/"+batches.size()+" 提交：输入 "+batch.size()
+                            +" 条，并发 "+concurrency);
+                    futures.add(executor.submit(() -> mergeLongMemoryBatchWithRetry(
+                            ai,groupID,batch,currentRound,batchNo,batches.size())));
                 }
-                mergedAll.addAll(merged);
-                plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
-                        +" 轮 批次 "+(i+1)+"/"+batches.size()+" 完成："
-                        +batch.size()+" -> "+merged.size()+" 条");
+                for (int i = 0; i < futures.size(); i++) {
+                    List<JSONObject> merged = futureResult(futures.get(i));
+                    if (merged == null) {
+                        plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                                +" 轮 批次 "+(i+1)+" 失败，放弃本次合并，原记忆保持不变");
+                        return "长期记忆合并失败，原记忆保持不变。";
+                    }
+                    mergedAll.addAll(merged);
+                    plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
+                            +" 轮 批次 "+(i+1)+"/"+batches.size()+" 完成："
+                            +batches.get(i).size()+" -> "+merged.size()+" 条");
+                }
+            } finally {
+                executor.shutdownNow();
             }
             current = MemoryBatchSorter.sortForMerge(mergedAll);
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
@@ -2297,6 +2313,19 @@ public class RoleplayService {
                 +" 条，合并后 "+saved+" 条，合并期间新增保留 "+newRows+" 条");
         return "长期记忆整理合并完成：原 "+original+" 条，合并后 "+saved
                 +" 条，合并期间新增保留 "+newRows+" 条。";
+    }
+
+    private List<JSONObject> futureResult(Future<List<JSONObject>> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException e) {
+            plugin.getLogger().sendWarn("[记忆] 长期记忆合并批次异常："
+                    +safe(e.getCause() == null ? e.getMessage() : e.getCause().getMessage()));
+            return null;
+        }
     }
 
     private List<JSONObject> mergeLongMemoryBatchWithRetry(PluginService ai,long groupID,

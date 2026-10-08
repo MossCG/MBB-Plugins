@@ -14,6 +14,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * 所有群共享的角色永久记忆
@@ -143,20 +147,35 @@ public class RoleplayGlobalMemoryService {
                 plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+"/"+maxRounds
                         +" 轮开始：输入 "+current.size()+" 条，共 "+batches.size()+" 批");
                 List<JSONObject> mergedAll = new ArrayList<>();
-                for (int i = 0; i < batches.size(); i++) {
-                    List<JSONObject> batch = batches.get(i);
-                    plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
-                            +"/"+batches.size()+" 开始：输入 "+batch.size()+" 条");
-                    List<JSONObject> merged = mergeGlobalBatchWithRetry(ai,batch,round,
-                            i+1,batches.size());
-                    if (merged == null) {
-                        plugin.getLogger().sendWarn("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
-                                +" 失败，放弃本次合并，原记忆保持不变");
-                        return "永久记忆合并失败，原记忆保持不变。";
+                int concurrency = Math.max(1,Math.min(4,Math.min(config.memoryMergeConcurrency,
+                        batches.size())));
+                final int currentRound = round;
+                ExecutorService executor = Executors.newFixedThreadPool(concurrency);
+                try {
+                    List<Future<List<JSONObject>>> futures = new ArrayList<>();
+                    for (int i = 0; i < batches.size(); i++) {
+                        List<JSONObject> batch = batches.get(i);
+                        final int batchNo = i + 1;
+                        plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "
+                                +batchNo+"/"+batches.size()+" 提交：输入 "+batch.size()
+                                +" 条，并发 "+concurrency);
+                        futures.add(executor.submit(() -> mergeGlobalBatchWithRetry(
+                                ai,batch,currentRound,batchNo,batches.size())));
                     }
-                    mergedAll.addAll(merged);
-                    plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
-                            +"/"+batches.size()+" 完成："+batch.size()+" -> "+merged.size()+" 条");
+                    for (int i = 0; i < futures.size(); i++) {
+                        List<JSONObject> merged = futureResult(futures.get(i));
+                        if (merged == null) {
+                            plugin.getLogger().sendWarn("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
+                                    +" 失败，放弃本次合并，原记忆保持不变");
+                            return "永久记忆合并失败，原记忆保持不变。";
+                        }
+                        mergedAll.addAll(merged);
+                        plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
+                                +"/"+batches.size()+" 完成："+batches.get(i).size()
+                                +" -> "+merged.size()+" 条");
+                    }
+                } finally {
+                    executor.shutdownNow();
                 }
                 current = MemoryBatchSorter.sortForMerge(mergedAll);
                 plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮完成：结果 "
@@ -275,6 +294,19 @@ public class RoleplayGlobalMemoryService {
             resultList.add(memory);
         }
         return resultList.isEmpty() ? null : resultList;
+    }
+
+    private List<JSONObject> futureResult(Future<List<JSONObject>> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException e) {
+            plugin.getLogger().sendWarn("[永久记忆] 合并批次异常："
+                    +safe(e.getCause() == null ? e.getMessage() : e.getCause().getMessage()));
+            return null;
+        }
     }
 
     private boolean sleepQuietly(long millis) {

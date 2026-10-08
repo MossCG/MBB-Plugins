@@ -114,7 +114,9 @@ memoryMergeBatchSize: 60
 #记忆合并最多执行多少轮分批压缩
 memoryMergeMaxRounds: 3
 #记忆合并单批失败后的最大重试次数，0 表示不重试
-memoryMergeRetryCount: 1
+memoryMergeRetryCount: 3
+#记忆合并最多同时处理多少批，范围 1 到 4
+memoryMergeConcurrency: 4
 #是否启用所有群共享的永久记忆
 globalMemoryEnable: true
 #允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习
