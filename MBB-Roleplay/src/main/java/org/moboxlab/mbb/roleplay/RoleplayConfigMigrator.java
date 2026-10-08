@@ -78,7 +78,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("otherRoleBotReplyChance","0.50","检测到另一个角色机器人发言时，继续接话的概率"),
             new ConfigEntry("maxConsecutiveOtherRoleMessages","2","没有真人插话时，最多连续回应另一个角色机器人多少条"),
             new ConfigEntry("otherRoleBotNames",RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES,
-                    "识别文本中提到的角色名，英文逗号分隔；昵称命中不再代表对方就是该角色"),
+                    "其他角色机器人名称，多个用英文逗号分隔；留空时只按 QQ 识别"),
             new ConfigEntry("otherRoleBotQQs","","其他角色机器人 QQ，多个用英文逗号分隔；只有 QQ 命中才视为角色本人"),
             new ConfigEntry("addressedOtherMemberSkip","true","消息明确艾特其他成员且没有提到角色时是否跳过"),
             new ConfigEntry("splitMessageSuppressSecond","20",
@@ -164,12 +164,13 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号，先找句末标点，再找弱标点"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
+            new ConfigEntry("repeatSuppressEnable","false","是否启用代码层重复回复兜底检测；关闭后只在提示词中约束"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
             new ConfigEntry("repeatCheckMinChars","6","少于多少字的回复不进行重复检测"),
             new ConfigEntry("repeatOpeningLimit","2","同一开头在最近角色回复中出现多少次后禁止再次使用"),
             new ConfigEntry("repeatCommonRunMinChars","8","与最近回复的最长公共片段达到多少字时判为复读，抓同一组信息换尾巴的情况"),
             new ConfigEntry("commandPrefixes","/,!,＃,#","忽略以这些前缀开头的指令消息，英文逗号分隔"),
-            new ConfigEntry("personaFile","persona-aris.json","角色设定文件：persona-aris.json（爱丽丝/Aris）/ persona-momoi.json（桃井）/ persona-midori.json（绿）"),
+            new ConfigEntry("personaFile","persona-aris.json","角色设定文件；内置示例可用 /role persona 查看"),
             new ConfigEntry("minMessageLength","2","忽略少于多少字的纯文本消息"));
 
     public static int ensure(Plugin plugin) {

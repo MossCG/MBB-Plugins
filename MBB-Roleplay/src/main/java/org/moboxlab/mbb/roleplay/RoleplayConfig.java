@@ -10,8 +10,7 @@ import java.util.Locale;
 public class RoleplayConfig {
     public static final double DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE = 0.50;
     public static final int DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES = 2;
-    public static final String DEFAULT_OTHER_ROLE_BOT_NAMES =
-            "桃井,小桃,桃,才羽桃井,绿,小绿,才羽绿,爱丽丝,天童爱丽丝,モモイ,ミドリ";
+    public static final String DEFAULT_OTHER_ROLE_BOT_NAMES = "";
 
     public boolean enable = true;
     public String aiProfile = "default";
@@ -143,6 +142,7 @@ public class RoleplayConfig {
     public String replySplitPunctuation = "。！？!?；;，、：,:～~…";
     public int replyMaxSegments = 2;
     public int recentReplyCheckCount = 8;
+    public boolean repeatSuppressEnable = false;
     public double repeatSimilarityThreshold = 0.72;
     public int repeatCommonRunMinChars = 8;
     public int repeatCheckMinChars = 6;
@@ -377,6 +377,7 @@ public class RoleplayConfig {
                 "replySplitPunctuation","。！？!?；;，、：,:～~…");
         config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
         config.recentReplyCheckCount = plugin.getConfig().getInt("recentReplyCheckCount",8);
+        config.repeatSuppressEnable = plugin.getConfig().getBoolean("repeatSuppressEnable",false);
         try {
             config.repeatSimilarityThreshold = Double.parseDouble(plugin.getConfig().getString("repeatSimilarityThreshold","0.72"));
         } catch (Exception e) {
@@ -469,9 +470,7 @@ public class RoleplayConfig {
         if (config.otherRoleBotReplyChance < 0) config.otherRoleBotReplyChance = 0;
         if (config.otherRoleBotReplyChance > 1) config.otherRoleBotReplyChance = 1;
         if (config.maxConsecutiveOtherRoleMessages < 0) config.maxConsecutiveOtherRoleMessages = 0;
-        if (config.otherRoleBotNames == null || config.otherRoleBotNames.trim().isEmpty()) {
-            config.otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
-        }
+        if (config.otherRoleBotNames == null) config.otherRoleBotNames = "";
         if (config.otherRoleBotQQs == null) config.otherRoleBotQQs = "";
         if (config.splitMessageSuppressSecond < 0) config.splitMessageSuppressSecond = 0;
         if (config.splitMessageSuppressSecond > 300) config.splitMessageSuppressSecond = 300;

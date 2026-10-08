@@ -19,7 +19,7 @@ public class RoleplayRouteDecision {
     public boolean quoteRequired = false;
     /** 本轮允许的表达类动作，执行层只能从中选 */
     public List<String> actions = new ArrayList<>();
-    /** 本轮要注入的资料 id，形如 students.detail:优香 */
+    /** 本轮要注入的资料 id，形如 students.detail:角色名 */
     public List<String> materials = new ArrayList<>();
     /** 路由层点名要挂的技能 id，目前用于日志与后续 PRE 技能 */
     public List<String> skills = new ArrayList<>();

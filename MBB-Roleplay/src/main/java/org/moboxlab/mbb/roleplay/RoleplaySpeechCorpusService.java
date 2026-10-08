@@ -18,24 +18,6 @@ import java.util.Set;
  * 角色台词语料检索
  */
 public class RoleplaySpeechCorpusService {
-    private static final String[] MIDORI_TOPIC_KEYWORDS = {
-            "画","美术","设计","配色","构图","画稿","草稿","赶稿","画笔"
-    };
-    private static final String[] MIDORI_TOPIC_TAGS = {
-            "美术","角色设计","配色","构图","画画","设计","画稿","草稿","赶稿","画笔"
-    };
-    private static final String[] MIDORI_TOPIC_TEXT = {
-            "画稿","草稿","赶稿","画笔"
-    };
-    private static final String[] MOMOI_TOPIC_KEYWORDS = {
-            "剧本","剧情","第一幕","第二幕","第三幕","创作","写作","大纲","台词","幕"
-    };
-    private static final String[] MOMOI_TOPIC_TAGS = {
-            "剧本","写作","创作","剧情","大纲","台词"
-    };
-    private static final String[] MOMOI_TOPIC_TEXT = {
-            "第一幕","第二幕","第三幕","剧本","大纲"
-    };
     private final Plugin plugin;
     private volatile RoleplayConfig config;
     private volatile List<SpeechCorpusEntry> entries = new ArrayList<>();
@@ -152,7 +134,6 @@ public class RoleplaySpeechCorpusService {
             if (!emotions.isEmpty() && emotions.contains(entry.emotion)) score += 0.2;
             if (!scene.isEmpty() && scene.equals(entry.scene)) score += 0.12;
             score += (entry.weight - 1.0) * 0.05;
-            score *= topicPenalty(entry,queryText,contextText);
             if (score >= config.speechRetrievalMinScore) scored.add(new ScoredEntry(entry,score));
         }
         Collections.sort(scored,new Comparator<ScoredEntry>() {
@@ -185,41 +166,6 @@ public class RoleplaySpeechCorpusService {
             if (result.size() >= limit) break;
         }
         return result;
-    }
-
-    /**
-     * 日常话题下降低角色职业/项目类语料的召回权重，避免每轮都被画笔或剧本带偏。
-     */
-    private double topicPenalty(SpeechCorpusEntry entry,String queryText,String contextText) {
-        String key = personaKey(config.personaFile);
-        String text = safe(queryText) + safe(contextText);
-        if ("midori".equals(key) && !containsAny(text,MIDORI_TOPIC_KEYWORDS)) {
-            if (containsAnyTag(entry,MIDORI_TOPIC_TAGS) || containsAny(entry.normalized,MIDORI_TOPIC_TEXT)) {
-                return 0.35;
-            }
-        }
-        if ("momoi".equals(key) && !containsAny(text,MOMOI_TOPIC_KEYWORDS)) {
-            if (containsAnyTag(entry,MOMOI_TOPIC_TAGS) || containsAny(entry.normalized,MOMOI_TOPIC_TEXT)) {
-                return 0.45;
-            }
-        }
-        return 1.0;
-    }
-
-    private boolean containsAny(String text,String... keywords) {
-        String value = safe(text);
-        for (String keyword : keywords) {
-            if (value.contains(keyword)) return true;
-        }
-        return false;
-    }
-
-    private boolean containsAnyTag(SpeechCorpusEntry entry,String... keywords) {
-        if (entry == null || entry.tags == null) return false;
-        for (String tag : entry.tags) {
-            if (containsAny(SpeechCorpusEntry.normalize(tag),keywords)) return true;
-        }
-        return false;
     }
 
     /**
@@ -294,11 +240,10 @@ public class RoleplaySpeechCorpusService {
     }
 
     private String personaKey(String personaFile) {
-        String value = safe(personaFile).toLowerCase();
-        if (value.contains("momoi")) return "momoi";
-        if (value.contains("midori")) return "midori";
-        if (value.contains("aris") || value.contains("alice")) return "aris";
-        return "default";
+        String value = safe(personaFile).trim().toLowerCase();
+        if (value.startsWith("persona-")) value = value.substring("persona-".length());
+        if (value.endsWith(".json")) value = value.substring(0,value.length() - ".json".length());
+        return value.isEmpty() ? "default" : value;
     }
 
     private double dice(Set<String> left,Set<String> right) {

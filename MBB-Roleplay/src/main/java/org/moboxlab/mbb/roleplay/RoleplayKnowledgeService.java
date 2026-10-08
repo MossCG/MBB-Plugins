@@ -107,7 +107,7 @@ public class RoleplayKnowledgeService {
         int usable = (int) (budget * 0.92);
         int perEntry = Math.max(100,Math.min(400,usable / library.entries.size() - 35));
         StringBuilder builder = new StringBuilder(
-                "蔚蓝档案学生外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
+                "角色设定外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
         if (selfAppearance != null && !selfAppearance.trim().isEmpty()) {
             builder.append("- 本人").append(selfName == null ? "" : selfName)
                     .append("：").append(shortText(selfAppearance,perEntry)).append("\n");
@@ -517,7 +517,7 @@ public class RoleplayKnowledgeService {
             if (locked) total += 5.0;
             result.add(new Match(entry,sections,total,locked));
         }
-        //命中实体时只保留被锁定的条目，避免问小绿却把小绿的属性套到别人身上
+        //命中实体时只保留被锁定的条目，避免把角色属性套到别人身上
         boolean hasLocked = false;
         for (Match match : result) {
             if (match.locked) {

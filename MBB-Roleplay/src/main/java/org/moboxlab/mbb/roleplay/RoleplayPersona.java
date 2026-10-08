@@ -69,7 +69,6 @@ public class RoleplayPersona {
             persona.memes = readList(json.getJSONArray("memes"));
             if (persona.aliases.isEmpty()) {
                 persona.aliases.add(persona.name);
-                if (persona.name.contains("爱丽丝")) persona.aliases.add("爱丽丝");
             }
             persona.interests = readList(json.getJSONArray("interests"));
             persona.dislikes = readList(json.getJSONArray("dislikes"));
@@ -166,7 +165,7 @@ public class RoleplayPersona {
 
     public String visionReferenceText() {
         if (studentProfiles.isEmpty()) return "";
-        StringBuilder builder = new StringBuilder("蔚蓝档案学生外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
+        StringBuilder builder = new StringBuilder("角色设定外貌参考，只用于判断图片中的候选角色，不能只凭单一发色确定：\n");
         int count = 0;
         if (!appearance.isEmpty()) {
             String selfLine = "- 本人："+name;

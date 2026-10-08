@@ -913,7 +913,7 @@ public class RoleplayService {
         if (globalRemember.requested) draft.addCall(legacyGlobalMemoryCall(globalRemember.content));
         if (stickerMarker.requested) draft.addCall(legacyStickerCall(stickerMarker.tags));
         boolean sendText = !reply.isEmpty() && !"<SKIP>".equalsIgnoreCase(reply);
-        if (sendText && shouldSuppressRepeat(groupID,reply)) {
+        if (sendText && config.repeatSuppressEnable && shouldSuppressRepeat(groupID,reply)) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 跳过重复回复："+shortText(reply,80));
             sendText = false;
         }
@@ -986,7 +986,7 @@ public class RoleplayService {
             //先抽取旧标签补齐 segment.actions，再复制成执行用草稿
             RoleplayReplyDraft segmentDraft = segmentDraft(segment);
             boolean sendText = !reply.isEmpty() && !"<SKIP>".equalsIgnoreCase(reply);
-            if (sendText && shouldSuppressRepeat(groupID,reply)) {
+            if (sendText && config.repeatSuppressEnable && shouldSuppressRepeat(groupID,reply)) {
                 plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批跳过重复回复："
                         +shortText(reply,80));
                 sendText = false;
@@ -1622,9 +1622,9 @@ public class RoleplayService {
                 +"你像群里一个普通成员一样自然聊天，不是客服、助手或问答机器人。"
                 +"群里每个 QQ 都是不同的人，必须按 QQ 区分发言者：上下文里每条消息都带 QQ，"
                 +"同一个人随时可能改昵称或群名片，不要靠名字认人，也不要把不同群员当成同一个人。"
-                +"群友的昵称和群名片只是显示名，不代表他是蔚蓝档案里的那个学生；"
-                +"即使有人把昵称改成优香、小绿这类名字，他也只是普通群友，不要把他当成设定里的学生本人，"
-                +"也不要对他套用学生之间的关系。"
+                +"群友的昵称和群名片只是显示名，不代表他就是设定作品里的那个角色；"
+                +"即使有人把昵称改成角色名，他也只是普通群友，不要把他当成设定里的角色本人，"
+                +"也不要对他套用角色之间的关系。"
                 +"只有话题符合你的兴趣、有人直接艾特回复或提及你、或群友正在接续你参与过的话题时才参与；"
                 +"其他人之间的闲聊和无关话题只输出 <SKIP>。"
                 +(knowledgeService.isStudentsLibraryEnabled()
@@ -3169,7 +3169,7 @@ public class RoleplayService {
             }
         }
         String text = normalizeAddressText(content);
-        String names = config.otherRoleBotNames+","+RoleplayConfig.DEFAULT_OTHER_ROLE_BOT_NAMES;
+        String names = config.otherRoleBotNames;
         for (String item : names.split(",")) {
             String name = item.trim();
             if (name.isEmpty() || isOwnRoleName(name)) continue;

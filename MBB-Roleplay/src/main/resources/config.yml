@@ -84,7 +84,7 @@ otherRoleBotReplyChance: 0.50
 #没有真人插话时，最多连续回应另一个角色机器人多少条
 maxConsecutiveOtherRoleMessages: 2
 #识别文本中提到的角色名，英文逗号分隔；昵称命中不再代表对方就是该角色
-otherRoleBotNames: "桃井,小桃,桃,才羽桃井,绿,小绿,才羽绿,爱丽丝,天童爱丽丝,モモイ,ミドリ"
+otherRoleBotNames: ""
 #其他角色机器人 QQ，多个用英文逗号分隔；只有 QQ 命中才视为角色本人，为空时不识别其他机器人
 otherRoleBotQQs: ""
 #消息明确艾特其他成员且没有提到角色时是否跳过
@@ -207,6 +207,8 @@ replySplitPunctuation: "。！？!?；;，、：,:～~…"
 replyMaxSegments: 2
 #重复检测时参考最近多少条角色回复
 recentReplyCheckCount: 8
+#是否启用代码层重复回复兜底检测；关闭后只在提示词中约束
+repeatSuppressEnable: false
 #与最近角色回复相似度达到多少时跳过，0.3 到 1
 repeatSimilarityThreshold: 0.72
 #少于多少字的回复不进行重复检测

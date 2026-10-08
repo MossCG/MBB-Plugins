@@ -44,7 +44,7 @@ public class RoleplayMaterialBudget {
     }
 
     /**
-     * 是否命中某份资料，支持 id:参数 形式，例如 students.detail:优香
+     * 是否命中某份资料，支持 id:参数 形式，例如 students.detail:角色名
      */
     public static boolean matches(String id,List<String> requested) {
         if (id == null || requested == null || requested.isEmpty()) return false;
