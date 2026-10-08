@@ -95,18 +95,18 @@ public class RoleplayGlobalMemoryService {
         mergeNow(false);
     }
 
-    public void mergeNow(boolean force) {
-        if (merging) return;
+    public String mergeNow(boolean force) {
+        if (merging) return "永久记忆已有合并任务在执行。";
         merging = true;
         try {
             long snapshotMaxId = maxId();
-            if (snapshotMaxId <= 0) return;
+            if (snapshotMaxId <= 0) return "没有可合并的永久记忆。";
             JSONArray snapshot = exportUpTo(snapshotMaxId);
-            if (snapshot.size() < 2) return;
+            if (snapshot.size() < 2) return "永久记忆不足 2 条，无需合并。";
             PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
             if (ai == null) {
                 plugin.getLogger().sendWarn("[永久记忆] 合并跳过：MBB-AI 未启用");
-                return;
+                return "永久记忆合并失败：MBB-AI 未启用。";
             }
             service.backupAllMemories("global-memory-merge");
             List<JSONObject> current = new ArrayList<>();
@@ -145,7 +145,7 @@ public class RoleplayGlobalMemoryService {
                     if (merged == null) {
                         plugin.getLogger().sendWarn("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
                                 +" 失败，放弃本次合并，原记忆保持不变");
-                        return;
+                        return "永久记忆合并失败，原记忆保持不变。";
                     }
                     mergedAll.addAll(merged);
                     plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+" 轮 批次 "+(i+1)
@@ -157,12 +157,12 @@ public class RoleplayGlobalMemoryService {
             }
             if (executedRounds == 0) {
                 plugin.getLogger().sendInfo("[永久记忆] 未超过上限，跳过合并");
-                return;
+                return "永久记忆未超过上限，未执行合并。";
             }
             if (!isMergeResultSafe(original,current.size())) {
                 plugin.getLogger().sendWarn("[永久记忆] 合并结果异常：原 "+original
                         +" 条，合并后仅 "+current.size()+" 条，放弃本次合并");
-                return;
+                return "永久记忆合并结果异常，已放弃，原记忆保持不变。";
             }
             int newRows = Math.max(0,count() - original);
             JSONArray mergedArray = new JSONArray();
@@ -171,6 +171,8 @@ public class RoleplayGlobalMemoryService {
             int saved = insertAll(mergedArray);
             plugin.getLogger().sendInfo("[永久记忆] 整理合并完成：原 "+original
                     +" 条，合并后 "+saved+" 条，合并期间新增保留 "+newRows+" 条");
+            return "永久记忆整理合并完成：原 "+original+" 条，合并后 "+saved
+                    +" 条，合并期间新增保留 "+newRows+" 条。";
         } finally {
             merging = false;
         }

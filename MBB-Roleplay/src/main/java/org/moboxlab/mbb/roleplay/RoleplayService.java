@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -2206,31 +2207,41 @@ public class RoleplayService {
     }
 
     public boolean mergeLongMemoryNow(long groupID,boolean force) {
+        return mergeLongMemoryNow(groupID,force,null);
+    }
+
+    public boolean mergeLongMemoryNow(long groupID,boolean force,Consumer<String> callback) {
         synchronized (memoryMergingMap) {
             Boolean merging = memoryMergingMap.get(groupID);
             if (merging != null && merging) return false;
             memoryMergingMap.put(groupID,true);
         }
         submitBackground(() -> {
+            String result;
             try {
-                mergeLongMemory(groupID,force);
+                result = mergeLongMemory(groupID,force);
+            } catch (Exception e) {
+                result = "长期记忆合并失败："+safe(e.getMessage());
+                plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并异常："
+                        +safe(e.getMessage()));
             } finally {
                 memoryMergingMap.put(groupID,false);
             }
+            if (callback != null) callback.accept(result);
         });
         return true;
     }
 
-    private void mergeLongMemory(long groupID,boolean force) {
+    private String mergeLongMemory(long groupID,boolean force) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并跳过：MBB-AI 未启用");
-            return;
+            return "长期记忆合并失败：MBB-AI 未启用。";
         }
         long snapshotMaxId = maxLongMemoryId(groupID);
-        if (snapshotMaxId <= 0) return;
+        if (snapshotMaxId <= 0) return "当前群没有可合并的长期记忆。";
         List<JSONObject> snapshot = exportLongMemoriesUpTo(groupID,snapshotMaxId);
-        if (snapshot.size() < 2) return;
+        if (snapshot.size() < 2) return "当前群长期记忆不足 2 条，无需合并。";
         backupAllMemories("long-term-merge");
         List<JSONObject> current = new ArrayList<>(snapshot);
         int original = current.size();
@@ -2256,7 +2267,7 @@ public class RoleplayService {
                 if (merged == null) {
                     plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
                             +" 轮 批次 "+(i+1)+" 失败，放弃本次合并，原记忆保持不变");
-                    return;
+                    return "长期记忆合并失败，原记忆保持不变。";
                 }
                 mergedAll.addAll(merged);
                 plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆合并 第 "+round
@@ -2269,18 +2280,20 @@ public class RoleplayService {
         }
         if (executedRounds == 0) {
             plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆未超过上限，跳过合并");
-            return;
+            return "长期记忆未超过上限，未执行合并。";
         }
         if (!isMergeResultSafe(original,current.size())) {
             plugin.getLogger().sendWarn("[记忆] 群"+groupID+" 长期记忆合并结果异常：原 "
                     +original+" 条，合并后仅 "+current.size()+" 条，放弃本次合并");
-            return;
+            return "长期记忆合并结果异常，已放弃，原记忆保持不变。";
         }
         int newRows = Math.max(0,memoryCount(groupID) - original);
         deleteLongMemoriesUpTo(groupID,snapshotMaxId);
         int saved = insertLongMemories(groupID,current);
         plugin.getLogger().sendInfo("[记忆] 群"+groupID+" 长期记忆整理合并完成：原 "+original
                 +" 条，合并后 "+saved+" 条，合并期间新增保留 "+newRows+" 条");
+        return "长期记忆整理合并完成：原 "+original+" 条，合并后 "+saved
+                +" 条，合并期间新增保留 "+newRows+" 条。";
     }
 
     private long maxLongMemoryId(long groupID) {

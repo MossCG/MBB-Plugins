@@ -31,7 +31,7 @@
 | `/role bot qq ...` | `BOT_ADMIN` | 查看、增删或清空其他角色机器人 QQ |
 | `/role bot name ...` | `BOT_ADMIN` | 查看、增删、重置或清空名称识别关键词 |
 | `/role memory [页码]` | `BOT_ADMIN` | 以图片查看当前群短期记忆和长期记忆 |
-| `/role memory merge` | `BOT_ADMIN` | 手动整理合并当前群长期记忆 |
+| `/role memory merge` | `BOT_ADMIN` | 手动整理合并当前群长期记忆，完成后反馈结果 |
 | `/role memory backup` | `BOT_ADMIN` | 备份全部群的短期、长期、永久记忆 |
 | `/role memory backups` | `BOT_ADMIN` | 查看备份文件名列表 |
 | `/role memory restore <文件名>` | `OWNER` | 从备份文件恢复全部记忆 |
@@ -45,7 +45,7 @@
 | `/reminder clear` | `EVERYONE` | 取消自己在当前群的全部待触发提醒 |
 | `/role gmemory [页码]` | `BOT_ADMIN` | 图片查看全局永久记忆 |
 | `/role gmemory backup` | `BOT_ADMIN` | 兼容入口，同样创建全部记忆快照 |
-| `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆 |
+| `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆，完成后反馈结果 |
 | `/role gmemory group ...` | `BOT_ADMIN` | 管理永久记忆学习白名单群 |
 | `/role speech stats` | `BOT_ADMIN` | 查看台词语料加载状态 |
 | `/role speech reload` | `BOT_ADMIN` | 重载台词语料 |

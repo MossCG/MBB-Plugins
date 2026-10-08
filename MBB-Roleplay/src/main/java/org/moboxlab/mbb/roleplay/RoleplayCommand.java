@@ -251,9 +251,9 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {
-            boolean started = service.mergeLongMemoryNow(groupID,true);
+            boolean started = service.mergeLongMemoryNow(groupID,true,sender::sendMessage);
             sender.sendMessage(started
-                    ? "长期记忆整理合并已开始，请查看控制台日志确认结果。"
+                    ? "长期记忆整理合并已开始，完成后会在当前会话反馈结果。"
                     : "当前群已有长期记忆整理任务在执行。");
             return;
         }
@@ -307,8 +307,7 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {
-            memoryService.mergeNow(true);
-            sender.sendMessage("永久记忆整理合并已执行，请查看控制台日志确认结果。");
+            sender.sendMessage(memoryService.mergeNow(true));
             return;
         }
         if (args.length > 2 && "group".equalsIgnoreCase(args[2])) {
