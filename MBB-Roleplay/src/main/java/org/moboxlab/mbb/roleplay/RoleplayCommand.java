@@ -307,6 +307,11 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         if (args.length > 2 && "merge".equalsIgnoreCase(args[2])) {
+            if (memoryService.isMerging()) {
+                sender.sendMessage("永久记忆已有合并任务在执行。");
+                return;
+            }
+            sender.sendMessage("永久记忆整理合并已开始，完成后会在当前会话反馈结果。");
             sender.sendMessage(memoryService.mergeNow(true));
             return;
         }

@@ -45,7 +45,7 @@
 | `/reminder clear` | `EVERYONE` | 取消自己在当前群的全部待触发提醒 |
 | `/role gmemory [页码]` | `BOT_ADMIN` | 图片查看全局永久记忆 |
 | `/role gmemory backup` | `BOT_ADMIN` | 兼容入口，同样创建全部记忆快照 |
-| `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆，完成后反馈结果 |
+| `/role gmemory merge` | `BOT_ADMIN` | 手动整理合并全局永久记忆，启动时提示并完成后反馈结果 |
 | `/role gmemory group ...` | `BOT_ADMIN` | 管理永久记忆学习白名单群 |
 | `/role speech stats` | `BOT_ADMIN` | 查看台词语料加载状态 |
 | `/role speech reload` | `BOT_ADMIN` | 重载台词语料 |

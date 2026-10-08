@@ -95,6 +95,10 @@ public class RoleplayGlobalMemoryService {
         mergeNow(false);
     }
 
+    public boolean isMerging() {
+        return merging;
+    }
+
     public String mergeNow(boolean force) {
         if (merging) return "永久记忆已有合并任务在执行。";
         merging = true;
