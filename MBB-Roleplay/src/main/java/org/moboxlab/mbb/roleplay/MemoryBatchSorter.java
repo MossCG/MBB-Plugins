@@ -32,6 +32,28 @@ public class MemoryBatchSorter {
         return result;
     }
 
+    /**
+     * 永久记忆先按内容相似度聚类，避免同一语义因为 type 不同被拆到不同批次。
+     */
+    public static List<JSONObject> sortForGlobalMerge(List<JSONObject> memories) {
+        List<JSONObject> result = new ArrayList<>();
+        if (memories != null) result.addAll(memories);
+        Collections.sort(result,new Comparator<JSONObject>() {
+            @Override
+            public int compare(JSONObject left,JSONObject right) {
+                int compare = normalize(left.getString("content"))
+                        .compareTo(normalize(right.getString("content")));
+                if (compare != 0) return compare;
+                compare = normalize(left.getString("type")).compareTo(normalize(right.getString("type")));
+                if (compare != 0) return compare;
+                compare = Integer.compare(right.getIntValue("importance"),left.getIntValue("importance"));
+                if (compare != 0) return compare;
+                return Long.compare(right.getLongValue("updateTime"),left.getLongValue("updateTime"));
+            }
+        });
+        return result;
+    }
+
     public static List<List<JSONObject>> batches(List<JSONObject> memories,int batchSize) {
         List<List<JSONObject>> result = new ArrayList<>();
         if (memories == null || memories.isEmpty()) return result;
@@ -45,5 +67,9 @@ public class MemoryBatchSorter {
 
     private static String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private static String normalize(String value) {
+        return SpeechCorpusEntry.normalize(safe(value));
     }
 }

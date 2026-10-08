@@ -20,6 +20,8 @@ import java.util.Set;
  */
 public class RoleplayGlobalMemoryService {
     private static final String TABLE = "plugin_mbb_roleplay_global_memory";
+    /**合并写回前的保守语义去重阈值，只处理高度相似内容*/
+    private static final double DEDUPE_SIMILARITY = 0.88;
 
     private final Plugin plugin;
     private final RoleplayService service;
@@ -65,20 +67,20 @@ public class RoleplayGlobalMemoryService {
 
     public boolean save(String type,String content,int importance,long sourceGroupID,long sourceUserID) {
         if (!config.globalMemoryEnable) return false;
-        String memoryType = safe(type).trim();
+        String memoryType = normalizeType(type);
         String value = safe(content).trim();
-        if (memoryType.isEmpty()) memoryType = "note";
         if (value.isEmpty()) return false;
         if (importance < 1) importance = 1;
         if (importance > 5) importance = 5;
-        JSONObject exists = storage().queryOne(
-                "SELECT `ID` FROM `"+TABLE+"` WHERE `memoryType`=? AND `content`=?",
-                memoryType,value);
+        JSONObject exists = findDuplicate(value);
         long now = System.currentTimeMillis();
         if (exists != null) {
-            storage().update("UPDATE `"+TABLE+"` SET `importance`=MAX(`importance`,?),"
+            String mergedType = preferType(normalizeType(exists.getString("memoryType")),memoryType);
+            String mergedContent = chooseContent(exists.getString("content"),value);
+            storage().update("UPDATE `"+TABLE+"` SET `memoryType`=?,`content`=?,`importance`=MAX(`importance`,?),"
                             + "`sourceGroupID`=?,`sourceUserID`=?,`updateTime`=? WHERE `ID`=?",
-                    importance,sourceGroupID,sourceUserID,now,exists.getLongValue("ID"));
+                    mergedType,mergedContent,importance,sourceGroupID,sourceUserID,now,
+                    exists.getLongValue("ID"));
             return true;
         }
         storage().insert("INSERT INTO `"+TABLE+"` "
@@ -118,7 +120,7 @@ public class RoleplayGlobalMemoryService {
                 if (!(object instanceof JSONObject)) continue;
                 JSONObject item = (JSONObject) object;
                 JSONObject normalized = new JSONObject(true);
-                normalized.put("type",safe(item.getString("memoryType")));
+                normalized.put("type",normalizeType(item.getString("memoryType")));
                 normalized.put("content",safe(item.getString("content")));
                 normalized.put("importance",item.getIntValue("importance"));
                 normalized.put("sourceGroupID",item.getLongValue("sourceGroupID"));
@@ -136,7 +138,7 @@ public class RoleplayGlobalMemoryService {
                 if (!needMerge && current.size() <= target) break;
                 needMerge = false;
                 executedRounds++;
-                List<JSONObject> sorted = MemoryBatchSorter.sortForMerge(current);
+                List<JSONObject> sorted = MemoryBatchSorter.sortForGlobalMerge(current);
                 List<List<JSONObject>> batches = MemoryBatchSorter.batches(sorted,batchSize);
                 plugin.getLogger().sendInfo("[永久记忆] 合并第 "+round+"/"+maxRounds
                         +" 轮开始：输入 "+current.size()+" 条，共 "+batches.size()+" 批");
@@ -162,6 +164,12 @@ public class RoleplayGlobalMemoryService {
             if (executedRounds == 0) {
                 plugin.getLogger().sendInfo("[永久记忆] 未超过上限，跳过合并");
                 return "永久记忆未超过上限，未执行合并。";
+            }
+            int beforeDedupe = current.size();
+            current = dedupeMemories(current);
+            if (current.size() < beforeDedupe) {
+                plugin.getLogger().sendInfo("[永久记忆] 合并写回前去重："
+                        +beforeDedupe+" -> "+current.size()+" 条");
             }
             if (!isMergeResultSafe(original,current.size())) {
                 plugin.getLogger().sendWarn("[永久记忆] 合并结果异常：原 "+original
@@ -190,6 +198,9 @@ public class RoleplayGlobalMemoryService {
                 +"区分角色自己的说话方式、习惯、知识，以及群友提供的通用信息。"
                 +"游戏设定、专有名词、剧情事实由知识库负责，不要写进永久记忆；"
                 +"请合并重复或高度相似的内容，保留所有有价值的信息，不要因为压缩而丢失关键内容。"
+                +"type 只能原样使用 speech_style、tone、habit、lesson、meme、note；"
+                +"speech_style 必须保留下划线，不要写成 speechstyle、speech-style 或 speech style。"
+                +"同一语义即使被分到不同 type，也必须合并成一条，只保留最准确的 type，禁止输出同一件事的多个类型版本。"
                 +"只输出 JSON，不要 Markdown：{\"memories\":[{\"type\":\"speech_style|tone|habit|"
                 +"lesson|meme|note\",\"content\":\"整理后的内容\",\"importance\":1}]}。"));
         JSONArray source = new JSONArray();
@@ -233,8 +244,7 @@ public class RoleplayGlobalMemoryService {
             JSONObject item = (JSONObject) object;
             String content = safe(item.getString("content")).trim();
             if (content.isEmpty()) continue;
-            String type = safe(item.getString("type")).trim();
-            if (type.isEmpty()) type = "note";
+            String type = normalizeType(item.getString("type"));
             int importance = item.getIntValue("importance");
             if (importance < 1) importance = 1;
             if (importance > 5) importance = 5;
@@ -294,7 +304,7 @@ public class RoleplayGlobalMemoryService {
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);
             item.put("id",row.getLongValue("ID"));
-            item.put("type",row.getString("memoryType"));
+            item.put("type",normalizeType(row.getString("memoryType")));
             item.put("content",row.getString("content"));
             item.put("importance",row.getIntValue("importance"));
             item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
@@ -407,7 +417,7 @@ public class RoleplayGlobalMemoryService {
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);
             item.put("id",row.getLongValue("ID"));
-            item.put("memoryType",row.getString("memoryType"));
+            item.put("memoryType",normalizeType(row.getString("memoryType")));
             item.put("content",row.getString("content"));
             item.put("importance",row.getIntValue("importance"));
             item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
@@ -438,7 +448,7 @@ public class RoleplayGlobalMemoryService {
         for (JSONObject row : rows) {
             JSONObject item = new JSONObject(true);
             item.put("id",row.getLongValue("ID"));
-            item.put("memoryType",row.getString("memoryType"));
+            item.put("memoryType",normalizeType(row.getString("memoryType")));
             item.put("content",row.getString("content"));
             item.put("importance",row.getIntValue("importance"));
             item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
@@ -460,11 +470,12 @@ public class RoleplayGlobalMemoryService {
         for (Object object : memories) {
             if (!(object instanceof JSONObject)) continue;
             JSONObject item = (JSONObject) object;
-            String type = safe(item.getString("memoryType"));
-            if (type.isEmpty()) type = safe(item.getString("type"));
+            String type = normalizeType(item.getString("memoryType"));
+            if ("note".equals(type) && item.getString("type") != null) {
+                type = normalizeType(item.getString("type"));
+            }
             String content = safe(item.getString("content")).trim();
             if (content.isEmpty()) continue;
-            if (type.isEmpty()) type = "note";
             int importance = item.getIntValue("importance");
             if (importance < 1) importance = 1;
             if (importance > 5) importance = 5;
@@ -484,6 +495,145 @@ public class RoleplayGlobalMemoryService {
     public String formatTime(long time) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.CHINA);
         return format.format(new Date(time));
+    }
+
+    /**
+     * 旧数据和新模型输出都可能把 speech_style 写成 speechstyle / speech-style。
+     * 这里统一归一化，但保留其他合法类型。
+     */
+    public static String normalizeType(String type) {
+        String value = safeStatic(type).trim().toLowerCase(Locale.ROOT)
+                .replace('-','_').replace(' ','_');
+        if (value.isEmpty()) return "note";
+        if ("speechstyle".equals(value) || "speech".equals(value)) return "speech_style";
+        if ("knowledge".equals(value)) return "lesson";
+        if ("speech_style".equals(value) || "tone".equals(value) || "habit".equals(value)
+                || "lesson".equals(value) || "meme".equals(value) || "note".equals(value)) {
+            return value;
+        }
+        return value;
+    }
+
+    private static String safeStatic(String value) {
+        return value == null ? "" : value;
+    }
+
+    private static String normalizeContent(String content) {
+        return SpeechCorpusEntry.normalize(safeStatic(content));
+    }
+
+    private JSONObject findDuplicate(String content) {
+        String normalized = normalizeContent(content);
+        if (normalized.isEmpty()) return null;
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`memoryType`,`content` FROM `"+TABLE+"`");
+        if (rows == null) return null;
+        for (JSONObject row : rows) {
+            String other = normalizeContent(row.getString("content"));
+            if (other.isEmpty()) continue;
+            if (normalized.equals(other)) return row;
+            if (normalized.length() >= 6 && other.length() >= 6
+                    && similarity(normalized,other) >= DEDUPE_SIMILARITY) {
+                return row;
+            }
+        }
+        return null;
+    }
+
+    private List<JSONObject> dedupeMemories(List<JSONObject> memories) {
+        List<JSONObject> result = new ArrayList<>();
+        if (memories == null) return result;
+        for (JSONObject item : memories) {
+            if (item == null) continue;
+            JSONObject duplicate = findSimilar(result,item.getString("content"));
+            if (duplicate == null) {
+                result.add(copyMemory(item));
+            } else {
+                mergeMemoryFields(duplicate,item);
+            }
+        }
+        return result;
+    }
+
+    private JSONObject findSimilar(List<JSONObject> memories,String content) {
+        String normalized = normalizeContent(content);
+        if (normalized.isEmpty()) return null;
+        for (JSONObject item : memories) {
+            String other = normalizeContent(item.getString("content"));
+            if (other.isEmpty()) continue;
+            if (normalized.equals(other)) return item;
+            if (normalized.length() >= 6 && other.length() >= 6
+                    && similarity(normalized,other) >= DEDUPE_SIMILARITY) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private JSONObject copyMemory(JSONObject item) {
+        JSONObject copy = new JSONObject(true);
+        copy.put("type",normalizeType(item.getString("type") == null
+                ? item.getString("memoryType") : item.getString("type")));
+        copy.put("content",safe(item.getString("content")));
+        copy.put("importance",item.getIntValue("importance"));
+        copy.put("sourceGroupID",item.getLongValue("sourceGroupID"));
+        copy.put("sourceUserID",item.getLongValue("sourceUserID"));
+        copy.put("updateTime",item.getLongValue("updateTime"));
+        return copy;
+    }
+
+    private void mergeMemoryFields(JSONObject target,JSONObject incoming) {
+        String targetType = normalizeType(target.getString("type") == null
+                ? target.getString("memoryType") : target.getString("type"));
+        String incomingType = normalizeType(incoming.getString("type") == null
+                ? incoming.getString("memoryType") : incoming.getString("type"));
+        target.put("type",preferType(targetType,incomingType));
+        target.put("content",chooseContent(target.getString("content"),incoming.getString("content")));
+        target.put("importance",Math.max(target.getIntValue("importance"),incoming.getIntValue("importance")));
+        if (incoming.getLongValue("updateTime") >= target.getLongValue("updateTime")) {
+            target.put("sourceGroupID",incoming.getLongValue("sourceGroupID"));
+            target.put("sourceUserID",incoming.getLongValue("sourceUserID"));
+            target.put("updateTime",incoming.getLongValue("updateTime"));
+        }
+    }
+
+    private static String preferType(String first,String second) {
+        String left = normalizeType(first);
+        String right = normalizeType(second);
+        return typePriority(left) >= typePriority(right) ? left : right;
+    }
+
+    private static int typePriority(String type) {
+        String value = normalizeType(type);
+        if ("speech_style".equals(value)) return 100;
+        if ("tone".equals(value)) return 90;
+        if ("habit".equals(value)) return 80;
+        if ("lesson".equals(value)) return 70;
+        if ("meme".equals(value)) return 60;
+        if ("note".equals(value)) return 10;
+        return 50;
+    }
+
+    private static String chooseContent(String first,String second) {
+        String left = safeStatic(first).trim();
+        String right = safeStatic(second).trim();
+        if (left.isEmpty()) return right;
+        if (right.isEmpty()) return left;
+        return normalizeContent(right).length() > normalizeContent(left).length() ? right : left;
+    }
+
+    private double similarity(String left,String right) {
+        if (left == null || right == null) return 0;
+        if (left.equals(right)) return 1.0;
+        Set<String> leftSet = SpeechCorpusEntry.bigrams(left);
+        Set<String> rightSet = SpeechCorpusEntry.bigrams(right);
+        if (leftSet.isEmpty() || rightSet.isEmpty()) return 0;
+        int intersection = 0;
+        for (String item : leftSet) {
+            if (rightSet.contains(item)) intersection++;
+        }
+        int union = leftSet.size() + rightSet.size() - intersection;
+        return union <= 0 ? 0 : intersection / (double) union;
     }
 
     private String shortText(String text,int maxChars) {

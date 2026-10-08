@@ -2070,6 +2070,8 @@ public class RoleplayService {
                 +(globalMemoryService.isLearnGroup(groupID) ? "同时返回 globalMemory 数组："
                 +"[{\"type\":\"speech_style|tone|habit|lesson|meme|note\","
                 +"\"content\":\"所有群通用、不绑定用户的记忆\",\"importance\":1}]。"
+                +"type 必须从这些值里原样选择，speech_style 必须保留下划线，不要写成 speechstyle、speech-style 或 speech style。"
+                +"同一语义的内容只能输出一条，即使你认为它同时像 speech_style、tone、habit 或 note，也要合并成最合适的一条，不要输出同一件事的多个类型版本。"
                 +"只记录角色学到的说话方式、语气、生活习惯、群梗、注意事项和经验教训；"
                 +"游戏设定、专有名词、剧情事实由知识库负责，不要写进 globalMemory；"
                 +"不要记录个人隐私或用户专属信息；没有可学内容时返回空数组。" : "")
