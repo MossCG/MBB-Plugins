@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "27";
+    private static final String CURRENT_VERSION = "28";
 
     private static class ConfigEntry {
         private final String key;
@@ -92,10 +92,12 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("memoryExtractBatches","3","单次自动整理最多连续处理的批次，避免积压消息一次消耗过多"),
             new ConfigEntry("memoryMaxTokens","12000","记忆整理输出 Token 上限，reasoning 模型建议不低于 12000"),
             new ConfigEntry("memoryMergeMaxTokens","32000","长期记忆合并输出 Token 上限，reasoning 模型建议不低于 32000"),
-            new ConfigEntry("memoryMergeBatchSize","60","记忆合并单批条数"),
+            new ConfigEntry("memoryMergeBatchSize","100","记忆合并单批条数"),
             new ConfigEntry("memoryMergeMaxRounds","3","记忆合并最多执行多少轮分批压缩"),
             new ConfigEntry("memoryMergeRetryCount","3","记忆合并单批失败后的最大重试次数，0 表示不重试"),
             new ConfigEntry("memoryMergeConcurrency","4","记忆合并最多同时处理多少批，范围 1 到 4"),
+            new ConfigEntry("memoryMergeCooldownMinute","60","单个群两次自动长期记忆合并之间的冷却分钟数，0 表示不限制"),
+            new ConfigEntry("globalMemoryMergeCooldownMinute","60","两次自动永久记忆合并之间的冷却分钟数，0 表示不限制"),
             new ConfigEntry("memoryTimeoutSecond","300","记忆整理单次请求超时秒数，长上下文和 reasoning 模型建议不低于 300"),
             new ConfigEntry("globalMemoryEnable","true","是否启用所有群共享的永久记忆"),
             new ConfigEntry("globalMemoryLearnGroups","","允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习"),
@@ -235,6 +237,8 @@ public class RoleplayConfigMigrator {
                 || "6".equals(config.getString("emotionAnalyzeMaxDelta","")));
         boolean legacyMemoryMergeRetryCount = version < 27
                 && "1".equals(config.getString("memoryMergeRetryCount",""));
+        boolean legacyMemoryMergeBatchSize = version < 28
+                && "60".equals(config.getString("memoryMergeBatchSize",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -248,12 +252,16 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 27) {
+        if (version < 28) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
         if (legacyMemoryMergeRetryCount) {
             config.set("memoryMergeRetryCount","3");
+            changed++;
+        }
+        if (legacyMemoryMergeBatchSize) {
+            config.set("memoryMergeBatchSize","100");
             changed++;
         }
         if (legacyRoleBotChance) {

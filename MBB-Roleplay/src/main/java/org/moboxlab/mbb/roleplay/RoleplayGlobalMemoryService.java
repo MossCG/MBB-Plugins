@@ -24,6 +24,7 @@ import java.util.concurrent.Future;
  */
 public class RoleplayGlobalMemoryService {
     private static final String TABLE = "plugin_mbb_roleplay_global_memory";
+    private static final String GLOBAL_STATE_TABLE = "plugin_mbb_roleplay_global_state";
     /**合并写回前的保守语义去重阈值，只处理高度相似内容*/
     private static final double DEDUPE_SIMILARITY = 0.88;
 
@@ -50,6 +51,11 @@ public class RoleplayGlobalMemoryService {
                 + ")");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_global_memory_time` "
                 + "ON `"+TABLE+"` (`importance`,`updateTime`)");
+        storage().update("CREATE TABLE IF NOT EXISTS `"+GLOBAL_STATE_TABLE+"` ("
+                + "`stateKey` TEXT PRIMARY KEY,"
+                + "`stateValue` INTEGER NOT NULL DEFAULT 0,"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0"
+                + ")");
     }
 
     public void reload(RoleplayConfig config) {
@@ -118,6 +124,7 @@ public class RoleplayGlobalMemoryService {
                 plugin.getLogger().sendWarn("[永久记忆] 合并跳过：MBB-AI 未启用");
                 return "永久记忆合并失败：MBB-AI 未启用。";
             }
+            markMergeTriggered();
             service.backupAllMemories("global-memory-merge");
             List<JSONObject> current = new ArrayList<>();
             for (Object object : snapshot) {
@@ -327,7 +334,36 @@ public class RoleplayGlobalMemoryService {
 
     private void mergeIfNeeded() {
         if (count() <= config.globalMemoryMaxItems) return;
+        long cooldownMs = Math.max(0,config.globalMemoryMergeCooldownMinute) * 60000L;
+        long lastMerge = lastMergeTime();
+        if (cooldownMs > 0 && lastMerge > 0
+                && System.currentTimeMillis() - lastMerge < cooldownMs) {
+            return;
+        }
         service.submitBackground(this::mergeNow);
+    }
+
+    private long lastMergeTime() {
+        JSONObject row = storage().queryOne(
+                "SELECT `stateValue` FROM `"+GLOBAL_STATE_TABLE+"` WHERE `stateKey`=?",
+                "lastMergeTime");
+        return row == null ? 0L : row.getLongValue("stateValue");
+    }
+
+    private void markMergeTriggered() {
+        long now = System.currentTimeMillis();
+        JSONObject row = storage().queryOne(
+                "SELECT `stateKey` FROM `"+GLOBAL_STATE_TABLE+"` WHERE `stateKey`=?",
+                "lastMergeTime");
+        if (row == null) {
+            storage().insert("INSERT INTO `"+GLOBAL_STATE_TABLE+"` "
+                            + "(`stateKey`,`stateValue`,`updateTime`) VALUES (?,?,?)",
+                    "lastMergeTime",now,now);
+        } else {
+            storage().update("UPDATE `"+GLOBAL_STATE_TABLE+"` SET `stateValue`=?,`updateTime`=? "
+                            + "WHERE `stateKey`=?",
+                    now,now,"lastMergeTime");
+        }
     }
 
     private JSONObject parseJson(String content) {

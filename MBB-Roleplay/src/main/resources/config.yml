@@ -110,13 +110,17 @@ memoryMaxTokens: 12000
 #长期记忆合并输出 Token 上限，reasoning 模型建议不低于 32000
 memoryMergeMaxTokens: 32000
 #记忆合并单批条数
-memoryMergeBatchSize: 60
+memoryMergeBatchSize: 100
 #记忆合并最多执行多少轮分批压缩
 memoryMergeMaxRounds: 3
 #记忆合并单批失败后的最大重试次数，0 表示不重试
 memoryMergeRetryCount: 3
 #记忆合并最多同时处理多少批，范围 1 到 4
 memoryMergeConcurrency: 4
+#单个群两次自动长期记忆合并之间的冷却分钟数，0 表示不限制
+memoryMergeCooldownMinute: 60
+#两次自动永久记忆合并之间的冷却分钟数，0 表示不限制
+globalMemoryMergeCooldownMinute: 60
 #是否启用所有群共享的永久记忆
 globalMemoryEnable: true
 #允许从哪些群的上下文学习永久记忆，多个群号用英文逗号分隔；为空时暂不学习

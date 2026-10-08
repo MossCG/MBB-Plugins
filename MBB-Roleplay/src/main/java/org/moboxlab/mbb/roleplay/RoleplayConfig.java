@@ -71,10 +71,12 @@ public class RoleplayConfig {
     public int memoryExtractBatches = 3;
     public int memoryMaxTokens = 12000;
     public int memoryMergeMaxTokens = 32000;
-    public int memoryMergeBatchSize = 60;
+    public int memoryMergeBatchSize = 100;
     public int memoryMergeMaxRounds = 3;
     public int memoryMergeRetryCount = 3;
     public int memoryMergeConcurrency = 4;
+    public int memoryMergeCooldownMinute = 60;
+    public int globalMemoryMergeCooldownMinute = 60;
     public int memoryTimeoutSecond = 300;
     public boolean globalMemoryEnable = true;
     public String globalMemoryLearnGroups = "";
@@ -286,10 +288,13 @@ public class RoleplayConfig {
         config.memoryExtractBatches = plugin.getConfig().getInt("memoryExtractBatches",3);
         config.memoryMaxTokens = plugin.getConfig().getInt("memoryMaxTokens",12000);
         config.memoryMergeMaxTokens = plugin.getConfig().getInt("memoryMergeMaxTokens",32000);
-        config.memoryMergeBatchSize = plugin.getConfig().getInt("memoryMergeBatchSize",60);
+        config.memoryMergeBatchSize = plugin.getConfig().getInt("memoryMergeBatchSize",100);
         config.memoryMergeMaxRounds = plugin.getConfig().getInt("memoryMergeMaxRounds",3);
         config.memoryMergeRetryCount = plugin.getConfig().getInt("memoryMergeRetryCount",3);
         config.memoryMergeConcurrency = plugin.getConfig().getInt("memoryMergeConcurrency",4);
+        config.memoryMergeCooldownMinute = plugin.getConfig().getInt("memoryMergeCooldownMinute",60);
+        config.globalMemoryMergeCooldownMinute =
+                plugin.getConfig().getInt("globalMemoryMergeCooldownMinute",60);
         config.memoryTimeoutSecond = plugin.getConfig().getInt("memoryTimeoutSecond",300);
         config.globalMemoryEnable = plugin.getConfig().getBoolean("globalMemoryEnable",true);
         config.globalMemoryLearnGroups = plugin.getConfig().getString("globalMemoryLearnGroups","");
@@ -512,6 +517,14 @@ public class RoleplayConfig {
         if (config.memoryMergeRetryCount > 5) config.memoryMergeRetryCount = 5;
         if (config.memoryMergeConcurrency < 1) config.memoryMergeConcurrency = 1;
         if (config.memoryMergeConcurrency > 4) config.memoryMergeConcurrency = 4;
+        if (config.memoryMergeCooldownMinute < 0) config.memoryMergeCooldownMinute = 0;
+        if (config.memoryMergeCooldownMinute > 1440) config.memoryMergeCooldownMinute = 1440;
+        if (config.globalMemoryMergeCooldownMinute < 0) {
+            config.globalMemoryMergeCooldownMinute = 0;
+        }
+        if (config.globalMemoryMergeCooldownMinute > 1440) {
+            config.globalMemoryMergeCooldownMinute = 1440;
+        }
         if (config.memoryTimeoutSecond < 30) config.memoryTimeoutSecond = 30;
         if (config.memoryTimeoutSecond > 600) config.memoryTimeoutSecond = 600;
         if (config.globalMemoryLearnGroups == null) config.globalMemoryLearnGroups = "";

@@ -317,9 +317,11 @@ public class RoleplayService {
                 + "`shortSummary` TEXT NOT NULL DEFAULT '',"
                 + "`lastMemoryTime` INTEGER NOT NULL DEFAULT 0,"
                 + "`lastMemoryID` INTEGER NOT NULL DEFAULT 0,"
+                + "`lastMergeTime` INTEGER NOT NULL DEFAULT 0,"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0"
                 + ")");
         ensureColumn(STATE_TABLE,"lastMemoryID","INTEGER NOT NULL DEFAULT 0");
+        ensureColumn(STATE_TABLE,"lastMergeTime","INTEGER NOT NULL DEFAULT 0");
         storage().update("CREATE TABLE IF NOT EXISTS `"+GROUP_TABLE+"` ("
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
@@ -2203,7 +2205,34 @@ public class RoleplayService {
 
     private void mergeLongMemoryIfNeeded(long groupID) {
         if (memoryCount(groupID) <= config.maxLongMemories) return;
+        long cooldownMs = Math.max(0,config.memoryMergeCooldownMinute) * 60000L;
+        long lastMerge = memoryMergeLastTime(groupID);
+        if (cooldownMs > 0 && lastMerge > 0
+                && System.currentTimeMillis() - lastMerge < cooldownMs) {
+            return;
+        }
         mergeLongMemoryNow(groupID);
+    }
+
+    private long memoryMergeLastTime(long groupID) {
+        JSONObject row = storage().queryOne(
+                "SELECT `lastMergeTime` FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
+        return row == null ? 0L : row.getLongValue("lastMergeTime");
+    }
+
+    private void markMemoryMergeTriggered(long groupID) {
+        long now = System.currentTimeMillis();
+        JSONObject row = storage().queryOne(
+                "SELECT `ID` FROM `"+STATE_TABLE+"` WHERE `groupID`=?",groupID);
+        if (row == null) {
+            storage().insert("INSERT INTO `"+STATE_TABLE+"` "
+                            + "(`groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`lastMergeTime`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?)",
+                    groupID,"",0L,0L,now,now);
+        } else {
+            storage().update("UPDATE `"+STATE_TABLE+"` SET `lastMergeTime`=?,`updateTime`=? WHERE `groupID`=?",
+                    now,now,groupID);
+        }
     }
 
     public boolean mergeLongMemoryNow(long groupID) {
@@ -2220,6 +2249,7 @@ public class RoleplayService {
             if (merging != null && merging) return false;
             memoryMergingMap.put(groupID,true);
         }
+        markMemoryMergeTriggered(groupID);
         submitBackground(() -> {
             String result;
             try {
@@ -2592,7 +2622,7 @@ public class RoleplayService {
     private JSONArray exportShortTerm() {
         JSONArray result = new JSONArray();
         List<JSONObject> rows = storage().query(
-                "SELECT `groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`updateTime` "
+                "SELECT `groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`lastMergeTime`,`updateTime` "
                         + "FROM `"+STATE_TABLE+"` ORDER BY `groupID` ASC");
         if (rows == null) return result;
         for (JSONObject row : rows) {
@@ -2601,6 +2631,7 @@ public class RoleplayService {
             item.put("shortSummary",row.getString("shortSummary"));
             item.put("lastMemoryTime",row.getLongValue("lastMemoryTime"));
             item.put("lastMemoryID",row.getLongValue("lastMemoryID"));
+            item.put("lastMergeTime",row.getLongValue("lastMergeTime"));
             item.put("updateTime",row.getLongValue("updateTime"));
             result.add(item);
         }
@@ -2639,10 +2670,11 @@ public class RoleplayService {
             long updateTime = item.getLongValue("updateTime");
             if (updateTime <= 0) updateTime = now;
             storage().insert("INSERT OR REPLACE INTO `"+STATE_TABLE+"` "
-                            + "(`groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`updateTime`) "
-                            + "VALUES (?,?,?,?,?)",
+                            + "(`groupID`,`shortSummary`,`lastMemoryTime`,`lastMemoryID`,`lastMergeTime`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?)",
                     groupID,safe(item.getString("shortSummary")),
-                    item.getLongValue("lastMemoryTime"),item.getLongValue("lastMemoryID"),updateTime);
+                    item.getLongValue("lastMemoryTime"),item.getLongValue("lastMemoryID"),
+                    item.getLongValue("lastMergeTime"),updateTime);
             saved++;
         }
         return saved;
