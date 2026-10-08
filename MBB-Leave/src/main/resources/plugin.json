@@ -1,0 +1,13 @@
+{
+  "name": "MBB-Leave",
+  "version": "V0.0.1.0.2312",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.leave.LeavePlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot owner 退群命令：发送退群消息后离开当前群",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["leave"]
+}
