@@ -16,3 +16,4 @@ Thumbs.db
 # 角色私有设定，不入库
 MBB-Roleplay/src/main/resources/persona-momoi.json
 MBB-Roleplay/src/main/resources/persona-midori.json
+MBB-Roleplay/src/main/resources/speech-corpus/

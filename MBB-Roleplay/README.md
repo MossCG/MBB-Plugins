@@ -102,6 +102,8 @@ flowchart LR
 
 把仓库中的 `knowledge/` 复制到 `plugins/MBB-Roleplay/knowledge/`，再执行 `/role kb reload` 即可使用。
 
+persona 与台词语料由 `MBB-Persona` 私有仓库单独维护：`personas/` 复制到 `plugins/MBB-Roleplay/`，`corpus/` 复制到 `plugins/MBB-Roleplay/speech-corpus/`。
+
 ## 文档分册
 
 | 文档 | 内容 |

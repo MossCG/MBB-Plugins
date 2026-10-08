@@ -15,8 +15,6 @@ import java.util.Locale;
 public class RoleplayPlugin extends Plugin {
     private static final String[] PERSONA_FILES =
             new String[]{"persona-aris.json"};
-    private static final String[] SPEECH_CORPUS_FILES =
-            new String[]{"speech-corpus-aris.jsonl","speech-corpus-momoi.jsonl","speech-corpus-midori.jsonl"};
     private static final String[] KNOWLEDGE_EXAMPLE_FILES =
             new String[]{"example/_index.md","example/sample.md"};
 
@@ -32,7 +30,6 @@ public class RoleplayPlugin extends Plugin {
             getLogger().sendInfo("Roleplay 配置已自动补全或迁移 "+repaired+" 项。");
         }
         saveDefaultPersonas();
-        saveDefaultSpeechCorpus();
         saveDefaultKnowledge();
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
@@ -233,22 +230,4 @@ public class RoleplayPlugin extends Plugin {
         }
     }
 
-    private void saveDefaultSpeechCorpus() {
-        try {
-            File directory = new File(getDataFolder(),"speech-corpus");
-            if (!directory.exists()) directory.mkdirs();
-            for (String name : SPEECH_CORPUS_FILES) {
-                File file = new File(directory,name);
-                if (file.exists()) continue;
-                byte[] bytes = readResource("speech-corpus/"+name);
-                if (bytes == null) {
-                    getLogger().sendWarn("插件 JAR 里没有 speech-corpus/"+name+"！");
-                    continue;
-                }
-                Files.write(Paths.get(file.getAbsolutePath()),bytes);
-            }
-        } catch (Exception e) {
-            getLogger().sendException(e);
-        }
-    }
 }

@@ -90,7 +90,7 @@ AI 不可用或返回空内容时，会回退到固定模板。创建时保存�
 speech-corpus/speech-corpus-<persona>.jsonl
 ```
 
-插件内置示例语料，首次运行会自动释放到上述目录；已有语料文件不会被覆盖。
+语料统一在 `MBB-Persona` 私有仓库的 `corpus/` 中维护。把需要的语料复制到上述 `speech-corpus/` 目录后执行 `/role speech reload`；插件不再内置完整语料。
 
 每行一个 JSON 对象：
 
