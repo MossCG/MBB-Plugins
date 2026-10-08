@@ -14,7 +14,7 @@ import java.util.Locale;
  */
 public class RoleplayPlugin extends Plugin {
     private static final String[] PERSONA_FILES =
-            new String[]{"persona-aris.json","persona-momoi.json","persona-midori.json"};
+            new String[]{"persona-aris.json"};
     private static final String[] SPEECH_CORPUS_FILES =
             new String[]{"speech-corpus-aris.jsonl","speech-corpus-momoi.jsonl","speech-corpus-midori.jsonl"};
     private static final String[] KNOWLEDGE_EXAMPLE_FILES =
