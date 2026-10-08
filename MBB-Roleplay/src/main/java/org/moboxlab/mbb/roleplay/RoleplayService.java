@@ -897,6 +897,9 @@ public class RoleplayService {
                     +shortText(result.getString("content"),160));
             return;
         }
+        if (draft.repaired) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 执行层结构化结果已修复");
+        }
         if (!draft.structured) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 执行层未返回结构化结果，按纯文本处理");
         }
@@ -947,6 +950,9 @@ public class RoleplayService {
             plugin.getLogger().sendWarn("[角色] 群"+groupID+" 合批结构化结果无法解析，本轮跳过发送："
                     +shortText(result.getString("content"),160));
             return;
+        }
+        if (draft.repaired) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批结构化结果已修复");
         }
         if (!draft.structured) {
             plugin.getLogger().sendInfo("[角色] 群"+groupID+" 合批未返回结构化结果，按纯文本处理");
