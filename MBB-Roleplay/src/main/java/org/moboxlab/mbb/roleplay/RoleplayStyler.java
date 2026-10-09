@@ -58,6 +58,7 @@ public class RoleplayStyler {
                 .append("硬性要求：\n")
                 .append("- 只输出改写后的台词，不要解释、不要 Markdown、不要加引号或前缀\n")
                 .append("- 不改变事实和信息量，不新增也不删减内容\n")
+                .append("- 不改人名、数字、时间、否定、条件、承诺、拒绝和引用对象；不确定就保留原句\n")
                 .append("- 保持角色语气，说话方式：")
                 .append(persona.speechStyle == null || persona.speechStyle.isEmpty()
                         ? "自然口语" : persona.speechStyle)
@@ -67,9 +68,15 @@ public class RoleplayStyler {
                     .append("，低频自然使用，不要每句都带\n");
         }
         builder.append("- 去掉书面语连接词、总结式收尾、排比和破折号\n")
+                .append("- 禁止“不是 X 而是 Y”“不仅 X 而且 Y”“与其说……不如说”“无论……都”这类模板句\n")
+                .append("- 禁止“首先/其次/最后”“值得注意的是/不难发现/由此可见/总而言之”这类总结腔\n")
+                .append("- 不要一句话单独升华，不要替对话下结论，不要写客服式安抚和收尾\n")
                 .append("- 波浪号低频，只在真正拖长音时使用，不要每句结尾都带~\n")
                 .append("- 长度不超过原文，但也不要比原文明显更短，不要改成过短的单句\n")
-                .append("- 允许省略主语、允许短句和不完整句\n")
+                .append("- 长度和句式要自然不均匀，可以短句、半句、省略、反问、突然转移话题\n")
+                .append("- 允许省略主语、允许不完整句，不要把每句话都写完整\n")
+                .append("- 不要为了显得自然而编造原文没有的经历、情绪、动作或细节\n")
+                .append("- 不要自造缩写；人名、组织名、术语和活动名优先保留全称\n")
                 .append("触发原因：").append(trigger).append("\n");
         if (examples != null && !examples.trim().isEmpty()) {
             builder.append("台词示例，只学语气，不要照抄：\n").append(examples.trim()).append("\n");
