@@ -852,6 +852,8 @@ public class RoleplayService {
                     .append(message.userName).append("（QQ：").append(message.userID).append("）");
             if (message.otherRoleBot) builder.append("（另一个角色机器人）");
             if (message.direct) builder.append("（直接提到你）");
+            builder.append("（艾特：").append(atTargetInfo(message.event))
+                    .append("；引用：").append(quotedTargetInfo(message.groupID,message.event)).append("）");
             builder.append("：").append(safe(message.content).trim().replace("\n"," "));
             if (!message.stickerEmotion.isEmpty()
                     && i == lastMessageIndexOfUser(messages,message.userID)) {
@@ -1506,11 +1508,13 @@ public class RoleplayService {
             userText = "这一批消息里最需要回应的人："+(userName == null ? "" : userName)
                     +"（QQ："+userID+"）\n"
                     +"当前关系："+relationship+"\n"
+                    +"本批主消息指向："+addressingText(decision)+"\n"
                     +"这批连续消息（共 "+batchCount+" 条，按时间顺序）：\n"+batchText+"\n\n"
                     +"最近群聊上下文：\n"+recentContext(groupID);
         } else {
             userText = "当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                     +"当前关系："+relationship+"\n"
+                    +"当前消息指向："+addressingText(decision)+"\n"
                     +"当前消息：\n"+content+"\n\n最近群聊上下文：\n"+recentContext(groupID);
         }
         if (imageContext != null && !content.contains("[图片")) {
@@ -1553,6 +1557,14 @@ public class RoleplayService {
         JSONObject response = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),"回复",groupID,response,System.currentTimeMillis() - startTime);
         return response;
+    }
+
+    private String addressingText(RoleplayRouteDecision decision) {
+        String addressed = decision == null ? "none" : safe(decision.addressed);
+        if ("direct".equals(addressed)) return "明确对角色说";
+        if ("thread".equals(addressed)) return "延续角色参与的话题";
+        if ("ambient".equals(addressed)) return "群聊氛围中可能接话";
+        return "未明确指向角色";
     }
 
     private String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,
@@ -1636,6 +1648,8 @@ public class RoleplayService {
                 +"群友的昵称和群名片只是显示名，不代表他就是设定作品里的那个角色；"
                 +"即使有人把昵称改成角色名，他也只是普通群友，不要把他当成设定里的角色本人，"
                 +"也不要对他套用角色之间的关系。"
+                +"判断一条消息在对谁说时，优先看艾特目标、引用目标、开头明确称呼和最近对话对象；"
+                +"只是提到某个名字，不代表在对这个人说话。不要抢答明确回复别人的消息。"
                 +"只有话题符合你的兴趣、有人直接艾特回复或提及你、或群友正在接续你参与过的话题时才参与；"
                 +"其他人之间的闲聊和无关话题只输出 <SKIP>。"
                 +(knowledgeService.isStudentsLibraryEnabled()
@@ -1646,6 +1660,8 @@ public class RoleplayService {
                 +"每条消息控制在 15 到 30 字之间，硬上限 30 字。"
                 +"不要用过短的单句敷衍，例如只回“嗯”“哦”“好”“知道了”，除非确实无话可说。"
                 +"回复只保留与当前消息直接相关的内容，不要塞入无关背景、解释或补充信息。"
+                +"不要自造缩写。人名、组织名、术语、活动名和专有名词优先使用全称；"
+                +"只有 persona、知识库或当前对话里已经明确出现过的简称才能继续使用。不确定时用全称。"
                 +"不要使用“稳、没问题、放心、交给我、没丢、记下、记账上”这些词，也不要使用“收到、记住了、已记录、明白、为你”等助理式确认。"
                 +"不要总结、复述、列点、解释或给出完整方案，不要端着说话。"
                 +"像真人 QQ 聊天一样直接接话，可以省略主语，偶尔短促、吐槽、反问或只接半句。"
@@ -1882,16 +1898,45 @@ public class RoleplayService {
     /**
      * 给路由层看的发言指向说明，避免把别人之间的对话当成对角色说的
      */
-    private String addressingHint(RoleplayDecisionEngine.Signals signals) {
+    private String addressingHint(GroupMessageEvent event,long groupID,
+                                  RoleplayDecisionEngine.Signals signals) {
         if (signals == null) return "";
         List<String> parts = new ArrayList<>();
-        if (signals.mentioningSelf) parts.add("艾特了角色本人");
-        if (signals.quotingSelf) parts.add("回复的是角色本人上一条消息");
-        if (signals.direct && !signals.mentioningSelf) parts.add("开头叫了角色的名字");
-        if (signals.addressedToOtherMember) parts.add("艾特的是其他群成员，不是角色");
-        if (signals.addressedToOtherRole) parts.add("艾特的是另一个角色机器人");
-        if (parts.isEmpty()) parts.add("没有明确指向角色，需要结合上下文判断");
+        parts.add("艾特目标："+atTargetInfo(event));
+        parts.add("引用目标："+quotedTargetInfo(groupID,event));
+        if (signals.mentioningSelf) parts.add("指向角色：艾特了角色本人");
+        if (signals.quotingSelf) parts.add("指向角色：回复的是角色本人上一条消息");
+        if (signals.direct && !signals.mentioningSelf) parts.add("指向角色：开头或句首叫了角色的名字");
+        if (signals.addressedToOtherMember) parts.add("其他指向：艾特的是其他群成员，不是角色");
+        if (signals.addressedToOtherRole) parts.add("其他指向：艾特的是另一个角色机器人");
+        if (parts.size() <= 2) parts.add("指向角色：未明确指向角色，需要结合上下文判断");
         return String.join("；",parts);
+    }
+
+    private String atTargetInfo(GroupMessageEvent event) {
+        if (event == null || event.getMessage() == null) return "无";
+        List<String> targets = new ArrayList<>();
+        JSONArray message = event.getMessage();
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null || !"at".equals(segment.getString("type"))) continue;
+            JSONObject data = segment.getJSONObject("data");
+            long atID = data == null ? 0L : data.getLongValue("qq");
+            if (atID > 0) targets.add("QQ "+atID);
+        }
+        return targets.isEmpty() ? "无" : String.join("、",targets);
+    }
+
+    private String quotedTargetInfo(long groupID,GroupMessageEvent event) {
+        long quotedID = quotedMessageID(event);
+        if (quotedID <= 0) return "无";
+        JSONObject row = storage().queryOne(
+                "SELECT `userID`,`userName` FROM `"+MSG_TABLE+"` WHERE `groupID`=? AND `messageID`=? LIMIT 1",
+                groupID,quotedID);
+        if (row == null) return "未知（消息ID："+quotedID+"）";
+        String name = safe(row.getString("userName"));
+        long userID = row.getLongValue("userID");
+        return (name.isEmpty() ? "未知" : name)+"（QQ："+userID+"）";
     }
 
     /**
@@ -1906,7 +1951,7 @@ public class RoleplayService {
         RoleplayRouteDecision routed = router.route(config,persona,skillRegistry,state(groupID),
                 content,senderName(event),relationshipLabel(event,signals.otherRoleBot),
                 recentContext(groupID),emotionRouterText(groupID,event.getUserID(),
-                        signals.otherRoleBot),addressingHint(signals));
+                        signals.otherRoleBot),addressingHint(event,groupID,signals));
         if (routed == null) {
             plugin.getLogger().sendWarn("[角色] 群"+groupID+" 路由失败，回退规则决策");
             return ruleDecision;
@@ -2061,6 +2106,7 @@ public class RoleplayService {
                 +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
                 +"群员的称呼、喜好、性格这类人物属性由单独的群员印象维护，不要写进 longTerm；"
                 +"longTerm 里提到某个群员时只写他做过的具体事情（type 用 user_event），并带上发生时间。"
+                +"整理时保留人名、组织名、术语、活动名等专有名词的全称，不要自造缩写；只有原始上下文里已经明确出现过的简称才可以继续使用。"
                 +"当前时间："+currentTimeText()+"。"
                 +"群成员较多时尽量记录更多有长期价值的群内氛围、群梗、角色行为和群员做过的事情，"
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
@@ -2438,6 +2484,7 @@ public class RoleplayService {
                 +"明确区分角色自己的行为、别人对角色说过的话、以及角色对别人的印象。"
                 +"请合并重复或高度相似的内容，保留群内氛围、群梗、角色行为和重要事件（含群员做过的事情），"
                 +"不要因为压缩而丢失关键内容。角色没有父亲，任何“自称是角色爸爸”的内容都要丢弃。"
+                +"人名、组织名、术语、活动名等专有名词保留全称，不要自造缩写；只有原文中已经出现的简称才可沿用。"
                 +"旧数据里的 user_impression / user_info 是人物属性，已经由群员个人印象维护："
                 +"其中他做过的具体事情改写成 user_event 保留，纯属性描述直接丢弃。"
                 +"只输出 JSON，不要 Markdown：{\"memories\":["

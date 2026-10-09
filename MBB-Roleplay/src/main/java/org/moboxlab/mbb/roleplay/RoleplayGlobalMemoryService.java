@@ -240,6 +240,7 @@ public class RoleplayGlobalMemoryService {
                 +"区分角色自己的说话方式、习惯、知识，以及群友提供的通用信息。"
                 +"游戏设定、专有名词、剧情事实由知识库负责，不要写进永久记忆；"
                 +"请合并重复或高度相似的内容，保留所有有价值的信息，不要因为压缩而丢失关键内容。"
+                +"保留人名、组织名、术语、活动名等专有名词的全称，不要自造缩写；只有原文中已经明确出现过的简称才可沿用。"
                 +"type 只能原样使用 speech_style、tone、habit、lesson、meme、note；"
                 +"speech_style 必须保留下划线，不要写成 speechstyle、speech-style 或 speech style。"
                 +"同一语义即使被分到不同 type，也必须合并成一条，只保留最准确的 type，禁止输出同一件事的多个类型版本。"
