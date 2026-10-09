@@ -57,6 +57,7 @@ public class RoleplayCommand extends BotCommand {
                 "/role reload",
                 "/role config [repair]",
                 "/role blacklist [list|add|remove|clear] [QQ] [原因]",
+                "/role quiet [on|off|list|add <QQ>|remove <QQ>|clear]",
                 "/role member [QQ]",
                 "/role member clear <QQ>",
                 "/role mood",
@@ -148,6 +149,10 @@ public class RoleplayCommand extends BotCommand {
         }
         if ("blacklist".equals(action)) {
             handleBlacklist(sender,args);
+            return true;
+        }
+        if ("quiet".equals(action)) {
+            handleQuiet(sender,args);
             return true;
         }
         if ("member".equals(action)) {
@@ -766,6 +771,91 @@ public class RoleplayCommand extends BotCommand {
             return;
         }
         sender.sendMessage("用法：/role blacklist add <QQ> [原因] | remove <QQ> | clear | list");
+    }
+
+    /**
+     * /role quiet：免打扰名单，名单内的群员只在主动叫到角色时才得到回复
+     */
+    private void handleQuiet(CommandSender sender,String[] args) {
+        long groupID = sender.getGroupID();
+        if (groupID <= 0) {
+            sender.sendMessage("请在群聊中使用。");
+            return;
+        }
+        RoleplayQuietService quiet = service.getQuietService();
+        String action = args.length > 2 ? args[2].toLowerCase() : "status";
+        if ("on".equals(action) || "off".equals(action)) {
+            if (!sender.hasPermission(CommandPermission.BOT_ADMIN)) {
+                sender.sendMessage("开关免打扰名单需要机器人管理员权限。");
+                return;
+            }
+            boolean enabled = "on".equals(action);
+            quiet.setEnabled(groupID,enabled);
+            sender.sendMessage("本群免打扰名单已"+("on".equals(action) ? "启用" : "停用")+"。");
+            return;
+        }
+        if ("list".equals(action)) {
+            JSONArray entries = quiet.list(groupID);
+            StringBuilder builder = new StringBuilder("本群免打扰名单"
+                    +"（"+(quiet.isEnabled(groupID) ? "已启用" : "已停用")+"）：");
+            if (entries == null || entries.isEmpty()) {
+                builder.append("\n空");
+            } else {
+                for (Object object : entries) {
+                    builder.append("\n").append(((JSONObject) object).getLongValue("userID"));
+                }
+            }
+            builder.append("\n名单内的群员只在主动叫到角色时才得到回复，其他群员不受影响。");
+            sender.sendMessage(builder.toString());
+            return;
+        }
+        if ("clear".equals(action)) {
+            quiet.clear(groupID);
+            sender.sendMessage("本群免打扰名单已清空。");
+            return;
+        }
+        if ("remove".equals(action)) {
+            long targetID = sender.getUserID();
+            if (args.length > 3) {
+                targetID = parseUserID(args[3]);
+                if (targetID <= 0) {
+                    sender.sendMessage("QQ 格式不正确。");
+                    return;
+                }
+                if (targetID != sender.getUserID()
+                        && !sender.hasPermission(CommandPermission.BOT_ADMIN)) {
+                    sender.sendMessage("只能把自己移出免打扰名单，移除他人需要机器人管理员权限。");
+                    return;
+                }
+            }
+            boolean removed = quiet.remove(groupID,targetID);
+            sender.sendMessage(removed
+                    ? "用户 "+targetID+" 已移出免打扰名单。"
+                    : "用户 "+targetID+" 不在免打扰名单中。");
+            return;
+        }
+        if ("add".equals(action)) {
+            long targetID = sender.getUserID();
+            if (args.length > 3) {
+                //群员自助：只允许把自己加入名单，避免被他人强制免打扰
+                targetID = parseUserID(args[3]);
+                if (targetID <= 0) {
+                    sender.sendMessage("QQ 格式不正确。");
+                    return;
+                }
+                if (targetID != sender.getUserID()
+                        && !sender.hasPermission(CommandPermission.BOT_ADMIN)) {
+                    sender.sendMessage("只能把自己加入免打扰名单，添加他人需要机器人管理员权限。");
+                    return;
+                }
+            }
+            quiet.add(groupID,targetID,sender.getUserID());
+            sender.sendMessage("用户 "+targetID+" 已加入本群免打扰名单，"
+                    +"只有主动叫到角色时才会得到回复。");
+            return;
+        }
+        sender.sendMessage("用法：/role quiet [on|off|list|add <QQ>|remove <QQ>|clear]"
+                +"\n群员可自助使用 /role quiet add 与 /role quiet remove。");
     }
 
     /**

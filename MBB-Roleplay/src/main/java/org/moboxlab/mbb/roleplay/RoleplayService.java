@@ -62,6 +62,7 @@ public class RoleplayService {
     private final RoleplayEmotionService emotionService;
     private final RoleplayMemberService memberService;
     private final RoleplayBlacklistService blacklistService;
+    private final RoleplayQuietService quietService;
     private final RoleplaySkillRegistry skillRegistry;
     private final RoleplayRouter router;
     private final RoleplayStyler styler;
@@ -317,6 +318,7 @@ public class RoleplayService {
         this.memberService = new RoleplayMemberService(plugin,config);
         this.emotionService = new RoleplayEmotionService(plugin,config,persona,this,memberService);
         this.blacklistService = new RoleplayBlacklistService(plugin);
+        this.quietService = new RoleplayQuietService(plugin);
         this.skillRegistry = new RoleplaySkillRegistry(this);
         this.router = new RoleplayRouter(plugin,this);
         this.styler = new RoleplayStyler(plugin);
@@ -382,6 +384,7 @@ public class RoleplayService {
         emotionService.init();
         memberService.init();
         blacklistService.init();
+        quietService.init();
         ensureTurnExecutor();
         ensureBackgroundExecutor();
     }
@@ -691,6 +694,12 @@ public class RoleplayService {
                 && mentionsOtherMember(event,selfID) && !mentionsSelfRole(event,content,selfID);
         boolean multiRoleAddress = isMultiRoleAddress(event,content,selfID);
         boolean direct = isDirect(event,content,selfID) || multiRoleAddress;
+        //免打扰名单：名单内的群员只在主动叫到角色时才得到回复，其他消息不进入回复链路
+        if (quietService.shouldStayQuiet(groupID,event.getUserID(),direct)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 用户"+event.getUserID()
+                    +" 在免打扰名单中且未叫到角色，本轮保持沉默");
+            return null;
+        }
         boolean sameUserContinuation = isContinuation(groupID,event.getUserID());
         boolean justRepliedToSameUser = justRepliedToSameUser(groupID,event.getUserID());
         boolean groupActive = isGroupActive(groupID);
@@ -1499,6 +1508,10 @@ public class RoleplayService {
 
     public RoleplayBlacklistService getBlacklistService() {
         return blacklistService;
+    }
+
+    public RoleplayQuietService getQuietService() {
+        return quietService;
     }
 
     public void blacklistAdd(long groupID,long userID,String reason,long operatorID) {

@@ -241,3 +241,5 @@ commandPrefixes: "/,!,＃,#"
 personaFile: "persona-aris.json"
 #忽略少于多少字的纯文本消息
 minMessageLength: 2
+#是否启用免打扰名单：名单内的群员只在主动叫到角色时才得到回复，其他群员不受影响
+quietReplyEnable: true

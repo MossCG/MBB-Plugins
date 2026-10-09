@@ -15,6 +15,11 @@
 | `/role blacklist add <QQ> [原因]` | `BOT_ADMIN` | 将用户加入当前群黑名单，后续过滤其消息和戳一戳，不删除已有用户记忆 |
 | `/role blacklist remove <QQ>` | `BOT_ADMIN` | 将用户移出当前群黑名单 |
 | `/role blacklist clear` | `BOT_ADMIN` | 清空当前群黑名单 |
+| `/role quiet on` / `off` | `BOT_ADMIN` | 开关当前群免打扰名单，默认开启 |
+| `/role quiet list` | `BOT_ADMIN` | 查看当前群免打扰名单 |
+| `/role quiet add [QQ]` | `EVERYONE` | 把自己加入当前群免打扰名单，填 QQ 添加他人需要 `BOT_ADMIN` |
+| `/role quiet remove [QQ]` | `EVERYONE` | 把自己移出当前群免打扰名单，填 QQ 移除他人需要 `BOT_ADMIN` |
+| `/role quiet clear` | `BOT_ADMIN` | 清空当前群免打扰名单 |
 | `/role member [QQ]` | `BOT_ADMIN` | 查看角色对某个群员的个人印象，不填 QQ 则看自己 |
 | `/role member clear <QQ>` | `BOT_ADMIN` | 清空对某个群员的个人印象 |
 | `/role mood [页码]` | `BOT_ADMIN` | 以图片查看当前群情绪和情绪事件 |
