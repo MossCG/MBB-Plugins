@@ -429,7 +429,7 @@ public class ComfyUIService implements PluginService {
                     +"arm extended, looking at camera, casual candid snapshot";
         }
         if ("photo".equals(cameraMode)) {
-            return "smartphone camera photo, handheld snapshot, candid phone camera shot";
+            return "first person view, point of view, immersive perspective, candid snapshot";
         }
         return "";
     }
@@ -439,7 +439,7 @@ public class ComfyUIService implements PluginService {
             return "natural phone camera perspective, casual framing, no screenshot UI";
         }
         if ("photo".equals(cameraMode)) {
-            return "natural phone camera perspective, realistic framing, no screenshot UI";
+            return "natural first person perspective, realistic framing";
         }
         return "";
     }

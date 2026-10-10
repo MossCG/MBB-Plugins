@@ -415,7 +415,8 @@ public class RoleplaySkillRegistry {
                     ? "当用户说“自拍”“拍你”“拍一张你的照片”时，传 camera=selfie，"
                     +"prompt 写角色举着手机自拍、看镜头、自然随手拍的感觉，建议 size=portrait。"
                     +"当用户说“拍照看看你的布丁”“拍一下桌子/房间/正在做的事”时，传 camera=photo，"
-                    +"prompt 写角色手机镜头实际能看到的东西，建议 size=landscape；如果画面里出现角色本人，仍然只能出现一次。"
+                    +"prompt 写角色第一视角实际能看到的东西，不要写手机、相机、镜头、手持设备或自拍等词，"
+                    +"建议 size=landscape；如果画面里出现角色本人，仍然只能出现一次。"
                     +"camera 只允许 selfie 或 photo；普通“画一张/生图”不要传 camera。"
                     : "当前未开放相机模式，用户要求自拍或拍照时不要传 camera，也不要假装已经拍照；"
                     +"只在用户明确要求普通生图时调用 draw。";
