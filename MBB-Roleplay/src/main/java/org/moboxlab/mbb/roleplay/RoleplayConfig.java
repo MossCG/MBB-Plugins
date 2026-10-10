@@ -124,6 +124,7 @@ public class RoleplayConfig {
     public int turnThreads = 4;
     public boolean pokeReplyEnable = true;
     public boolean pokeBackEnable = true;
+    public int pokeReplyMaxChars = 20;
     public int pokeBackCooldownSecond = 60;
     public int pokeStreakWindowSecond = 60;
     public int pokeStreakThreshold = 3;
@@ -369,6 +370,7 @@ public class RoleplayConfig {
         config.batchMaxSegments = plugin.getConfig().getInt("batchMaxSegments",4);
         config.pokeReplyEnable = plugin.getConfig().getBoolean("pokeReplyEnable",true);
         config.pokeBackEnable = plugin.getConfig().getBoolean("pokeBackEnable",true);
+        config.pokeReplyMaxChars = plugin.getConfig().getInt("pokeReplyMaxChars",20);
         config.pokeBackCooldownSecond = plugin.getConfig().getInt("pokeBackCooldownSecond",60);
         config.quoteReplyEnable = plugin.getConfig().getBoolean("quoteReplyEnable",true);
         config.promptTotalChars = plugin.getConfig().getInt("promptTotalChars",26000);
@@ -637,6 +639,8 @@ public class RoleplayConfig {
         }
         if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;
         if (config.replyMaxSegments > 2) config.replyMaxSegments = 2;
+        if (config.pokeReplyMaxChars < 8) config.pokeReplyMaxChars = 8;
+        if (config.pokeReplyMaxChars > 60) config.pokeReplyMaxChars = 60;
         if (config.recentReplyCheckCount < 1) config.recentReplyCheckCount = 1;
         if (config.recentReplyCheckCount > 30) config.recentReplyCheckCount = 30;
         if (config.repeatSimilarityThreshold < 0.3) config.repeatSimilarityThreshold = 0.3;

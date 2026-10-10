@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "28";
+    private static final String CURRENT_VERSION = "29";
 
     private static class ConfigEntry {
         private final String key;
@@ -142,6 +142,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("turnThreads","4","角色回合的执行线程数，路由与生成都在这个线程池里跑"),
             new ConfigEntry("pokeReplyEnable","true","是否响应戳一戳；MBB-Poke 启用时本插件自动跳过"),
             new ConfigEntry("pokeBackEnable","true","被戳时是否允许角色戳回去"),
+            new ConfigEntry("pokeReplyMaxChars","20","戳一戳回复单条短消息的最大字符数"),
             new ConfigEntry("pokeBackCooldownSecond","60","对同一用户戳回去的最小间隔秒数"),
             new ConfigEntry("pokeStreakWindowSecond","60","连续戳一戳的统计窗口秒数，窗口内超过阈值才算骚扰"),
             new ConfigEntry("pokeStreakThreshold","3","窗口内戳几次开始算骚扰，达到后才会涨厌烦"),
@@ -258,7 +259,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 28) {
+        if (version < 29) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -367,7 +368,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 26 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 29 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort

@@ -1226,6 +1226,8 @@ public class RoleplayService {
         } else {
             hint += "如果合适可以戳回去，但正文不要只机械重复“戳回去”，换一句角色化表达。";
         }
+        hint += "本轮只回复一条短消息，最多 "+config.pokeReplyMaxChars
+                +" 字，不要换行，不要分段，不要补充无关内容。";
         decision.reason = "被戳一戳："+hint;
         if (config.pokeBackEnable && allowPokeBack) decision.actions.add("poke-back");
         String content = "[戳一戳] "+userName+" 戳了你一下。本轮建议："+hint;
@@ -1242,14 +1244,38 @@ public class RoleplayService {
         }
         String text = safe(draft.text).trim();
         boolean sendText = !text.isEmpty() && !"<SKIP>".equalsIgnoreCase(text);
-        if (sendText) ensurePokeBackAction(draft,decision,text);
+        if (sendText) {
+            ensurePokeBackAction(draft,decision,text);
+            text = normalizePokeReply(text);
+            sendText = !text.isEmpty();
+        }
         OneBotClient client = plugin.getServer().getOneBotClient();
-        if (sendText && client != null) sendReply(client,groupID,selfID,userID,text,false,false,0L);
+        if (sendText && client != null) {
+            sendSingleMessage(client,groupID,selfID,userID,text,false,0L);
+        }
         plugin.getLogger().sendInfo("[角色] 戳一戳 群"+groupID+" 用户"+userID
                 +" 回复="+(sendText ? shortText(text,60) : "无"));
         executeSkillCalls(decision,draft,groupID,userID,0L,selfID,userName,relationship,content);
         emotionService.afterTurn(groupID,userID,userName,relationship,content,
                 emotionEvent,true,false);
+    }
+
+    /**
+     * 戳一戳只允许一条短消息，优先在句末或弱标点处截断，避免再走通用多段发送。
+     */
+    private String normalizePokeReply(String text) {
+        String value = safe(text).replaceAll("\\s+"," ").trim();
+        int maxChars = Math.max(8,config.pokeReplyMaxChars);
+        if (value.length() <= maxChars) return value;
+        int cut = findSplitCut(value,maxChars,true);
+        if (cut <= 0) cut = findSplitCut(value,maxChars,false);
+        if (cut <= 0) cut = maxChars;
+        String result = value.substring(0,cut).trim();
+        if (cut < value.length() && isWeakSplitPunctuation(value.charAt(cut - 1))) {
+            result = trimWeakSplitPunctuation(result);
+        }
+        if (result.isEmpty()) result = value.substring(0,maxChars).trim();
+        return result;
     }
 
     private JSONObject pokeMember(long groupID,long userID) {

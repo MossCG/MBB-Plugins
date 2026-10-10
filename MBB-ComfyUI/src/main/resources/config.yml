@@ -5,7 +5,7 @@ enable: true
 #ComfyUI 地址
 baseUrl: "http://192.168.10.10:8188"
 #每个群的生图冷却秒数
-cooldownSecond: 600
+cooldownSecond: 60
 #单次生图最长等待秒数
 timeoutSecond: 600
 #全局队列上限

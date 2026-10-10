@@ -8,7 +8,7 @@ import org.moboxlab.moboxbot.API.Plugin;
 public class ComfyUIConfig {
     public boolean enable = true;
     public String baseUrl = "http://192.168.10.10:8188";
-    public int cooldownSecond = 600;
+    public int cooldownSecond = 60;
     public int timeoutSecond = 600;
     public int queueLimit = 3;
     public int pollIntervalSecond = 2;
@@ -38,7 +38,7 @@ public class ComfyUIConfig {
         ComfyUIConfig config = new ComfyUIConfig();
         config.enable = plugin.getConfig().getBoolean("enable",true);
         config.baseUrl = plugin.getConfig().getString("baseUrl","http://192.168.10.10:8188");
-        config.cooldownSecond = plugin.getConfig().getInt("cooldownSecond",600);
+        config.cooldownSecond = plugin.getConfig().getInt("cooldownSecond",60);
         config.timeoutSecond = plugin.getConfig().getInt("timeoutSecond",600);
         config.queueLimit = plugin.getConfig().getInt("queueLimit",3);
         config.pollIntervalSecond = plugin.getConfig().getInt("pollIntervalSecond",2);

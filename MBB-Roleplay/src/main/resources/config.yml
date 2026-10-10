@@ -193,6 +193,18 @@ messageBatchMaxMessages: 10
 messageBatchMaxAgeSecond: 20
 #合批回合最多回复几段，每段可以回应批内不同的消息
 batchMaxSegments: 4
+#是否响应戳一戳；MBB-Poke 启用时本插件自动跳过
+pokeReplyEnable: true
+#被戳时是否允许角色戳回去
+pokeBackEnable: true
+#戳一戳回复单条短消息的最大字符数
+pokeReplyMaxChars: 20
+#对同一用户戳回去的最小间隔秒数
+pokeBackCooldownSecond: 60
+#连续戳一戳的统计窗口秒数，窗口内超过阈值才算骚扰
+pokeStreakWindowSecond: 60
+#窗口内戳几次开始算骚扰，达到后才会涨厌烦
+pokeStreakThreshold: 3
 #最多加载多少条长期记忆
 maxLongMemories: 150
 #是否启用群级话题疲劳检测

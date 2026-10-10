@@ -5,8 +5,9 @@ MoBoxBot 的 ComfyUI 生图插件，通过插件服务向 `MBB-Roleplay` 提供 
 ## 功能
 
 - 连接局域网 ComfyUI，默认 `http://192.168.10.10:8188`
-- 每个群独立 600 秒生图冷却
-- 角色只需要提供 `prompt` 和尺寸
+- 每个群独立 60 秒生图冷却
+- 角色只需要提供 `prompt`、尺寸和可选的相机模式
+- 支持角色手机相机：`camera=selfie` 生成自拍视角，`camera=photo` 生成随手拍视角
 - 默认使用 `NoobAI-XL-v1.1.safetensors`
 - 默认直接生成目标尺寸，不做放大和缩放
 - 自动拼接正向提示词前后缀，提升画面细节
@@ -61,9 +62,12 @@ MBB-ComfyUI
   "userID": 789012,
   "messageID": 1234,
   "prompt": "一个金发双马尾少女在游戏机前笑",
-  "size": "square"
+  "size": "square",
+  "camera": "selfie"
 }
 ```
+
+`camera` 可省略；传 `selfie` 时会补充手机前置镜头、举着手机和自然随手拍视角，传 `photo` 时会补充手机后置镜头和手持快照视角。相机模式只影响提示词拼装和默认尺寸建议，不改变排队、冷却、图片备份与完成回调。
 
 尺寸也可以直接传：
 
@@ -163,11 +167,14 @@ promptId
 {
   "type": "draw",
   "args": {
-    "prompt": "一个金发双马尾少女在游戏机前笑",
-    "size": "square"
+    "prompt": "才羽桃井举着手机对镜头自拍，游戏开发部活动室，自然光线",
+    "size": "portrait",
+    "camera": "selfie"
   }
 }
 ```
+
+普通生图不传 `camera`；用户明确说“自拍”“拍你”时传 `selfie`，说“拍照看看你的布丁”“拍一下桌子/房间”时传 `photo`。
 
 生图完成后由 `MBB-ComfyUI` 回调 `MBB-Roleplay`，角色会在群里提醒生图发起者。
 

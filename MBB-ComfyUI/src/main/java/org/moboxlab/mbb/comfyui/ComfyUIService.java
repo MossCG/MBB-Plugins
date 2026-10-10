@@ -49,9 +49,10 @@ public class ComfyUIService implements PluginService {
         private final String prompt;
         private final int width;
         private final int height;
+        private final String cameraMode;
 
         private ComfyUIJob(long taskID,long groupID,long userID,long messageID,
-                           String prompt,int width,int height) {
+                           String prompt,int width,int height,String cameraMode) {
             this.taskID = taskID;
             this.groupID = groupID;
             this.userID = userID;
@@ -59,6 +60,7 @@ public class ComfyUIService implements PluginService {
             this.prompt = prompt;
             this.width = width;
             this.height = height;
+            this.cameraMode = cameraMode;
         }
     }
 
@@ -199,7 +201,8 @@ public class ComfyUIService implements PluginService {
             plugin.getLogger().sendWarn("[ComfyUI] prompt 超长，已从 "+original.length()
                     +" 字符截断到 "+prompt.length()+" 字符。");
         }
-        SizeResult size = resolveSize(params);
+        String cameraMode = normalizeCameraMode(params.getString("camera"));
+        SizeResult size = resolveSize(params,cameraMode);
         if (!size.success()) return error(size.error,"size");
         long remaining = cooldownRemaining(groupID);
         if (remaining > 0) {
@@ -207,7 +210,7 @@ public class ComfyUIService implements PluginService {
         }
         long taskID = sequence.incrementAndGet();
         ComfyUIJob job = new ComfyUIJob(taskID,groupID,userID,messageID,
-                prompt,size.width,size.height);
+                prompt,size.width,size.height,cameraMode);
         if (!busyGroups.add(groupID)) {
             return error("当前群已经有生图任务在执行。","busy");
         }
@@ -221,8 +224,10 @@ public class ComfyUIService implements PluginService {
         result.put("message","已加入生图队列。");
         result.put("width",size.width);
         result.put("height",size.height);
+        if (!cameraMode.isEmpty()) result.put("camera",cameraMode);
         plugin.getLogger().sendInfo("[ComfyUI] 已加入队列 群"+groupID
                 +" 用户"+userID+" 尺寸="+size.width+"x"+size.height
+                +(cameraMode.isEmpty() ? "" : " 相机="+cameraMode)
                 +" prompt="+shortText(prompt,120));
         return result;
     }
@@ -325,7 +330,8 @@ public class ComfyUIService implements PluginService {
             metadata.put("userID",job.userID);
             metadata.put("messageID",job.messageID);
             metadata.put("prompt",job.prompt);
-            metadata.put("effectivePrompt",buildPositivePrompt(job.prompt));
+            metadata.put("cameraMode",job.cameraMode);
+            metadata.put("effectivePrompt",buildPositivePrompt(job.prompt,job.cameraMode));
             metadata.put("promptPrefix",config.promptPrefix);
             metadata.put("promptSuffix",config.promptSuffix);
             metadata.put("negativePrompt",config.negativePrompt);
@@ -372,7 +378,7 @@ public class ComfyUIService implements PluginService {
         workflow.put("1",node("CheckpointLoaderSimple",inputs(
                 "ckpt_name",config.checkpoint)));
         workflow.put("2",node("CLIPTextEncode",inputs(
-                "text",buildPositivePrompt(job.prompt),
+                "text",buildPositivePrompt(job.prompt,job.cameraMode),
                 "clip",link(1,1))));
         workflow.put("3",node("CLIPTextEncode",inputs(
                 "text",config.negativePrompt,
@@ -401,12 +407,41 @@ public class ComfyUIService implements PluginService {
         return workflow;
     }
 
-    private String buildPositivePrompt(String prompt) {
+    private String buildPositivePrompt(String prompt,String cameraMode) {
         StringBuilder builder = new StringBuilder();
         appendPrompt(builder,config.promptPrefix);
+        appendPrompt(builder,cameraPromptPrefix(cameraMode));
         appendPrompt(builder,sanitizePrompt(prompt));
+        appendPrompt(builder,cameraPromptSuffix(cameraMode));
         appendPrompt(builder,config.promptSuffix);
         return builder.toString();
+    }
+
+    private String normalizeCameraMode(String value) {
+        String mode = safe(value).trim().toLowerCase(Locale.ROOT);
+        if ("selfie".equals(mode) || "photo".equals(mode)) return mode;
+        return "";
+    }
+
+    private String cameraPromptPrefix(String cameraMode) {
+        if ("selfie".equals(cameraMode)) {
+            return "smartphone selfie, front camera photo, holding smartphone, "
+                    +"arm extended, looking at camera, casual candid snapshot";
+        }
+        if ("photo".equals(cameraMode)) {
+            return "smartphone camera photo, handheld snapshot, candid phone camera shot";
+        }
+        return "";
+    }
+
+    private String cameraPromptSuffix(String cameraMode) {
+        if ("selfie".equals(cameraMode)) {
+            return "natural phone camera perspective, casual framing, no screenshot UI";
+        }
+        if ("photo".equals(cameraMode)) {
+            return "natural phone camera perspective, realistic framing, no screenshot UI";
+        }
+        return "";
     }
 
     private String sanitizePrompt(String prompt) {
@@ -477,11 +512,19 @@ public class ComfyUIService implements PluginService {
         return link;
     }
 
-    private SizeResult resolveSize(JSONObject params) {
+    private SizeResult resolveSize(JSONObject params,String cameraMode) {
         int width = params.getIntValue("width");
         int height = params.getIntValue("height");
         String preset = safe(params.getString("size"));
-        if (preset.isEmpty()) preset = config.defaultPreset;
+        if (preset.isEmpty()) {
+            if ("selfie".equals(cameraMode)) {
+                preset = "portrait";
+            } else if ("photo".equals(cameraMode)) {
+                preset = "landscape";
+            } else {
+                preset = config.defaultPreset;
+            }
+        }
         if (width <= 0 || height <= 0) {
             if ("landscape".equalsIgnoreCase(preset)) {
                 width = 1536;

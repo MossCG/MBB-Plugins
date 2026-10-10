@@ -14,7 +14,7 @@ import java.util.List;
  * ComfyUI 配置迁移与缺失项补全
  */
 public class ComfyUIConfigMigrator {
-    private static final String CURRENT_VERSION = "2";
+    private static final String CURRENT_VERSION = "3";
     private static final String LEGACY_NEGATIVE =
             "lowres, bad anatomy, bad hands, extra fingers, watermark, text, signature";
     private static final String LEGACY_SUFFIX =
@@ -58,6 +58,7 @@ public class ComfyUIConfigMigrator {
         boolean legacyNegative = LEGACY_NEGATIVE.equals(config.getString("negativePrompt",""));
         boolean legacySuffix = LEGACY_SUFFIX.equals(config.getString("promptSuffix",""));
         boolean legacyPromptMax = version < 2 && "1000".equals(config.getString("promptMaxChars",""));
+        boolean legacyCooldown = version < 3 && "600".equals(config.getString("cooldownSecond",""));
         int changed = 0;
         List<Entry> missing = new ArrayList<>();
         for (Entry entry : DEFAULTS) {
@@ -71,7 +72,7 @@ public class ComfyUIConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 ComfyUI 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 2) {
+        if (version < 3) {
             config.set("configVersion",CURRENT_VERSION);
             changed++;
         }
@@ -85,6 +86,10 @@ public class ComfyUIConfigMigrator {
         }
         if (legacyPromptMax) {
             config.set("promptMaxChars","2000");
+            changed++;
+        }
+        if (legacyCooldown) {
+            config.set("cooldownSecond","60");
             changed++;
         }
         if (changed > 0) {

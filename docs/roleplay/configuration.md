@@ -131,6 +131,7 @@ memoryRelevanceMaxChars: 5000
 globalMemoryRelevanceMaxChars: 4000
 pokeReplyEnable: true
 pokeBackEnable: true
+pokeReplyMaxChars: 20
 pokeBackCooldownSecond: 60
 pokeStreakWindowSecond: 60
 pokeStreakThreshold: 3
@@ -168,6 +169,8 @@ quietReplyEnable: true
 ```
 
 非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息控制在 15 到 30 字之间、硬上限 30 字，一条说不完可以在正文里换行，最多分两段；拆分器会先在 `replySplitPunctuation` 中查找句末标点，找不到再查逗号、顿号、冒号、分号、波浪号等弱标点，最后才按硬上限拆分。切在弱标点时，上半段末尾的标点会被去掉，避免消息以逗号之类的不完整语气结束；省略号「……」不会被从中间劈开——如果断点正好落在它中间，整对会挪到下一段。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
+
+`pokeReplyMaxChars` 默认 `20`，只约束戳一戳回复。戳一戳不会走普通回复的多段拆分，只会发送一条短消息，超出长度时优先在句末或弱标点处截断。
 
 `replyLinkFilterEnable` 默认 `true`。开启后，角色最终发送的文本会在发送前过滤掉 `http(s)://`、`www.` 和常见裸域名链接，避免模型凭空编造网址。过滤只作用于角色文本回复，不影响图片、文件和其他技能消息。
 
