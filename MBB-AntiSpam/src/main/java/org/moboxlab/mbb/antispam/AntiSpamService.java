@@ -141,7 +141,9 @@ public class AntiSpamService {
         }
         if (!forgiven && current.banAfterViolations > 0
                 && violationCount >= current.banAfterViolations) {
-            if (banUser(groupID,userID,current.banDurationSecond)) actions.add("ban");
+            //配置单位是分钟，OneBot 的 set_group_ban 用秒，这里换算
+            long seconds = current.banDurationMinute * 60L;
+            if (banUser(groupID,userID,seconds)) actions.add("ban");
         }
         //告警：群内提示由 alertCurrentGroup 决定，管理员私信由 alertAdminPrivate 决定
         boolean alert = config.alertCurrentGroup || config.alertAdminPrivate;
@@ -362,10 +364,11 @@ public class AntiSpamService {
     }
 
     /**
-     * 给本人提个醒
+     * 在群里艾特本人提醒一句
      *
+     * 不私聊打扰：提醒只发在当前群，并能被本人看到即可，也避免陌生私聊造成的困扰。
      * 语气保持平和，只说明情况和后续后果，不训人；同一个用户按冷却时间最多提醒一次，
-     * 避免变成新的骚扰源。关闭 noticeEnable 后完全不发。
+     * 避免变成新的骚扰源。关闭 noticeEnable 后完全不提醒。
      */
     private void notice(long groupID,long userID,FloodRuleEngine.Result result) {
         AntiSpamConfig current = config;
@@ -376,13 +379,16 @@ public class AntiSpamService {
         if (last != null && now - last < current.noticeCooldownSecond * 1000L) return;
         noticeTimes.put(key,now);
         StringBuilder builder = new StringBuilder();
-        builder.append("打扰一下，刚才的消息发得有点密（").append(result.label).append("）。");
-        builder.append("\n如果是在玩梗或者网络卡了，忽略这条就行；继续这样的话可能会被撤回消息");
-        if (current.banAfterViolations > 0) builder.append("，再严重会短暂禁言");
+        builder.append("只是提个醒：刚才的消息发得有点密（").append(result.label).append("），没事忽略就好～");
+        builder.append("\n继续这样的话可能会被撤回消息");
+        if (current.banAfterViolations > 0) {
+            builder.append("，再严重会禁言 ").append(current.banDurationMinute).append(" 分钟");
+        }
         builder.append("。");
         try {
-            JSONArray message = MessageUtil.message(MessageUtil.text(builder.toString()));
-            plugin.getServer().getOneBotClient().sendPrivateMessage(userID,message);
+            JSONArray message = MessageUtil.message(MessageUtil.at(userID),
+                    MessageUtil.text(" "+builder.toString()));
+            plugin.getServer().getOneBotClient().sendGroupMessage(groupID,message);
         } catch (Exception e) {
             plugin.getLogger().sendException(e);
         }

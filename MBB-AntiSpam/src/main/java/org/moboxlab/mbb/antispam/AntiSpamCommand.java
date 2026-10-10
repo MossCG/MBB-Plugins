@@ -160,14 +160,17 @@ public class AntiSpamCommand extends BotCommand {
                 +config.mentionMaxCount+" 人" : "关")
                 +"（@全体："+(config.mentionAllEnable ? "直接命中" : "不处理")+"）"
                 +"\n人性化设置：首次命中"+(config.forgiveFirst ? "只提醒" : "直接计数")
-                +" / 提醒本人"+(config.noticeEnable ? "开（"+config.noticeCooldownSecond+" 秒冷却）" : "关")
+                +" / 提醒方式"+(config.noticeEnable
+                ? "群内艾特（"+config.noticeCooldownSecond+" 秒冷却）" : "关")
                 +" / 多人玩梗"+(config.repeatBanterForgive
                 ? "不处罚（≥"+config.repeatBanterMinUsers+" 人）" : "照常计数")
                 +"\n违规计数："+("message".equals(config.violationCountMode)
                 ? "每条命中都计数" : "同一波只算一次（"+config.violationCooldownSecond+" 秒内合并）")
                 +"\n处置阶梯：撤回≥"+config.deleteAfterViolations
                 +" 次 / 禁言≥"+config.banAfterViolations+" 次"
-                +"（窗口 "+config.violationWindowSecond+" 秒，禁言 "+config.banDurationSecond+" 秒）"
+                +"（窗口 "+config.violationWindowSecond+" 秒，禁言 "
+                +config.banDurationMinute+" 分钟）"
+                +"\n注意：撤回消息和禁言都需要机器人是该群管理员，否则会被 QQ 拒绝"
                 +"\n管理员豁免："+(config.bypassAdmin ? "是" : "否")
                 +"\n当前追踪用户数："+spamService.trackedUsers());
     }

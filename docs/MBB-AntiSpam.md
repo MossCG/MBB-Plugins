@@ -7,7 +7,7 @@ MoBoxBot 群聊刷屏治理插件：检测连发、复读、超长文本与艾�
 ## 设计原则
 
 - 默认只记录和在控制台输出，**不会自动撤回或禁言**；撤回与禁言需要单独配置阈值。
-- **先提醒再处置**：累计窗口内第一次命中只私信提醒本人，不计入处置阶梯。
+- **先提醒再处置**：累计窗口内第一次命中只在群里艾特本人提醒一句，不计入处置阶梯，也不私聊打扰。
 - **同一波刷屏只算一次**：连续刷屏会被合并成一波违规，不会因为一时的连发就被迅速禁言。
 - **多人一起复读不处罚**：全群一起刷同一句话按玩梗处理，只记录。
 - **纯图片表情连发不处罚**：只记录，不撤回不禁言。
@@ -15,6 +15,8 @@ MoBoxBot 群聊刷屏治理插件：检测连发、复读、超长文本与艾�
 - 每个群可以单独开关，新群按 `defaultGroupEnable` 处理。
 - 过短内容（表情、单字回复）不参与连发与复读统计，减少误判。
 - 命中记录写入 SQLite，按 `retentionDays` 自动清理。
+
+> 权限前提：撤回消息和禁言分别对应 OneBot 的 `delete_msg` 与 `set_group_ban`，**需要机器人是本群管理员**；机器人不是管理员时 QQ 会拒绝，插件会在控制台记录处置失败，不会中断运行。只记录、提醒和告警不受此限制。
 
 ## 检测规则
 
@@ -42,15 +44,21 @@ MoBoxBot 群聊刷屏治理插件：检测连发、复读、超长文本与艾�
 
 | 累计次数 | 处置 |
 |---|---|
-| 窗口内第 1 次 | 只私信提醒本人（`forgiveFirst`），不计入阶梯 |
-| ≥ `deleteAfterViolations`（默认 2） | 撤回消息 |
-| ≥ `banAfterViolations`（默认 3） | 禁言 `banDurationSecond` 秒 |
+| 窗口内第 1 次 | 群里艾特本人提醒一句（`forgiveFirst`），不计入阶梯 |
+| ≥ `deleteAfterViolations`（默认 2） | 撤回消息（需要机器人是群管理员） |
+| ≥ `banAfterViolations`（默认 3） | 禁言 `banDurationMinute` 分钟（默认 5，需要机器人是群管理员） |
 
 违规计数默认按 `violationCountMode: session` 分波统计：同一用户在 `violationCooldownSecond`（默认 60 秒）内的连续命中算同一波，只计一次。也就是说，**一个人一时的连发最多让他被撤回一次，只有隔一段时间又继续刷才会升级到禁言**。改成 `message` 则每条命中都计数，升级更快。
 
 只记录不处置的命中（`media-flood`、多人玩梗的 `repeat-group`）不计入阶梯，事件表里处置记为 `forgiven`。
 
 把 `deleteAfterViolations` 或 `banAfterViolations` 设为 `0` 可以关闭对应处置。
+
+### 禁言时长单位
+
+QQ 的禁言以**分钟**为基本单位，所以配置项是 `banDurationMinute`（默认 `5`，即 5 分钟）。插件内部调用 OneBot 时按 `分钟 × 60` 换算成秒。
+
+旧配置里的 `banDurationSecond` 仍然兼容：配置里**写了哪个就以哪个为准**，同时写了则优先用 `banDurationMinute`；只有旧的秒配置时按 `秒 ÷ 60` 向上取整换算，避免出现 0 分钟。`banDurationSecond` 会在加载时按分钟推导，保证展示与生效一致。
 
 ## 指令
 
@@ -104,6 +112,7 @@ violationCooldownSecond: 60
 deleteAfterViolations: 2
 banAfterViolations: 3
 violationWindowSecond: 300
+banDurationMinute: 5
 banDurationSecond: 300
 ```
 

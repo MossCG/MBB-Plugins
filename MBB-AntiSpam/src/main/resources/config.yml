@@ -85,7 +85,9 @@ deleteAfterViolations: 2
 banAfterViolations: 3
 #违规统计窗口秒数
 violationWindowSecond: 300
-#单次禁言秒数
+#单次禁言时长，单位分钟（QQ 禁言以分钟为基本单位，写成 5 就是 5 分钟）
+banDurationMinute: 5
+#兼容旧配置：单次禁言秒数；banDurationMinute 存在时以分钟为准
 banDurationSecond: 300
 
 #内存中保留的活跃用户窗口数量上限，超过后清理最久未活动的记录

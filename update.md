@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.5.17.0.2115 | 2026-10-10 | `MBB-AntiSpam` 提醒方式与禁言单位调整：首次命中的提醒改为**在群里艾特本人**发一条平和提示，不再私聊打扰；禁言时长改用 `banDurationMinute`（默认 5 分钟），符合 QQ 禁言以分钟为基本单位的约定，调用 OneBot 时按分钟乘 60 换算，旧的 `banDurationSecond` 仍兼容（只有秒配置时按秒除以 60 向上取整换算）；`/antispam status` 补充禁言分钟数，并注明撤回消息与禁言都需要机器人是本群管理员，否则会被 QQ 拒绝，插件只记录处置失败而不中断运行 |
 | V0.5.16.0.2030 | 2026-10-10 | `MBB-AntiSpam` 治理规则人性化：新增「先提醒再处置」，累计窗口内第一次命中只私信提醒本人、不计入处置阶梯（`forgiveFirst`，提醒内容平和且带 `noticeCooldownSecond` 冷却）；新增分波统计 `violationCountMode: session`，同一用户 `violationCooldownSecond`（默认 60 秒）内的连续命中算同一波、只计一次，避免一时的连发就被迅速禁言，改成 `message` 则每条命中都计数；新增图片表情连发 `media-flood` 规则，单条消息图片表情超限只记录不撤回不禁言；新增群级复读 `repeat-group` 判定，全群一起刷同一句话按玩梗处理、只记录，同时保留按个人阈值判定的 `repeat`，同一个人持续复读照常计数；`/antispam status` 增加人性化设置与违规计数方式展示，`/antispam log` 把只记录不处置的处置列显示为「仅提醒」 |
 | V0.5.15.0.1935 | 2026-10-10 | 新增 `MBB-AntiSpam` 刷屏治理插件：检测短窗口连发、长窗口持续刷屏、同内容复读、单条超长文本以及窗口内艾特人数过多与 `@全体成员`；复读判定先做内容指纹（去掉空白、标点与大小写差异后截断），变体复读不能绕过。命中后按累计违规次数逐级处置：先只记录并在控制台输出，达到 `deleteAfterViolations` 后撤回消息，达到 `banAfterViolations` 后禁言 `banDurationSecond` 秒，两个阈值都可以设为 0 关闭。默认只记录并私信管理员，不自动撤回或禁言；管理员与所有者默认豁免，每个群可用 `/antispam on\|off` 单独开关，新群按 `defaultGroupEnable` 处理。事件写入 `plugin_mbb_antispam_event`，按 `retentionDays` 自动清理；内存窗口按最久未活动淘汰，上限 `maxTrackedUsers`。与 `MBB-AIGuard` 的分工：AIGuard 判断内容风险，本插件只看消息行为，两者互不依赖，可同时启用 |
 | V0.5.14.0.1739 | 2026-10-10 | `MBB-ComfyUI` 调整 `camera=photo` 的画面语义：不再向提示词追加手机、相机或手持设备标签，改为 `first person view / point of view` 的第一视角描述；`MBB-Roleplay` 同步要求拍照 prompt 只写角色第一视角能看到的内容，避免生成“拿着手机拍照”的画面 |

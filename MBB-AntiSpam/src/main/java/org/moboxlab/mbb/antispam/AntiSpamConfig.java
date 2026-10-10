@@ -64,6 +64,13 @@ public class AntiSpamConfig {
     public int deleteAfterViolations = 2;
     public int banAfterViolations = 3;
     public int violationWindowSecond = 300;
+    /**
+     * 单次禁言时长，单位分钟（QQ 的禁言本身以分钟为基本单位）
+     *
+     * 同时兼容旧的 banDurationSecond：加载时按秒比较，取更长的一边，
+     * 避免用户已经改过旧键时新键被旧值顶掉。
+     */
+    public int banDurationMinute = 5;
     public int banDurationSecond = 300;
 
     public int maxTrackedUsers = 5000;
@@ -122,7 +129,23 @@ public class AntiSpamConfig {
         config.deleteAfterViolations = plugin.getConfig().getInt("deleteAfterViolations",2);
         config.banAfterViolations = plugin.getConfig().getInt("banAfterViolations",3);
         config.violationWindowSecond = plugin.getConfig().getInt("violationWindowSecond",300);
+        boolean hasMinuteKey = plugin.getConfig().contains("banDurationMinute");
+        boolean hasSecondKey = plugin.getConfig().contains("banDurationSecond");
+        config.banDurationMinute = plugin.getConfig().getInt("banDurationMinute",5);
         config.banDurationSecond = plugin.getConfig().getInt("banDurationSecond",300);
+        if (config.banDurationMinute < 1) config.banDurationMinute = 1;
+        if (config.banDurationMinute > 43200) config.banDurationMinute = 43200;
+        if (hasSecondKey && config.banDurationSecond < 60) config.banDurationSecond = 60;
+        if (hasSecondKey && config.banDurationSecond > 43200 * 60) {
+            config.banDurationSecond = 43200 * 60;
+        }
+        if (!hasMinuteKey && hasSecondKey) {
+            //旧配置只有秒：换算成分钟，向上取整避免出现 0 分钟
+            config.banDurationMinute = (config.banDurationSecond + 59) / 60;
+        } else {
+            //以分钟为准，秒值由分钟推导，两个键显示与生效保持一致
+            config.banDurationSecond = config.banDurationMinute * 60;
+        }
 
         config.maxTrackedUsers = plugin.getConfig().getInt("maxTrackedUsers",5000);
         return clamp(config);
@@ -186,6 +209,8 @@ public class AntiSpamConfig {
         if (config.banAfterViolations < 0) config.banAfterViolations = 0;
         if (config.violationWindowSecond < 1) config.violationWindowSecond = 1;
         if (config.banDurationSecond < 1) config.banDurationSecond = 1;
+        if (config.banDurationMinute < 1) config.banDurationMinute = 1;
+        if (config.banDurationMinute > 43200) config.banDurationMinute = 43200;
         if (config.maxTrackedUsers < 100) config.maxTrackedUsers = 100;
         return config;
     }
