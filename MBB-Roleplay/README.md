@@ -14,6 +14,7 @@ MoBoxBot 角色扮演插件。插件读取 persona 文件，让角色以普通�
 | 资料与提示词 | persona、台词语料、知识库、提示词缓存前缀 | [回复架构](../docs/roleplay/architecture.md) / [技能与集成](../docs/roleplay/integrations.md) |
 | 技能与外部插件 | 提醒、识图、表情包、ComfyUI 生图、戳回去 | [技能与集成](../docs/roleplay/integrations.md) |
 | 多角色部署 | 其他角色机器人 QQ、接话概率、连续往返限制、名称识别 | [多角色部署](../docs/roleplay/multi-role.md) |
+| 免打扰 | 群员自助加入名单，角色不再主动搭话，只回应主动叫到自己的消息 | [命令](../docs/roleplay/commands.md) |
 | 命令与配置 | 全部管理命令、配置项、默认性能、构建和升级 | [命令](../docs/roleplay/commands.md) / [配置与部署](../docs/roleplay/configuration.md) |
 
 ## 核心流程
@@ -95,6 +96,18 @@ flowchart LR
 | `MBB-ComfyUI` | 可选 | 生图技能与生成完成回调 |
 
 没有可选插件时，Roleplay 仍可使用文本聊天、记忆、情绪和提醒功能。
+
+## 免打扰名单
+
+名单内的群员不会被角色主动搭话：只有对方主动叫到角色（艾特、引用角色消息或用到角色名）时才回复，其他消息一律保持沉默，其他群员不受影响。与黑名单的区别是黑名单完全屏蔽该用户的消息和戳一戳，免打扰只关闭主动搭话。
+
+```text
+/role quiet add
+/role quiet remove
+/role quiet list
+```
+
+群员可以自己加入和退出名单；把他人加入名单、开关名单和清空名单需要机器人管理员。名单按群隔离，每个群的开关用 `/role quiet on|off` 单独保存；`quietReplyEnable` 只决定新群的默认开关。被免打扰的消息不进入上下文、不触发记忆整理和识图，角色不会记住这些内容。
 
 推荐知识库：
 
