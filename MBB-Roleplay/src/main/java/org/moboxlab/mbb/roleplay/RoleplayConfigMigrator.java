@@ -167,6 +167,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，提示词默认按 15 到 30 字生成"),
             new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号，先找句末标点，再找弱标点"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
+            new ConfigEntry("replyLinkFilterEnable","true","是否过滤模型回复中凭空输出的网址链接"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
             new ConfigEntry("repeatSuppressEnable","false","是否启用代码层重复回复兜底检测；关闭后只在提示词中约束"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),

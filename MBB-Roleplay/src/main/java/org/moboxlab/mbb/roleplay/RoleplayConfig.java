@@ -145,6 +145,7 @@ public class RoleplayConfig {
     public int replySegmentMaxChars = 30;
     public String replySplitPunctuation = "。！？!?；;，、：,:～~…";
     public int replyMaxSegments = 2;
+    public boolean replyLinkFilterEnable = true;
     public int recentReplyCheckCount = 8;
     public boolean repeatSuppressEnable = false;
     public double repeatSimilarityThreshold = 0.72;
@@ -385,6 +386,7 @@ public class RoleplayConfig {
         config.replySplitPunctuation = plugin.getConfig().getString(
                 "replySplitPunctuation","。！？!?；;，、：,:～~…");
         config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
+        config.replyLinkFilterEnable = plugin.getConfig().getBoolean("replyLinkFilterEnable",true);
         config.recentReplyCheckCount = plugin.getConfig().getInt("recentReplyCheckCount",8);
         config.repeatSuppressEnable = plugin.getConfig().getBoolean("repeatSuppressEnable",false);
         try {

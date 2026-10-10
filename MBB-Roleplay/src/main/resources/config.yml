@@ -213,6 +213,8 @@ replySegmentMaxChars: 20
 replySplitPunctuation: "。！？!?；;，、：,:～~…"
 #最多拆分发送多少段
 replyMaxSegments: 2
+#是否过滤模型回复中凭空输出的网址链接
+replyLinkFilterEnable: true
 #重复检测时参考最近多少条角色回复
 recentReplyCheckCount: 8
 #是否启用代码层重复回复兜底检测；关闭后只在提示词中约束

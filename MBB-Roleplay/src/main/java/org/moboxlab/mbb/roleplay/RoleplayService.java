@@ -94,6 +94,8 @@ public class RoleplayService {
     private final Map<Long,Long> batchBufferStartMap = new HashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
+    private static final Pattern REPLY_URL_PATTERN = Pattern.compile(
+            "(?i)(https?://\\S+|www\\.\\S+|\\b[\\w-]+\\.(?:com|cn|net|org|io|ai|top|xyz|me|tv)(?:/\\S*)?)");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(
             "(?is)<\\s*remember\\s*/?\\s*>");
     private static final Pattern REMEMBER_CLOSE = Pattern.compile(
@@ -1021,8 +1023,8 @@ public class RoleplayService {
                 int partLimit = Math.min(parts.size(),Math.max(1,config.replyMaxSegments));
                 for (int p = 0; p < partLimit && sent < messageBudget; p++) {
                     if (p > 0 && !sleepQuietly(250L)) break;
-                    sendSingleMessage(client,groupID,selfID,target.userID,parts.get(p),
-                            quote && p == 0,quoteMessageID);
+                    if (!sendSingleMessage(client,groupID,selfID,target.userID,parts.get(p),
+                            quote && p == 0,quoteMessageID)) break;
                     if (!responded.contains(target)) responded.add(target);
                     sent++;
                 }
@@ -1571,11 +1573,12 @@ public class RoleplayService {
                                      String relationship,String speechPrompt,String messageText,
                                      RoleplayRouteDecision decision,int batchCount) {
         String recentReplies = recentRoleReplyText(groupID);
+        String otherRoleReplies = recentOtherRoleReplyText(groupID);
         List<String> actionIds = decision == null ? skillRegistry.actionIds(config) : decision.actions;
         //稳定资料与固定规则全部前置，且逐字节不变，服务端前缀缓存才能命中
         String stable = assembleStableMaterials()+stableRulesText();
         String dynamicMaterials = assembleDynamicMaterials(groupID,userID,messageText,
-                recentReplies,speechPrompt,decision,
+                recentReplies,otherRoleReplies,speechPrompt,decision,
                 Math.max(2000,config.promptTotalChars - stable.length()));
         RoleplaySkillContext skillContext = new RoleplaySkillContext();
         skillContext.groupID = groupID;
@@ -1650,6 +1653,9 @@ public class RoleplayService {
                 +"也不要对他套用角色之间的关系。"
                 +"判断一条消息在对谁说时，优先看艾特目标、引用目标、开头明确称呼和最近对话对象；"
                 +"只是提到某个名字，不代表在对这个人说话。不要抢答明确回复别人的消息。"
+                +"群聊上下文里的 [自己] 是你之前发送过的发言，不是别人说的；"
+                +"[其他角色机器人] 是另一个机器人，不是你；[群友] 才是真人。"
+                +"不要把 [自己] 的旧发言当成别人的话，也不要把 [其他角色机器人] 的话当成自己说过。"
                 +"只有话题符合你的兴趣、有人直接艾特回复或提及你、或群友正在接续你参与过的话题时才参与；"
                 +"其他人之间的闲聊和无关话题只输出 <SKIP>。"
                 +(knowledgeService.isStudentsLibraryEnabled()
@@ -1690,6 +1696,7 @@ public class RoleplayService {
                 +"不要固定使用同一句式或同一开头：最近 5 条回复里同一种开头最多出现一次；"
                 +"最近 3 条里已经出现过“嗯”开头的，这一轮必须换一种直接的说法。"
                 +"你能理解角色设定中列出的社区梗和别名，但不要主动频繁使用；别人玩梗时再自然接住。"
+                +"不要凭空输出网址、域名、短链接或来源链接；除非技能结果明确返回，否则不要在聊天正文里带链接。"
                 +"不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。";
     }
 
@@ -1726,7 +1733,8 @@ public class RoleplayService {
      * 预算扣掉稳定块已占用的部分，避免稳定块把动态资料挤没。
      */
     private String assembleDynamicMaterials(long groupID,long userID,String messageText,
-                                            String recentReplies,String speechPrompt,
+                                            String recentReplies,String otherRoleReplies,
+                                            String speechPrompt,
                                             RoleplayRouteDecision decision,int totalBudget) {
         List<String> requested = decision == null ? new ArrayList<>() : decision.materials;
         String memoryQuery = memoryQuery(messageText,decision);
@@ -1745,6 +1753,9 @@ public class RoleplayService {
         materials.add(new RoleplayMaterial("context.recent",true,75,2500,
                 () -> "你最近说过的话（这些已经说过了，不要重复内容，也不要换个说法再说一遍）：\n"
                         +recentReplies));
+        materials.add(new RoleplayMaterial("context.otherRoleRecent",true,74,1400,
+                () -> "另一个角色机器人最近说过的话（这不是你自己，不要把对方的话当成自己说过）：\n"
+                        +otherRoleReplies));
         materials.add(new RoleplayMaterial("speech.corpus",true,50,1300,
                 () -> speechPrompt == null ? "" : speechPrompt));
         //学生档案库已经启用时不再注册自带的详细设定，避免同一份学生信息被注入两次
@@ -2771,13 +2782,55 @@ public class RoleplayService {
     }
 
     private String recentRoleReplyText(long groupID) {
-        JSONArray replies = recentRoleReplies(groupID);
+        JSONArray replies = recentRoleRepliesForPrompt(groupID,true);
         if (replies.isEmpty()) return "暂无。";
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < replies.size(); i++) {
-            builder.append("- ").append(safe(replies.getJSONObject(i).getString("content"))).append("\n");
+            builder.append("- [自己] ").append(safe(replies.getJSONObject(i).getString("content")))
+                    .append("\n");
         }
         return builder.toString();
+    }
+
+    private String recentOtherRoleReplyText(long groupID) {
+        JSONArray replies = recentRoleRepliesForPrompt(groupID,false);
+        if (replies.isEmpty()) return "暂无。";
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < replies.size(); i++) {
+            JSONObject row = replies.getJSONObject(i);
+            String name = safe(row.getString("userName"));
+            builder.append("- [其他角色机器人] ")
+                    .append(name.isEmpty() ? "未命名" : name)
+                    .append("（QQ：").append(row.getLongValue("userID")).append("）：")
+                    .append(safe(row.getString("content"))).append("\n");
+        }
+        return builder.toString();
+    }
+
+    private JSONArray recentRoleRepliesForPrompt(long groupID,boolean self) {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query(
+                "SELECT `userName`,`content`,`isBot`,`userID` FROM `"+MSG_TABLE+"` "
+                        + "WHERE `groupID`=? ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?",
+                groupID,Math.max(20,config.recentReplyCheckCount * 3));
+        if (rows == null || rows.isEmpty()) return result;
+        List<JSONObject> selected = new ArrayList<>();
+        for (JSONObject row : rows) {
+            boolean isSelf = row.getIntValue("isBot") == 1;
+            boolean isOtherRole = !isSelf && isRoleParticipantUser(row.getLongValue("userID"));
+            if (self ? isSelf : isOtherRole) {
+                selected.add(row);
+                if (selected.size() >= config.recentReplyCheckCount) break;
+            }
+        }
+        for (int i = selected.size() - 1; i >= 0; i--) {
+            JSONObject item = new JSONObject(true);
+            item.put("userName",selected.get(i).getString("userName"));
+            item.put("userID",selected.get(i).getLongValue("userID"));
+            item.put("content",selected.get(i).getString("content"));
+            result.add(item);
+        }
+        return result;
     }
 
     private JSONArray recentRoleReplies(long groupID) {
@@ -2807,7 +2860,7 @@ public class RoleplayService {
 
     private String recentContext(long groupID) {
         List<JSONObject> rows = storage().query(
-                "SELECT `userID`,`userName`,`content` FROM `"+MSG_TABLE+"` WHERE `groupID`=? "
+                "SELECT `userID`,`userName`,`content`,`isBot` FROM `"+MSG_TABLE+"` WHERE `groupID`=? "
                         + "AND `userID` NOT IN (SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` "
                         + "WHERE `groupID`=?) ORDER BY `messageTime` DESC LIMIT ?",
                 groupID,groupID,config.shortContextMessages);
@@ -2816,11 +2869,19 @@ public class RoleplayService {
         for (int i = rows.size() - 1; i >= 0; i--) {
             JSONObject row = rows.get(i);
             //带上 QQ，群友随时可能改昵称，只靠名字会让模型把 A 的发言记到 B 头上
-            builder.append(safe(row.getString("userName")))
+            builder.append(contextIdentity(row))
+                    .append(" ").append(safe(row.getString("userName")))
                     .append("（QQ：").append(row.getLongValue("userID")).append("）：")
                     .append(safe(row.getString("content"))).append("\n");
         }
         return builder.toString();
+    }
+
+    private String contextIdentity(JSONObject row) {
+        if (row == null) return "[群友]";
+        if (row.getIntValue("isBot") == 1) return "[自己]";
+        if (isRoleParticipantUser(row.getLongValue("userID"))) return "[其他角色机器人]";
+        return "[群友]";
     }
 
     private String longMemoryText(long groupID,long userID,String query) {
@@ -3010,6 +3071,8 @@ public class RoleplayService {
     private boolean sendSingleMessage(OneBotClient client,long groupID,long selfID,long userID,
                                       String text,boolean quote,long quoteMessageID) {
         if (client == null || text == null || text.trim().isEmpty()) return false;
+        text = filterReplyLinks(groupID,text);
+        if (text.isEmpty()) return false;
         JSONArray message = quote && quoteMessageID > 0
                 ? MessageUtil.message(MessageUtil.reply(quoteMessageID),MessageUtil.text(text))
                 : MessageUtil.message(MessageUtil.text(text));
@@ -3023,6 +3086,18 @@ public class RoleplayService {
         state.botStreak++;
         recordBotMessage(groupID,selfID,text,messageID);
         return true;
+    }
+
+    private String filterReplyLinks(long groupID,String text) {
+        String value = safe(text);
+        if (!config.replyLinkFilterEnable || value.isEmpty()) return value;
+        String filtered = REPLY_URL_PATTERN.matcher(value).replaceAll(" ")
+                .replaceAll("\\s+"," ").trim();
+        if (!filtered.equals(value)) {
+            plugin.getLogger().sendInfo("[角色] 群"+groupID+" 已过滤模型输出链接："
+                    +shortText(value,120));
+        }
+        return filtered;
     }
 
     private boolean sleepQuietly(long millis) {
