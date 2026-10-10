@@ -1,4 +1,4 @@
-# MBB-AntiSpam 构建脚本
+﻿# MBB-AntiSpam 构建脚本
 param(
     [string]$Bot = "D:\CodeX\Projects\MoBoxBot\out\MoBoxBot.jar"
 )
