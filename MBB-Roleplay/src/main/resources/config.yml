@@ -195,6 +195,16 @@ messageBatchMaxAgeSecond: 20
 batchMaxSegments: 4
 #最多加载多少条长期记忆
 maxLongMemories: 150
+#是否启用群级话题疲劳检测
+topicFatigueEnable: true
+#同一话题进入疲劳判定的时间窗口分钟数
+topicFatigueWindowMinute: 30
+#同一话题在窗口内达到多少次后判定为疲劳
+topicFatigueMinCount: 6
+#角色自己在窗口内参与多少次后判定为疲劳
+topicFatigueSelfCount: 3
+#话题疲劳记录最多保留多少小时
+topicFatigueKeepHours: 168
 #长期记忆与永久记忆是否按当前对话相关性排序后注入
 memoryRelevanceSort: true
 #相关性排序前先加载多少条长期记忆作为候选池

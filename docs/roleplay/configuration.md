@@ -152,6 +152,11 @@ replySplitPunctuation: "。！？!?；;，、：,:～~…"
 replyMaxSegments: 2
 replyLinkFilterEnable: true
 maxLongMemories: 150
+topicFatigueEnable: true
+topicFatigueWindowMinute: 30
+topicFatigueMinCount: 6
+topicFatigueSelfCount: 3
+topicFatigueKeepHours: 168
 recentReplyCheckCount: 8
 repeatSuppressEnable: false
 repeatSimilarityThreshold: 0.72
@@ -164,6 +169,8 @@ minMessageLength: 2
 非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息控制在 15 到 30 字之间、硬上限 30 字，一条说不完可以在正文里换行，最多分两段；拆分器会先在 `replySplitPunctuation` 中查找句末标点，找不到再查逗号、顿号、冒号、分号、波浪号等弱标点，最后才按硬上限拆分。切在弱标点时，上半段末尾的标点会被去掉，避免消息以逗号之类的不完整语气结束；省略号「……」不会被从中间劈开——如果断点正好落在它中间，整对会挪到下一段。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
 
 `replyLinkFilterEnable` 默认 `true`。开启后，角色最终发送的文本会在发送前过滤掉 `http(s)://`、`www.` 和常见裸域名链接，避免模型凭空编造网址。过滤只作用于角色文本回复，不影响图片、文件和其他技能消息。
+
+`topicFatigueEnable` 默认 `true`。插件会按群记录话题疲劳：同一话题在 `topicFatigueWindowMinute` 分钟内出现次数达到 `topicFatigueMinCount`，且角色自己参与达到 `topicFatigueSelfCount` 时，路由层会降权或跳过主动回复；直接点名、引用回复或明确提问仍可打破疲劳。记录保留 `topicFatigueKeepHours` 小时。
 
 `memoryProfile` 留空时记忆整理使用 `aiProfile`。如果主模型会产生大量 reasoning，建议单独配置一个非 reasoning 的 profile 给记忆整理使用；`memoryMaxTokens` 默认 `12000`，重试时会翻倍，最高 `32000`。长期记忆合并单独使用 `memoryMergeMaxTokens`，默认 `32000`，避免 reasoning 把输出预算耗尽后返回空正文。记忆合并按 `memoryMergeBatchSize`（默认 100）分批，最多执行 `memoryMergeMaxRounds`（默认 3）轮，单批失败后按 `memoryMergeRetryCount`（默认 3）原地重试，并按 `memoryMergeConcurrency`（默认 4，最大 4）并发处理批次；每批提交、失败重试和完成都会输出控制台进度日志。自动长期记忆合并按群受 `memoryMergeCooldownMinute`（默认 60）限制，自动永久记忆合并受 `globalMemoryMergeCooldownMinute`（默认 60）限制；手动合并命令可以强制立即执行，但会刷新对应冷却。实际并发还会受 `MBB-AI` 的 `maxConcurrent` 限制，想真正跑满 4 并发时请把 `MBB-AI` 的 `maxConcurrent` 也设为 4。`memoryTimeoutSecond` 默认 `300`，用于覆盖 profile 里较短的超时时间，避免长上下文整理频繁超时；可设置范围是 `30` 到 `600` 秒。
 

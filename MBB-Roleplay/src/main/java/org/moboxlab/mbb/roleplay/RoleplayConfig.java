@@ -140,6 +140,11 @@ public class RoleplayConfig {
     public String styleReasoningEffort = "low";
     public boolean styleProactiveEnable = false;
     public int maxLongMemories = 150;
+    public boolean topicFatigueEnable = true;
+    public int topicFatigueWindowMinute = 30;
+    public int topicFatigueMinCount = 6;
+    public int topicFatigueSelfCount = 3;
+    public int topicFatigueKeepHours = 168;
     public int replyMaxTokens = 1200;
     public int replyImageMaxTokens = 4000;
     public int replySegmentMaxChars = 30;
@@ -380,6 +385,11 @@ public class RoleplayConfig {
                 plugin.getConfig().getString("styleReasoningEffort","low"));
         config.styleProactiveEnable = plugin.getConfig().getBoolean("styleProactiveEnable",false);
         config.maxLongMemories = plugin.getConfig().getInt("maxLongMemories",150);
+        config.topicFatigueEnable = plugin.getConfig().getBoolean("topicFatigueEnable",true);
+        config.topicFatigueWindowMinute = plugin.getConfig().getInt("topicFatigueWindowMinute",30);
+        config.topicFatigueMinCount = plugin.getConfig().getInt("topicFatigueMinCount",6);
+        config.topicFatigueSelfCount = plugin.getConfig().getInt("topicFatigueSelfCount",3);
+        config.topicFatigueKeepHours = plugin.getConfig().getInt("topicFatigueKeepHours",168);
         config.replyMaxTokens = plugin.getConfig().getInt("replyMaxTokens",1200);
         config.replyImageMaxTokens = plugin.getConfig().getInt("replyImageMaxTokens",4000);
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",30);
@@ -608,6 +618,14 @@ public class RoleplayConfig {
         if (config.styleMaxTokens > 2000) config.styleMaxTokens = 2000;
         if (config.maxLongMemories < 5) config.maxLongMemories = 5;
         if (config.maxLongMemories > 500) config.maxLongMemories = 500;
+        if (config.topicFatigueWindowMinute < 1) config.topicFatigueWindowMinute = 1;
+        if (config.topicFatigueWindowMinute > 1440) config.topicFatigueWindowMinute = 1440;
+        if (config.topicFatigueMinCount < 2) config.topicFatigueMinCount = 2;
+        if (config.topicFatigueMinCount > 100) config.topicFatigueMinCount = 100;
+        if (config.topicFatigueSelfCount < 1) config.topicFatigueSelfCount = 1;
+        if (config.topicFatigueSelfCount > 50) config.topicFatigueSelfCount = 50;
+        if (config.topicFatigueKeepHours < 1) config.topicFatigueKeepHours = 1;
+        if (config.topicFatigueKeepHours > 720) config.topicFatigueKeepHours = 720;
         if (config.replyMaxTokens < 200) config.replyMaxTokens = 200;
         if (config.replyMaxTokens > 8000) config.replyMaxTokens = 8000;
         if (config.replyImageMaxTokens < 400) config.replyImageMaxTokens = 400;

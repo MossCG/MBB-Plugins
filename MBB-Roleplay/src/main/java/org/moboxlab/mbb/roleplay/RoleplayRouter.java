@@ -33,11 +33,11 @@ public class RoleplayRouter {
                                        RoleplaySkillRegistry registry,RoleplayConversationState state,
                                        String content,String userName,String relationship,
                                        String recentContext,String emotionSummary,
-                                       String addressingHint) {
+                                       String addressingHint,String topicHint) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONObject response = callRoute(ai,config,persona,registry,state,content,userName,
-                relationship,recentContext,emotionSummary,addressingHint,
+                relationship,recentContext,emotionSummary,addressingHint,topicHint,
                 config.routerMaxTokens,"路由");
         RoleplayRouteDecision decision = parseResponse(response);
         if (decision != null) return decision;
@@ -47,7 +47,7 @@ public class RoleplayRouter {
         plugin.getLogger().sendWarn("[角色] 路由 群"+state.groupID+" 输出被截断，使用 "
                 +retryMaxTokens+" Token 重试");
         response = callRoute(ai,config,persona,registry,state,content,userName,
-                relationship,recentContext,emotionSummary,addressingHint,
+                relationship,recentContext,emotionSummary,addressingHint,topicHint,
                 retryMaxTokens,"路由重试");
         return parseResponse(response);
     }
@@ -56,11 +56,11 @@ public class RoleplayRouter {
                                  RoleplaySkillRegistry registry,RoleplayConversationState state,
                                  String content,String userName,String relationship,
                                  String recentContext,String emotionSummary,
-                                 String addressingHint,int maxTokens,String tag) {
+                                 String addressingHint,String topicHint,int maxTokens,String tag) {
         JSONArray messages = new JSONArray();
         messages.add(message("system",systemPrompt(config,persona,registry,state)));
         messages.add(message("user",userPrompt(content,userName,relationship,recentContext,
-                emotionSummary,addressingHint)));
+                emotionSummary,addressingHint,topicHint)));
         JSONObject params = new JSONObject(true);
         String profile = config.routerProfile == null || config.routerProfile.trim().isEmpty()
                 ? config.aiProfile : config.routerProfile.trim();
@@ -115,6 +115,7 @@ public class RoleplayRouter {
                 .append("- 判断对谁说时严格按顺序：艾特目标 > 引用目标 > 开头称呼 > 最近对话对象 > 话题延续；")
                 .append("仅仅在句子里提到某个名字，不代表在对这个人说话\n")
                 .append("- 发言指向里的艾特目标、引用目标、角色指向是系统提取的结构化信息，优先相信这些字段，不要自行猜反\n")
+                .append("- 如果话题疲劳很高且消息没有新信息，reply 用 false；只有明确提问、直接点名或出现新事实时才继续接\n")
                 .append("- 明确艾特或回复其他群成员的句子，默认不是对角色说的，reply 用 false\n")
                 .append("- 群里其他人之间的闲聊、互相点名、与角色无关的话题，reply 用 false\n")
                 .append("- 有人直接艾特、回复或点名角色时，reply 必须为 true，addressed 为 direct\n")
@@ -131,7 +132,8 @@ public class RoleplayRouter {
     }
 
     private String userPrompt(String content,String userName,String relationship,
-                              String recentContext,String emotionSummary,String addressingHint) {
+                              String recentContext,String emotionSummary,String addressingHint,
+                              String topicHint) {
         StringBuilder builder = new StringBuilder();
         if (recentContext != null && !recentContext.trim().isEmpty()) {
             builder.append("最近群聊：\n").append(recentContext.trim()).append("\n\n");
@@ -141,6 +143,9 @@ public class RoleplayRouter {
                 .append("（关系：").append(relationship == null ? "朋友" : relationship).append("）");
         if (addressingHint != null && !addressingHint.trim().isEmpty()) {
             builder.append("\n发言指向：").append(addressingHint.trim());
+        }
+        if (topicHint != null && !topicHint.trim().isEmpty()) {
+            builder.append("\n话题疲劳：").append(topicHint.trim());
         }
         if (emotionSummary != null && !emotionSummary.trim().isEmpty()) {
             builder.append("\n当前情绪与关系：").append(emotionSummary.trim());

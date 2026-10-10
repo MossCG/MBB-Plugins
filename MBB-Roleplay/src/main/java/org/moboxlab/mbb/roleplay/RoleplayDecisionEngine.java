@@ -24,6 +24,8 @@ public class RoleplayDecisionEngine {
         public boolean groupActive = false;
         public boolean interest = false;
         public boolean recentImageQuestion = false;
+        public boolean topicFatigued = false;
+        public String topicHint = "";
         public int contentLength = 0;
     }
 
@@ -46,6 +48,10 @@ public class RoleplayDecisionEngine {
                 && !signals.completesPreviousMessage
                 && signals.contentLength <= config.splitMessageSuppressMaxChars) {
             return "同一用户刚被回复，短句视为补充";
+        }
+        if (signals.topicFatigued && !signals.direct && !signals.mentioningSelf
+                && !signals.quotingSelf && !signals.interest) {
+            return "同一话题最近讨论过多";
         }
         return null;
     }
