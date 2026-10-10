@@ -375,13 +375,20 @@ public class RoleplaySkillRegistry {
 
         @Override
         public String description() {
-            return "调用 ComfyUI 生图，或用角色手机自拍/拍照";
+            return service.config().cameraEnable
+                    ? "调用 ComfyUI 生图，或用角色手机自拍/拍照"
+                    : "调用 ComfyUI 生图";
         }
 
         @Override
         public List<String> triggers() {
-            return Arrays.asList("画","生图","图片","画一张","生成图","来张图",
-                    "自拍","拍照","拍一张","拍给我看","给我看看你的","看看你的");
+            List<String> result = new ArrayList<>(Arrays.asList(
+                    "画","生图","图片","画一张","生成图","来张图"));
+            if (service.config().cameraEnable) {
+                result.addAll(Arrays.asList("自拍","拍照","拍一张","拍给我看",
+                        "给我看看你的","看看你的"));
+            }
+            return result;
         }
 
         @Override
@@ -404,14 +411,22 @@ public class RoleplaySkillRegistry {
             JSONObject status = comfy.call("status",params);
             long remaining = status.getLongValue("cooldownRemaining");
             boolean busy = status.getBooleanValue("busy");
-            return "draw 表示调用 ComfyUI 生图，也可以模拟角色用手机拍照。只有用户明确要求生图或拍照时才调用；"
-                    +"如果用户只给出主体，没给背景、动作、风格、构图或尺寸，可以自己补全这些细节并写入 prompt，"
-                    +"不要每一项都追问；只有主体不明确、可能违规或用户要求变化时再追问。"
-                    +"当用户说“自拍”“拍你”“拍一张你的照片”时，传 camera=selfie，"
+            String cameraInstruction = service.config().cameraEnable
+                    ? "当用户说“自拍”“拍你”“拍一张你的照片”时，传 camera=selfie，"
                     +"prompt 写角色举着手机自拍、看镜头、自然随手拍的感觉，建议 size=portrait。"
                     +"当用户说“拍照看看你的布丁”“拍一下桌子/房间/正在做的事”时，传 camera=photo，"
                     +"prompt 写角色手机镜头实际能看到的东西，建议 size=landscape；如果画面里出现角色本人，仍然只能出现一次。"
                     +"camera 只允许 selfie 或 photo；普通“画一张/生图”不要传 camera。"
+                    : "当前未开放相机模式，用户要求自拍或拍照时不要传 camera，也不要假装已经拍照；"
+                    +"只在用户明确要求普通生图时调用 draw。";
+            return "draw 表示调用 ComfyUI 生图"
+                    +(service.config().cameraEnable ? "，也可以模拟角色用手机拍照" : "")
+                    +(service.config().cameraEnable
+                    ? "。只有用户明确要求生图或拍照时才调用；"
+                    : "。只有用户明确要求普通生图时才调用；")
+                    +"如果用户只给出主体，没给背景、动作、风格、构图或尺寸，可以自己补全这些细节并写入 prompt，"
+                    +"不要每一项都追问；只有主体不明确、可能违规或用户要求变化时再追问。"
+                    +cameraInstruction
                     +"prompt 要写得具体细腻：主体 + 标准角色 tag + 外貌锚点 + 服装装备 + 动作 + 表情 + "
                     +"背景 + 构图镜头 + 风格 + 光线。"
                     +"如果角色设定里提供了作品名、标准英文名、别名或外貌锚点，必须优先使用这些信息；"
@@ -442,6 +457,7 @@ public class RoleplaySkillRegistry {
             if (comfy == null) return RoleplaySkillResult.failed(id(),"MBB-ComfyUI 未启用");
             JSONObject params = new JSONObject(true);
             if (context.args != null) params.putAll(context.args);
+            if (!service.config().cameraEnable) params.remove("camera");
             params.put("groupID",context.groupID);
             params.put("userID",context.userID);
             params.put("messageID",context.messageID);

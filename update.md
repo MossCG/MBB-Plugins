@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.5.13.0.1728 | 2026-10-10 | `MBB-Roleplay` 新增 `cameraEnable` 相机模式开关，默认 `true`。设为 `false` 后只关闭 `draw` 技能里的手机自拍/拍照模式，角色会忽略模型返回的 `camera` 参数，普通生图不受影响；旧配置会自动补全。配置改完执行 `/role reload` 或重启后生效 |
 | V0.5.12.0.1722 | 2026-10-10 | `MBB-Roleplay` 与 `MBB-ComfyUI` 接入角色手机相机：用户说“自拍一张”或“拍照看看你的布丁”时，`draw` 技能可以传 `camera=selfie/photo`，ComfyUI 会补充手机自拍或随手拍视角，自拍默认竖图、拍物默认横图，并继续走同一套排队、冷却、备份和完成回调。戳一戳回复改为专用的单条短消息发送路径，不再经过通用两段拆分，新增 `pokeReplyMaxChars`（默认 20）。ComfyUI 每群生图冷却默认从 600 秒降到 60 秒，旧配置会自动迁移 |
 | V0.5.11.0.1702 | 2026-10-10 | `MBB-Roleplay` 新增免打扰名单：群员可以用 `/role quiet add` 把自己加入当前群名单，加入后角色不再主动搭话，只有对方主动叫到角色（艾特、引用角色消息或用到角色名）时才回复，其他群员完全不受影响；`/role quiet remove` 自助退出，`/role quiet list` 查看名单，`/role quiet on|off` 开关名单，`/role quiet clear` 清空。名单按群存在 `plugin_mbb_roleplay_quiet` 表，首次启用自动建表；被免打扰的消息不进入上下文、不触发记忆整理和识图，也不更新情绪，因此角色不会记住这些内容。新增 `quietReplyEnable`（默认 `true`）只作为新群的默认开关。与黑名单的区别是黑名单完全过滤该用户的消息和戳一戳，免打扰只关闭主动搭话 |
 | V0.5.10.0.1640 | 2026-10-10 | `MBB-Roleplay` 新增 SQLite 话题疲劳机制：按群记录话题键、窗口内出现次数、角色自己参与次数和最近时间；同一话题在 `topicFatigueWindowMinute` 分钟内达到阈值且角色参与过多时，路由层降权或跳过没有新信息的主动接话，直接点名、引用或新事实仍可打破疲劳。新增 `topicFatigueEnable`、`topicFatigueWindowMinute`、`topicFatigueMinCount`、`topicFatigueSelfCount`、`topicFatigueKeepHours` 配置。顺带把“账、算账、记账、欠账、还账、结账、账本”加入低频限制和本地 AI 味检测，减少角色反复算账的口吻 |

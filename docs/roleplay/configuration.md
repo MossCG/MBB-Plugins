@@ -152,6 +152,7 @@ replySegmentMaxChars: 30
 replySplitPunctuation: "。！？!?；;，、：,:～~…"
 replyMaxSegments: 2
 replyLinkFilterEnable: true
+cameraEnable: true
 maxLongMemories: 150
 topicFatigueEnable: true
 topicFatigueWindowMinute: 30
@@ -173,6 +174,8 @@ quietReplyEnable: true
 `pokeReplyMaxChars` 默认 `20`，只约束戳一戳回复。戳一戳不会走普通回复的多段拆分，只会发送一条短消息，超出长度时优先在句末或弱标点处截断。
 
 `replyLinkFilterEnable` 默认 `true`。开启后，角色最终发送的文本会在发送前过滤掉 `http(s)://`、`www.` 和常见裸域名链接，避免模型凭空编造网址。过滤只作用于角色文本回复，不影响图片、文件和其他技能消息。
+
+`cameraEnable` 默认 `true`。设为 `false` 后只关闭 `draw` 技能里的手机自拍和拍照模式，角色会忽略 `camera=selfie/photo`，普通生图仍可继续使用。改完执行 `/role reload` 或重启主程序后生效。
 
 `topicFatigueEnable` 默认 `true`。插件会按群记录话题疲劳：同一话题在 `topicFatigueWindowMinute` 分钟内出现次数达到 `topicFatigueMinCount`，且角色自己参与达到 `topicFatigueSelfCount` 时，路由层会降权或跳过主动回复；直接点名、引用回复或明确提问仍可打破疲劳。记录保留 `topicFatigueKeepHours` 小时。
 

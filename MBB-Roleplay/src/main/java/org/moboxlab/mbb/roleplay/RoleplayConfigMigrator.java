@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "29";
+    private static final String CURRENT_VERSION = "30";
 
     private static class ConfigEntry {
         private final String key;
@@ -174,6 +174,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号，先找句末标点，再找弱标点"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("replyLinkFilterEnable","true","是否过滤模型回复中凭空输出的网址链接"),
+            new ConfigEntry("cameraEnable","true","是否允许 draw 技能模拟角色手机自拍和拍照"),
             new ConfigEntry("recentReplyCheckCount","8","重复检测时参考最近多少条角色回复"),
             new ConfigEntry("repeatSuppressEnable","false","是否启用代码层重复回复兜底检测；关闭后只在提示词中约束"),
             new ConfigEntry("repeatSimilarityThreshold","0.72","与最近角色回复相似度达到多少时跳过，0.3 到 1"),
@@ -259,7 +260,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 29) {
+        if (version < 30) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -368,7 +369,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 29 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 30 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort
