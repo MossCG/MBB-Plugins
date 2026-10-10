@@ -44,6 +44,10 @@ repeatLongMaxCount: 5
 longTextEnable: true
 longTextMaxChars: 800
 
+#纯图片或表情连发：单条消息含多少张图片或表情时记录，只记录不撤回不禁言
+mediaFloodEnable: true
+mediaFloodMaxCount: 5
+
 #艾特刷屏：窗口内艾特多少人算刷屏
 mentionEnable: true
 mentionWindowSecond: 60
@@ -53,6 +57,27 @@ mentionAllEnable: true
 
 #过短内容不参与统计，避免把正常的表情、单字回复误判
 minMessageLength: 2
+
+#多人一起复读同一句话按玩梗处理，只记录不升级处置
+repeatBanterForgive: true
+#超过多少个不同的人发同一句才视为玩梗，1 表示两个人及以上
+repeatBanterMinUsers: 1
+#全群复读同一句话的判定：窗口秒数与允许次数，超过即记录
+repeatGroupWindowSecond: 10
+repeatGroupCount: 6
+repeatGroupLongWindowSecond: 60
+repeatGroupLongCount: 10
+
+#先提醒后处置：累计窗口内第一次命中只提醒，不计入处置阶梯
+forgiveFirst: true
+#是否私信提醒本人，语气平和且带冷却，关闭后完全不提醒
+noticeEnable: true
+#同一个用户最多多少秒提醒一次
+noticeCooldownSecond: 600
+#违规计数方式：session 表示同一波刷屏只算一次，message 表示每条命中都计数
+violationCountMode: "session"
+#同一波刷屏的最短间隔秒数，超过这个间隔再次刷屏才累计下一次违规
+violationCooldownSecond: 60
 
 #短窗口内累计违规多少次开始撤回消息，0 表示不撤回
 deleteAfterViolations: 2

@@ -1,6 +1,6 @@
 {
   "name": "MBB-AntiSpam",
-  "version": "V0.1.0.0.1935",
+  "version": "V0.1.1.0.2030",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.antispam.AntiSpamPlugin",
   "author": "MoBoxLab",

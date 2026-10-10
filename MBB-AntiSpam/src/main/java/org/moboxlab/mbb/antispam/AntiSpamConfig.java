@@ -32,12 +32,34 @@ public class AntiSpamConfig {
     public boolean longTextEnable = true;
     public int longTextMaxChars = 800;
 
+    public boolean mediaFloodEnable = true;
+    public int mediaFloodMaxCount = 5;
+
     public boolean mentionEnable = true;
     public int mentionWindowSecond = 60;
     public int mentionMaxCount = 8;
     public boolean mentionAllEnable = true;
 
     public int minMessageLength = 2;
+
+    public boolean repeatBanterForgive = true;
+    public int repeatBanterMinUsers = 1;
+    /** 全群复读同一句话的阈值：窗口秒数与允许次数，0 表示关闭群级复读判定 */
+    public int repeatGroupWindowSecond = 10;
+    public int repeatGroupCount = 6;
+    public int repeatGroupLongWindowSecond = 60;
+    public int repeatGroupLongCount = 10;
+
+    public boolean forgiveFirst = true;
+    public boolean noticeEnable = true;
+    public int noticeCooldownSecond = 600;
+    /**
+     * 违规计数方式：session 表示同一波刷屏只计一次（同一用户间隔不足
+     * violationCooldownSecond 秒的连续命中合并为一波），message 表示每条命中都计数
+     */
+    public String violationCountMode = "session";
+    /** 同一波刷屏的最短间隔秒数，只在该间隔之后再次刷屏才累计下一次违规 */
+    public int violationCooldownSecond = 60;
 
     public int deleteAfterViolations = 2;
     public int banAfterViolations = 3;
@@ -74,12 +96,28 @@ public class AntiSpamConfig {
         config.longTextEnable = plugin.getConfig().getBoolean("longTextEnable",true);
         config.longTextMaxChars = plugin.getConfig().getInt("longTextMaxChars",800);
 
+        config.mediaFloodEnable = plugin.getConfig().getBoolean("mediaFloodEnable",true);
+        config.mediaFloodMaxCount = plugin.getConfig().getInt("mediaFloodMaxCount",5);
+
         config.mentionEnable = plugin.getConfig().getBoolean("mentionEnable",true);
         config.mentionWindowSecond = plugin.getConfig().getInt("mentionWindowSecond",60);
         config.mentionMaxCount = plugin.getConfig().getInt("mentionMaxCount",8);
         config.mentionAllEnable = plugin.getConfig().getBoolean("mentionAllEnable",true);
 
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
+
+        config.repeatBanterForgive = plugin.getConfig().getBoolean("repeatBanterForgive",true);
+        config.repeatBanterMinUsers = plugin.getConfig().getInt("repeatBanterMinUsers",1);
+        config.repeatGroupWindowSecond = plugin.getConfig().getInt("repeatGroupWindowSecond",10);
+        config.repeatGroupCount = plugin.getConfig().getInt("repeatGroupCount",6);
+        config.repeatGroupLongWindowSecond = plugin.getConfig().getInt("repeatGroupLongWindowSecond",60);
+        config.repeatGroupLongCount = plugin.getConfig().getInt("repeatGroupLongCount",10);
+
+        config.forgiveFirst = plugin.getConfig().getBoolean("forgiveFirst",true);
+        config.noticeEnable = plugin.getConfig().getBoolean("noticeEnable",true);
+        config.noticeCooldownSecond = plugin.getConfig().getInt("noticeCooldownSecond",600);
+        config.violationCountMode = plugin.getConfig().getString("violationCountMode","session");
+        config.violationCooldownSecond = plugin.getConfig().getInt("violationCooldownSecond",60);
 
         config.deleteAfterViolations = plugin.getConfig().getInt("deleteAfterViolations",2);
         config.banAfterViolations = plugin.getConfig().getInt("banAfterViolations",3);
@@ -122,6 +160,25 @@ public class AntiSpamConfig {
             config.repeatLongMaxCount = config.repeatMaxCount;
         }
         if (config.longTextMaxChars < 0) config.longTextMaxChars = 0;
+        if (config.mediaFloodMaxCount < 1) config.mediaFloodMaxCount = 1;
+        if (config.repeatBanterMinUsers < 1) config.repeatBanterMinUsers = 1;
+        if (config.repeatBanterMinUsers > 10) config.repeatBanterMinUsers = 10;
+        if (config.repeatGroupWindowSecond < 1) config.repeatGroupWindowSecond = 1;
+        if (config.repeatGroupCount < 0) config.repeatGroupCount = 0;
+        if (config.repeatGroupLongWindowSecond < config.repeatGroupWindowSecond) {
+            config.repeatGroupLongWindowSecond = config.repeatGroupWindowSecond;
+        }
+        if (config.repeatGroupLongCount < config.repeatGroupCount) {
+            config.repeatGroupLongCount = config.repeatGroupCount;
+        }
+        if (config.noticeCooldownSecond < 0) config.noticeCooldownSecond = 0;
+        if (config.violationCountMode == null
+                || !"message".equalsIgnoreCase(config.violationCountMode.trim())) {
+            config.violationCountMode = "session";
+        } else {
+            config.violationCountMode = "message";
+        }
+        if (config.violationCooldownSecond < 0) config.violationCooldownSecond = 0;
         if (config.mentionWindowSecond < 1) config.mentionWindowSecond = 1;
         if (config.mentionMaxCount < 2) config.mentionMaxCount = 2;
         if (config.minMessageLength < 0) config.minMessageLength = 0;

@@ -16,6 +16,10 @@ public final class AntiSpamMessage {
         public int mentionCount = 0;
         public boolean mentionAll = false;
         public boolean hasImage = false;
+        /** 图片、表情与语音的总数，用于判断是不是纯图片表情连发 */
+        public int mediaCount = 0;
+        /** 是否只有图片、表情或语音，没有任何实际文字 */
+        public boolean mediaOnly = false;
     }
 
     private AntiSpamMessage() {
@@ -49,14 +53,17 @@ public final class AntiSpamMessage {
             }
             if ("image".equals(type)) {
                 content.hasImage = true;
+                content.mediaCount++;
                 builder.append("[图片]");
                 continue;
             }
             if ("face".equals(type)) {
+                content.mediaCount++;
                 builder.append("[表情]");
                 continue;
             }
             if ("record".equals(type)) {
+                content.mediaCount++;
                 builder.append("[语音]");
                 continue;
             }
@@ -65,7 +72,24 @@ public final class AntiSpamMessage {
             }
         }
         content.text = builder.toString().trim();
+        //只有图片、表情或语音，没有实际文字：这类连发按无害处理
+        content.mediaOnly = content.mediaCount > 0 && !hasRealText(message);
         return content;
+    }
+
+    /**
+     * 消息里是否有真正的文字（排除 [图片] 这类占位符）
+     */
+    private static boolean hasRealText(JSONArray message) {
+        if (message == null) return false;
+        for (int i = 0; i < message.size(); i++) {
+            JSONObject segment = message.getJSONObject(i);
+            if (segment == null || !"text".equals(segment.getString("type"))) continue;
+            JSONObject data = segment.getJSONObject("data");
+            String text = data == null ? null : data.getString("text");
+            if (text != null && !text.trim().isEmpty()) return true;
+        }
+        return false;
     }
 
     /**

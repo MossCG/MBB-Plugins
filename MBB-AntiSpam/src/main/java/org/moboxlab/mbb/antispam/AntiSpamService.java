@@ -32,12 +32,20 @@ public class AntiSpamService {
         private final List<Long> mentionTimes = new ArrayList<>();
         private final Map<String,List<Long>> fingerprints = new java.util.HashMap<>();
         private final List<Long> violationTimes = new ArrayList<>();
+        /** 上一次真正计数的时间，用于把同一波刷屏合并成一波 */
+        private long lastCountedViolation = 0L;
         private long lastActive = 0L;
     }
 
     private final Plugin plugin;
     private volatile AntiSpamConfig config;
     private final Map<String,UserWindow> windows = new ConcurrentHashMap<>();
+    /** 内容指纹 -> 发过这句话的不同用户，用来区分个人复读和多人玩梗 */
+    private final Map<String,Set<Long>> fingerprintUsers = new ConcurrentHashMap<>();
+    /** 群ID|内容指纹 -> 本群所有人发过的时间戳，用于识别多人一起复读 */
+    private final Map<String,List<Long>> groupFingerprints = new ConcurrentHashMap<>();
+    /** 已经提醒过的用户，避免反复打扰：groupID|userID -> 上次提醒时间 */
+    private final Map<String,Long> noticeTimes = new ConcurrentHashMap<>();
     private final Set<Long> handledMessages = Collections.newSetFromMap(
             new ConcurrentHashMap<Long,Boolean>());
     private final AtomicLong lastCleanup = new AtomicLong(0L);
@@ -111,11 +119,12 @@ public class AntiSpamService {
             }
             window.lastActive = now;
             //先取快照再落本次数据，判定的是"包含本条在内"的窗口
-            FloodRuleEngine.Snapshot snapshot = snapshot(window,current,fingerprint,
-                    content.text.length(),content.mentionCount,content.mentionAll,now);
+            FloodRuleEngine.Snapshot snapshot = snapshot(window,current,groupID,fingerprint,
+                    content,now);
             result = FloodRuleEngine.evaluate(current,snapshot,now);
             append(window,fingerprint,now,content.mentionCount);
-            violationCount = result.violated ? registerViolation(window,current,now) : 0;
+            appendFingerprintUser(groupID,userID,fingerprint,now);
+            violationCount = result.violated ? registerViolation(window,current,result,now) : 0;
         }
         if (!result.violated) return;
         //同一条消息可能被重复投递，按消息 ID 去重，避免重复处置
@@ -124,42 +133,78 @@ public class AntiSpamService {
 
         List<String> actions = new ArrayList<>();
         String action = current.defaultAction == null ? "log" : current.defaultAction.trim().toLowerCase();
-        if (current.deleteAfterViolations > 0 && violationCount >= current.deleteAfterViolations) {
+        //只记录不升级的命中（纯图片表情、多人玩梗、首次违规）：不入处置阶梯
+        boolean forgiven = result.forgive || violationCount <= 0;
+        if (!forgiven && current.deleteAfterViolations > 0
+                && violationCount >= current.deleteAfterViolations) {
             if (deleteMessage(event)) actions.add("delete");
         }
-        if (current.banAfterViolations > 0 && violationCount >= current.banAfterViolations) {
+        if (!forgiven && current.banAfterViolations > 0
+                && violationCount >= current.banAfterViolations) {
             if (banUser(groupID,userID,current.banDurationSecond)) actions.add("ban");
         }
         //告警：群内提示由 alertCurrentGroup 决定，管理员私信由 alertAdminPrivate 决定
         boolean alert = config.alertCurrentGroup || config.alertAdminPrivate;
-        if (alert && !"ignore".equals(action)) actions.add("alert");
+        if (alert && !"ignore".equals(action) && !forgiven) actions.add("alert");
 
         if (!"ignore".equals(action)) {
             plugin.getLogger().sendInfo("[刷屏] 群"+groupID+" 用户"+userID
                     +" 规则="+result.rule+" 说明="+result.detail
-                    +" 累计违规="+violationCount
-                    +(actions.isEmpty() ? "" : " 处置="+join(actions)));
+                    +(forgiven ? " 处置=仅记录" : " 累计违规="+violationCount
+                    +(actions.isEmpty() ? "" : " 处置="+join(actions))));
         }
-        logEvent(groupID,userID,messageID,result,violationCount,join(actions),
-                content.text,now);
-        if (alert) {
+        logEvent(groupID,userID,messageID,result,violationCount,
+                forgiven ? "forgiven" : join(actions),content.text,now);
+        if (alert && !forgiven) {
             alert(groupID,userID,result,violationCount);
         }
+        if (!forgiven) notice(groupID,userID,result);
         purgeOldEvents(now);
     }
 
     private FloodRuleEngine.Snapshot snapshot(UserWindow window,AntiSpamConfig current,
-                                              String fingerprint,int contentLength,
-                                              int mentionCount,boolean mentionAll,long now) {
+                                              long groupID,String fingerprint,
+                                              AntiSpamMessage.Content content,long now) {
         FloodRuleEngine.Snapshot snapshot = new FloodRuleEngine.Snapshot();
         snapshot.messageTimes = toArray(window.messageTimes);
         snapshot.mentionTimes = toArray(window.mentionTimes);
         snapshot.fingerprints = window.fingerprints;
+        snapshot.groupFingerprints = groupFingerprintMap(groupID);
+        snapshot.fingerprintUsers = distinctUsers(groupID);
         snapshot.fingerprint = fingerprint;
-        snapshot.contentLength = contentLength;
-        snapshot.mentionCount = mentionCount;
-        snapshot.mentionAll = mentionAll;
+        snapshot.contentLength = content.text.length();
+        snapshot.mentionCount = content.mentionCount;
+        snapshot.mentionAll = content.mentionAll;
+        snapshot.mediaOnly = content.mediaOnly;
+        snapshot.mediaCount = content.mediaCount;
         return snapshot;
+    }
+
+    /**
+     * 统计每个内容指纹在本群被多少个不同用户发过
+     */
+    private Map<String,Integer> distinctUsers(long groupID) {
+        Map<String,Integer> result = new java.util.HashMap<>();
+        String prefix = groupID+"|";
+        for (Map.Entry<String,Set<Long>> entry : fingerprintUsers.entrySet()) {
+            if (!entry.getKey().startsWith(prefix)) continue;
+            String fingerprint = entry.getKey().substring(prefix.length());
+            result.put(fingerprint,entry.getValue().size());
+        }
+        return result;
+    }
+
+    /**
+     * 取出本群每个人的复读时间线，用于识别多人一起复读同一句话
+     */
+    private Map<String,List<Long>> groupFingerprintMap(long groupID) {
+        Map<String,List<Long>> result = new java.util.HashMap<>();
+        String prefix = groupID+"|";
+        for (Map.Entry<String,List<Long>> entry : groupFingerprints.entrySet()) {
+            if (!entry.getKey().startsWith(prefix)) continue;
+            result.put(entry.getKey().substring(prefix.length()),entry.getValue());
+        }
+        return result;
     }
 
     private void append(UserWindow window,String fingerprint,long now,int mentionCount) {
@@ -174,6 +219,39 @@ public class AntiSpamService {
             times.add(now);
         }
         trim(window,now);
+    }
+
+    /**
+     * 记录「这个内容在本群被哪些用户、在什么时间发过」
+     *
+     * 用户集合用来区分个人复读和多人玩梗，时间线用来识别多人一起复读同一句话。
+     */
+    private void appendFingerprintUser(long groupID,long userID,String fingerprint,long now) {
+        if (fingerprint == null || fingerprint.isEmpty()) return;
+        String key = groupID+"|"+fingerprint;
+        Set<Long> users = fingerprintUsers.get(key);
+        if (users == null) {
+            users = Collections.newSetFromMap(new ConcurrentHashMap<Long,Boolean>());
+            Set<Long> previous = fingerprintUsers.putIfAbsent(key,users);
+            if (previous != null) users = previous;
+        }
+        users.add(userID);
+        List<Long> times = groupFingerprints.get(key);
+        if (times == null) {
+            List<Long> created = Collections.synchronizedList(new ArrayList<Long>());
+            List<Long> previous = groupFingerprints.putIfAbsent(key,created);
+            times = previous == null ? created : previous;
+        }
+        synchronized (times) {
+            times.add(now);
+            //群级时间线只保留最长统计窗口内的数据
+            AntiSpamConfig current = config;
+            long keep = Math.max(current.repeatGroupLongWindowSecond,current.repeatLongWindowSecond) * 1000L;
+            long from = now - keep;
+            int remove = 0;
+            while (remove < times.size() && times.get(remove) < from) remove++;
+            if (remove > 0) times.subList(0,remove).clear();
+        }
     }
 
     /**
@@ -200,9 +278,31 @@ public class AntiSpamService {
         if (remove > 0) times.subList(0,remove).clear();
     }
 
-    private int registerViolation(UserWindow window,AntiSpamConfig current,long now) {
+    /**
+     * 计入一次违规，返回窗口内的累计次数
+     *
+     * 只记录不升级的命中（纯图片表情、多人玩梗）直接返回 0，不进入处置阶梯。
+     * forgiveFirst 打开时，窗口内第一次命中也不计数，等于先给一次提醒。
+     * violationCountMode=session（默认）时，同一波刷屏只算一次：间隔不足
+     * violationCooldownSecond 秒的连续命中会被合并，避免一个人因为一时的连发
+     * 就被迅速禁言；改成 message 则每条命中都计数。
+     */
+    private int registerViolation(UserWindow window,AntiSpamConfig current,
+                                  FloodRuleEngine.Result result,long now) {
+        if (result != null && result.forgive) return 0;
         long from = now - current.violationWindowSecond * 1000L;
         trimTimes(window.violationTimes,from);
+        if (!"message".equals(current.violationCountMode)
+                && window.lastCountedViolation > 0
+                && now - window.lastCountedViolation < current.violationCooldownSecond * 1000L) {
+            //同一波刷屏：已经计过一次，这里只记录事件，不再累加
+            return window.violationTimes.size();
+        }
+        window.lastCountedViolation = now;
+        if (current.forgiveFirst && window.violationTimes.isEmpty()) {
+            window.violationTimes.add(now);
+            return 0;
+        }
         window.violationTimes.add(now);
         return window.violationTimes.size();
     }
@@ -261,6 +361,33 @@ public class AntiSpamService {
         }
     }
 
+    /**
+     * 给本人提个醒
+     *
+     * 语气保持平和，只说明情况和后续后果，不训人；同一个用户按冷却时间最多提醒一次，
+     * 避免变成新的骚扰源。关闭 noticeEnable 后完全不发。
+     */
+    private void notice(long groupID,long userID,FloodRuleEngine.Result result) {
+        AntiSpamConfig current = config;
+        if (!current.noticeEnable) return;
+        String key = groupID+"|"+userID;
+        long now = System.currentTimeMillis();
+        Long last = noticeTimes.get(key);
+        if (last != null && now - last < current.noticeCooldownSecond * 1000L) return;
+        noticeTimes.put(key,now);
+        StringBuilder builder = new StringBuilder();
+        builder.append("打扰一下，刚才的消息发得有点密（").append(result.label).append("）。");
+        builder.append("\n如果是在玩梗或者网络卡了，忽略这条就行；继续这样的话可能会被撤回消息");
+        if (current.banAfterViolations > 0) builder.append("，再严重会短暂禁言");
+        builder.append("。");
+        try {
+            JSONArray message = MessageUtil.message(MessageUtil.text(builder.toString()));
+            plugin.getServer().getOneBotClient().sendPrivateMessage(userID,message);
+        } catch (Exception e) {
+            plugin.getLogger().sendException(e);
+        }
+    }
+
     private void logEvent(long groupID,long userID,long messageID,FloodRuleEngine.Result result,
                           int violationCount,String action,String contentText,long now) {
         String actionText = action == null || action.isEmpty() ? "log" : action;
@@ -295,6 +422,17 @@ public class AntiSpamService {
         while (iterator.hasNext()) {
             Map.Entry<String,UserWindow> entry = iterator.next();
             if (entry.getValue().lastActive < idleFrom) iterator.remove();
+        }
+        //指纹用户集合与提醒记录同样按空闲时间回收，避免长期运行只增不减
+        java.util.Iterator<Map.Entry<String,Set<Long>>> userIterator =
+                fingerprintUsers.entrySet().iterator();
+        while (userIterator.hasNext()) {
+            if (userIterator.next().getValue().isEmpty()) userIterator.remove();
+        }
+        long noticeFrom = now - Math.max(current.noticeCooldownSecond,600) * 1000L;
+        java.util.Iterator<Map.Entry<String,Long>> noticeIterator = noticeTimes.entrySet().iterator();
+        while (noticeIterator.hasNext()) {
+            if (noticeIterator.next().getValue() < noticeFrom) noticeIterator.remove();
         }
         if (windows.size() <= current.maxTrackedUsers) return;
         //仍然超限时按最久未活动优先淘汰
@@ -385,6 +523,9 @@ public class AntiSpamService {
     public void resetWindows() {
         windows.clear();
         handledMessages.clear();
+        fingerprintUsers.clear();
+        groupFingerprints.clear();
+        noticeTimes.clear();
     }
 
     public int trackedUsers() {

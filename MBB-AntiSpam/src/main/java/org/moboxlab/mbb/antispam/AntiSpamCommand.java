@@ -116,7 +116,7 @@ public class AntiSpamCommand extends BotCommand {
                         .append(" ").append(item.getLongValue("userID"))
                         .append(" ").append(item.getString("rule"))
                         .append(" 第").append(item.getIntValue("violationCount")).append("次")
-                        .append(" 处置=").append(safe(item.getString("action")));
+                        .append(" 处置=").append(actionText(item.getString("action")));
             }
             sender.sendMessage(builder.toString());
             return true;
@@ -154,9 +154,17 @@ public class AntiSpamCommand extends BotCommand {
                 +"（"+config.repeatWindowSecond+" 秒 "+config.repeatMaxCount+" 次 / "
                 +config.repeatLongWindowSecond+" 秒 "+config.repeatLongMaxCount+" 次）"
                 +"\n超长文本："+(config.longTextEnable ? config.longTextMaxChars+" 字符" : "关")
+                +"\n图片表情连发："+(config.mediaFloodEnable
+                ? config.mediaFloodMaxCount+" 个起记录（只记录不处置）" : "关")
                 +"\n艾特刷屏："+(config.mentionEnable ? config.mentionWindowSecond+" 秒 "
                 +config.mentionMaxCount+" 人" : "关")
                 +"（@全体："+(config.mentionAllEnable ? "直接命中" : "不处理")+"）"
+                +"\n人性化设置：首次命中"+(config.forgiveFirst ? "只提醒" : "直接计数")
+                +" / 提醒本人"+(config.noticeEnable ? "开（"+config.noticeCooldownSecond+" 秒冷却）" : "关")
+                +" / 多人玩梗"+(config.repeatBanterForgive
+                ? "不处罚（≥"+config.repeatBanterMinUsers+" 人）" : "照常计数")
+                +"\n违规计数："+("message".equals(config.violationCountMode)
+                ? "每条命中都计数" : "同一波只算一次（"+config.violationCooldownSecond+" 秒内合并）")
                 +"\n处置阶梯：撤回≥"+config.deleteAfterViolations
                 +" 次 / 禁言≥"+config.banAfterViolations+" 次"
                 +"（窗口 "+config.violationWindowSecond+" 秒，禁言 "+config.banDurationSecond+" 秒）"
@@ -182,6 +190,12 @@ public class AntiSpamCommand extends BotCommand {
         } catch (Exception e) {
             return 1;
         }
+    }
+
+    private String actionText(String action) {
+        if (action == null || action.trim().isEmpty()) return "记录";
+        if ("forgiven".equals(action)) return "仅提醒";
+        return action.trim();
     }
 
     private String safe(String value) {
