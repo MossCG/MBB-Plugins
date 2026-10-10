@@ -1,0 +1,67 @@
+#MBB-AntiSpam 配置
+#插件总开关，关闭后不检测任何消息
+enable: true
+#新群的默认开关；每个群的开关也可以由 /antispam on|off 单独保存
+defaultGroupEnable: true
+#命中规则后的动作：ignore 只记录，log 记录并输出控制台日志，alert 记录并私信管理员
+defaultAction: "log"
+#是否把命中的刷屏告警私信发给机器人管理员
+alertAdminPrivate: true
+#是否在群里公开提示，关闭时只在控制台和管理员私信里出现
+alertCurrentGroup: false
+#管理员和所有者是否豁免，默认是；关闭后管理员也参与检测
+bypassAdmin: true
+#豁免用户 QQ，多个用英文逗号分隔，不受任何限制
+bypassUsers: ""
+#白名单用户 QQ，多个用英文逗号分隔；命中后不计数也不处罚
+whitelistUsers: ""
+#命中事件保留天数，自动清理更早的记录
+retentionDays: 30
+
+#限流：短时间内连发多少条算刷屏
+rateEnable: true
+#限流统计窗口秒数
+rateWindowSecond: 10
+#窗口内允许的最大条数
+rateMaxMessages: 6
+#长窗口限流窗口秒数
+rateLongWindowSecond: 60
+#长窗口内允许的最大条数
+rateLongMaxMessages: 20
+
+#复读：连续发同一条内容多少次算刷屏
+repeatEnable: true
+#内容指纹去重时忽略标点、空格与大小写后取用的最大长度
+repeatFingerprintChars: 64
+#短窗口内同一内容最多出现次数
+repeatWindowSecond: 10
+repeatMaxCount: 3
+#长窗口内同一内容最多出现次数
+repeatLongWindowSecond: 60
+repeatLongMaxCount: 5
+
+#超长文本刷屏：单条消息超过多少字符算刷屏，0 表示关闭
+longTextEnable: true
+longTextMaxChars: 800
+
+#艾特刷屏：窗口内艾特多少人算刷屏
+mentionEnable: true
+mentionWindowSecond: 60
+mentionMaxCount: 8
+#是否把 @全体成员 直接视为刷屏
+mentionAllEnable: true
+
+#过短内容不参与统计，避免把正常的表情、单字回复误判
+minMessageLength: 2
+
+#短窗口内累计违规多少次开始撤回消息，0 表示不撤回
+deleteAfterViolations: 2
+#短窗口内累计违规多少次开始禁言，0 表示不禁言
+banAfterViolations: 3
+#违规统计窗口秒数
+violationWindowSecond: 300
+#单次禁言秒数
+banDurationSecond: 300
+
+#内存中保留的活跃用户窗口数量上限，超过后清理最久未活动的记录
+maxTrackedUsers: 5000

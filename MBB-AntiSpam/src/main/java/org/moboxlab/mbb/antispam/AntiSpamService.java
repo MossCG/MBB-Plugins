@@ -1,0 +1,444 @@
+package org.moboxlab.mbb.antispam;
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import org.moboxlab.moboxbot.API.Event.GroupMessageEvent;
+import org.moboxlab.moboxbot.API.OneBot.MessageUtil;
+import org.moboxlab.moboxbot.API.Plugin;
+import org.moboxlab.moboxbot.API.Storage.StorageService;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * 刷屏治理服务
+ *
+ * 维护每个群每个用户的滑动窗口，命中规则后按累计违规次数升级处置，
+ * 事件写入 SQLite 供 /antispam log 查询，可选撤回消息、禁言和私信管理员。
+ */
+public class AntiSpamService {
+    private static final String EVENT_TABLE = "plugin_mbb_antispam_event";
+    private static final String GROUP_TABLE = "plugin_mbb_antispam_group";
+    private static final long CLEANUP_INTERVAL_MILLIS = 60 * 1000L;
+
+    /** 一个群成员的全部窗口数据 */
+    private static class UserWindow {
+        private final List<Long> messageTimes = new ArrayList<>();
+        private final List<Long> mentionTimes = new ArrayList<>();
+        private final Map<String,List<Long>> fingerprints = new java.util.HashMap<>();
+        private final List<Long> violationTimes = new ArrayList<>();
+        private long lastActive = 0L;
+    }
+
+    private final Plugin plugin;
+    private volatile AntiSpamConfig config;
+    private final Map<String,UserWindow> windows = new ConcurrentHashMap<>();
+    private final Set<Long> handledMessages = Collections.newSetFromMap(
+            new ConcurrentHashMap<Long,Boolean>());
+    private final AtomicLong lastCleanup = new AtomicLong(0L);
+    private final AtomicLong eventSequence = new AtomicLong(0L);
+
+    public AntiSpamService(Plugin plugin,AntiSpamConfig config) {
+        this.plugin = plugin;
+        this.config = config;
+    }
+
+    public void init() {
+        storage().update("CREATE TABLE IF NOT EXISTS `"+EVENT_TABLE+"` ("
+                + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "`groupID` INTEGER NOT NULL DEFAULT 0,"
+                + "`userID` INTEGER NOT NULL DEFAULT 0,"
+                + "`messageID` INTEGER NOT NULL DEFAULT 0,"
+                + "`rule` TEXT NOT NULL DEFAULT '',"
+                + "`score` INTEGER NOT NULL DEFAULT 0,"
+                + "`count` INTEGER NOT NULL DEFAULT 0,"
+                + "`violationCount` INTEGER NOT NULL DEFAULT 0,"
+                + "`action` TEXT NOT NULL DEFAULT '',"
+                + "`content` TEXT NOT NULL DEFAULT '',"
+                + "`detail` TEXT NOT NULL DEFAULT '',"
+                + "`eventTime` INTEGER NOT NULL DEFAULT 0"
+                + ")");
+        storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_antispam_event_group` "
+                + "ON `"+EVENT_TABLE+"` (`groupID`,`eventTime`)");
+        storage().update("CREATE TABLE IF NOT EXISTS `"+GROUP_TABLE+"` ("
+                + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
+                + "`enabled` INTEGER NOT NULL DEFAULT 0,"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0"
+                + ")");
+    }
+
+    public void reload(AntiSpamConfig config) {
+        this.config = config == null ? this.config : config;
+    }
+
+    public AntiSpamConfig config() {
+        return config;
+    }
+
+    /**
+     * 处理一条群消息，命中刷屏规则时记录并按阶梯处置
+     */
+    public void handle(GroupMessageEvent event) {
+        AntiSpamConfig current = config;
+        if (event == null || current == null || !current.enable) return;
+        long groupID = event.getGroupID();
+        long userID = event.getUserID();
+        if (groupID <= 0 || userID <= 0) return;
+        if (!isGroupEnabled(groupID)) return;
+        if (isBypassed(userID)) return;
+        long now = System.currentTimeMillis();
+        cleanupIfNeeded(now);
+
+        AntiSpamMessage.Content content = AntiSpamMessage.extract(event.getMessage());
+        String fingerprint = AntiSpamMessage.fingerprint(content.text,current.repeatFingerprintChars);
+        //过短内容不参与连续刷屏统计，避免把正常表情和单字回复误判
+        if (content.text.length() < current.minMessageLength && !content.mentionAll) return;
+
+        String key = groupID+"|"+userID;
+        FloodRuleEngine.Result result;
+        int violationCount;
+        synchronized (key.intern()) {
+            UserWindow window = windows.get(key);
+            if (window == null) {
+                window = new UserWindow();
+                windows.put(key,window);
+            }
+            window.lastActive = now;
+            //先取快照再落本次数据，判定的是"包含本条在内"的窗口
+            FloodRuleEngine.Snapshot snapshot = snapshot(window,current,fingerprint,
+                    content.text.length(),content.mentionCount,content.mentionAll,now);
+            result = FloodRuleEngine.evaluate(current,snapshot,now);
+            append(window,fingerprint,now,content.mentionCount);
+            violationCount = result.violated ? registerViolation(window,current,now) : 0;
+        }
+        if (!result.violated) return;
+        //同一条消息可能被重复投递，按消息 ID 去重，避免重复处置
+        long messageID = event.getMessageID();
+        if (messageID > 0 && !handledMessages.add(messageID)) return;
+
+        List<String> actions = new ArrayList<>();
+        String action = current.defaultAction == null ? "log" : current.defaultAction.trim().toLowerCase();
+        if (current.deleteAfterViolations > 0 && violationCount >= current.deleteAfterViolations) {
+            if (deleteMessage(event)) actions.add("delete");
+        }
+        if (current.banAfterViolations > 0 && violationCount >= current.banAfterViolations) {
+            if (banUser(groupID,userID,current.banDurationSecond)) actions.add("ban");
+        }
+        //告警：群内提示由 alertCurrentGroup 决定，管理员私信由 alertAdminPrivate 决定
+        boolean alert = config.alertCurrentGroup || config.alertAdminPrivate;
+        if (alert && !"ignore".equals(action)) actions.add("alert");
+
+        if (!"ignore".equals(action)) {
+            plugin.getLogger().sendInfo("[刷屏] 群"+groupID+" 用户"+userID
+                    +" 规则="+result.rule+" 说明="+result.detail
+                    +" 累计违规="+violationCount
+                    +(actions.isEmpty() ? "" : " 处置="+join(actions)));
+        }
+        logEvent(groupID,userID,messageID,result,violationCount,join(actions),
+                content.text,now);
+        if (alert) {
+            alert(groupID,userID,result,violationCount);
+        }
+        purgeOldEvents(now);
+    }
+
+    private FloodRuleEngine.Snapshot snapshot(UserWindow window,AntiSpamConfig current,
+                                              String fingerprint,int contentLength,
+                                              int mentionCount,boolean mentionAll,long now) {
+        FloodRuleEngine.Snapshot snapshot = new FloodRuleEngine.Snapshot();
+        snapshot.messageTimes = toArray(window.messageTimes);
+        snapshot.mentionTimes = toArray(window.mentionTimes);
+        snapshot.fingerprints = window.fingerprints;
+        snapshot.fingerprint = fingerprint;
+        snapshot.contentLength = contentLength;
+        snapshot.mentionCount = mentionCount;
+        snapshot.mentionAll = mentionAll;
+        return snapshot;
+    }
+
+    private void append(UserWindow window,String fingerprint,long now,int mentionCount) {
+        window.messageTimes.add(now);
+        for (int i = 0; i < mentionCount; i++) window.mentionTimes.add(now);
+        if (fingerprint != null && !fingerprint.isEmpty()) {
+            List<Long> times = window.fingerprints.get(fingerprint);
+            if (times == null) {
+                times = new ArrayList<>();
+                window.fingerprints.put(fingerprint,times);
+            }
+            times.add(now);
+        }
+        trim(window,now);
+    }
+
+    /**
+     * 丢掉超出最大统计窗口的数据，控制单用户内存占用
+     */
+    private void trim(UserWindow window,long now) {
+        AntiSpamConfig current = config;
+        long keepMillis = Math.max(current.rateLongWindowSecond,
+                Math.max(current.repeatLongWindowSecond,current.mentionWindowSecond)) * 1000L;
+        trimTimes(window.messageTimes,now - keepMillis);
+        trimTimes(window.mentionTimes,now - keepMillis);
+        long fingerprintKeep = current.repeatLongWindowSecond * 1000L;
+        java.util.Iterator<Map.Entry<String,List<Long>>> iterator = window.fingerprints.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String,List<Long>> entry = iterator.next();
+            trimTimes(entry.getValue(),now - fingerprintKeep);
+            if (entry.getValue().isEmpty()) iterator.remove();
+        }
+    }
+
+    private void trimTimes(List<Long> times,long from) {
+        int remove = 0;
+        while (remove < times.size() && times.get(remove) < from) remove++;
+        if (remove > 0) times.subList(0,remove).clear();
+    }
+
+    private int registerViolation(UserWindow window,AntiSpamConfig current,long now) {
+        long from = now - current.violationWindowSecond * 1000L;
+        trimTimes(window.violationTimes,from);
+        window.violationTimes.add(now);
+        return window.violationTimes.size();
+    }
+
+    private long[] toArray(List<Long> values) {
+        long[] result = new long[values.size()];
+        for (int i = 0; i < result.length; i++) result[i] = values.get(i);
+        return result;
+    }
+
+    private boolean deleteMessage(GroupMessageEvent event) {
+        if (event.getMessageID() <= 0) return false;
+        try {
+            JSONObject response = plugin.getServer().getOneBotClient().deleteMessage(event.getMessageID());
+            return response == null || response.getIntValue("retcode") == 0;
+        } catch (Exception e) {
+            plugin.getLogger().sendException(e);
+            return false;
+        }
+    }
+
+    private boolean banUser(long groupID,long userID,long durationSecond) {
+        try {
+            JSONObject response = plugin.getServer().getOneBotClient()
+                    .setGroupBan(groupID,userID,durationSecond);
+            return response == null || response.getIntValue("retcode") == 0;
+        } catch (Exception e) {
+            plugin.getLogger().sendException(e);
+            return false;
+        }
+    }
+
+    private void alert(long groupID,long userID,FloodRuleEngine.Result result,int violationCount) {
+        AntiSpamConfig current = config;
+        String text = "[刷屏告警] 群"+groupID+" 用户"+userID
+                +"\n规则："+result.label
+                +"\n说明："+result.detail
+                +"\n累计违规："+violationCount+" 次";
+        if (current.alertCurrentGroup) {
+            try {
+                JSONArray message = MessageUtil.message(MessageUtil.text(text));
+                plugin.getServer().getOneBotClient().sendGroupMessage(groupID,message);
+            } catch (Exception e) {
+                plugin.getLogger().sendException(e);
+            }
+        }
+        if (!current.alertAdminPrivate) return;
+        for (Long admin : plugin.getServer().getAdminList()) {
+            if (admin == null || admin <= 0) continue;
+            try {
+                JSONArray message = MessageUtil.message(MessageUtil.text(text));
+                plugin.getServer().getOneBotClient().sendPrivateMessage(admin,message);
+            } catch (Exception e) {
+                plugin.getLogger().sendException(e);
+            }
+        }
+    }
+
+    private void logEvent(long groupID,long userID,long messageID,FloodRuleEngine.Result result,
+                          int violationCount,String action,String contentText,long now) {
+        String actionText = action == null || action.isEmpty() ? "log" : action;
+        storage().insert("INSERT INTO `"+EVENT_TABLE+"` "
+                        + "(`groupID`,`userID`,`messageID`,`rule`,`score`,`count`,"
+                        + "`violationCount`,`action`,`content`,`detail`,`eventTime`) "
+                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                groupID,userID,messageID,result.rule,result.score,result.count,
+                violationCount,actionText,shortText(contentText,200),shortText(result.detail,300),now);
+    }
+
+    /**
+     * 按保留天数清理历史事件
+     */
+    private void purgeOldEvents(long now) {
+        AntiSpamConfig current = config;
+        long from = now - current.retentionDays * 24L * 60L * 60L * 1000L;
+        storage().update("DELETE FROM `"+EVENT_TABLE+"` WHERE `eventTime` < ?",from);
+    }
+
+    /**
+     * 周期性清理：丢弃不活跃用户的窗口，并限制内存中追踪的用户数量
+     */
+    private void cleanupIfNeeded(long now) {
+        long last = lastCleanup.get();
+        if (now - last < CLEANUP_INTERVAL_MILLIS) return;
+        if (!lastCleanup.compareAndSet(last,now)) return;
+        AntiSpamConfig current = config;
+        long idleFrom = now - Math.max(current.violationWindowSecond,
+                Math.max(current.rateLongWindowSecond,current.repeatLongWindowSecond)) * 1000L;
+        java.util.Iterator<Map.Entry<String,UserWindow>> iterator = windows.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String,UserWindow> entry = iterator.next();
+            if (entry.getValue().lastActive < idleFrom) iterator.remove();
+        }
+        if (windows.size() <= current.maxTrackedUsers) return;
+        //仍然超限时按最久未活动优先淘汰
+        List<Map.Entry<String,UserWindow>> entries = new ArrayList<>(windows.entrySet());
+        Collections.sort(entries,(left,right) ->
+                Long.compare(left.getValue().lastActive,right.getValue().lastActive));
+        int remove = windows.size() - current.maxTrackedUsers;
+        for (int i = 0; i < remove && i < entries.size(); i++) {
+            windows.remove(entries.get(i).getKey());
+        }
+    }
+
+    /**
+     * 当前群是否启用刷屏治理，没有记录时取配置默认值
+     */
+    public boolean isGroupEnabled(long groupID) {
+        if (groupID <= 0) return false;
+        JSONObject row = storage().queryOne("SELECT `enabled` FROM `"+GROUP_TABLE
+                +"` WHERE `groupID`=?",groupID);
+        if (row == null) return config.defaultGroupEnable;
+        return row.getIntValue("enabled") > 0;
+    }
+
+    public void setGroupEnabled(long groupID,boolean enabled) {
+        if (groupID <= 0) return;
+        long now = System.currentTimeMillis();
+        storage().insert("INSERT OR REPLACE INTO `"+GROUP_TABLE+"` "
+                        + "(`groupID`,`enabled`,`updateTime`) VALUES (?,?,?)",
+                groupID,enabled ? 1 : 0,now);
+    }
+
+    public JSONArray listEnabledGroups() {
+        JSONArray result = new JSONArray();
+        List<JSONObject> rows = storage().query("SELECT `groupID`,`updateTime` FROM `"+GROUP_TABLE
+                +"` WHERE `enabled`>0 ORDER BY `groupID` ASC");
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("groupID",row.getLongValue("groupID"));
+            item.put("updateTime",row.getLongValue("updateTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public JSONArray recentEvents(long groupID,int limit) {
+        JSONArray result = new JSONArray();
+        if (groupID <= 0) return result;
+        if (limit < 1) limit = 1;
+        if (limit > 50) limit = 50;
+        List<JSONObject> rows = storage().query("SELECT * FROM `"+EVENT_TABLE
+                +"` WHERE `groupID`=? ORDER BY `eventTime` DESC,`ID` DESC LIMIT "+limit,groupID);
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("userID",row.getLongValue("userID"));
+            item.put("rule",row.getString("rule"));
+            item.put("score",row.getIntValue("score"));
+            item.put("count",row.getIntValue("count"));
+            item.put("violationCount",row.getIntValue("violationCount"));
+            item.put("action",row.getString("action"));
+            item.put("content",row.getString("content"));
+            item.put("detail",row.getString("detail"));
+            item.put("eventTime",row.getLongValue("eventTime"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public int countEvents(long groupID) {
+        if (groupID <= 0) return 0;
+        JSONObject row = storage().queryOne("SELECT COUNT(*) AS `count` FROM `"+EVENT_TABLE
+                +"` WHERE `groupID`=?",groupID);
+        return row == null ? 0 : row.getIntValue("count");
+    }
+
+    /**
+     * 清空当前群的刷屏记录，返回删除条数
+     */
+    public int clearEvents(long groupID) {
+        if (groupID <= 0) return 0;
+        return storage().update("DELETE FROM `"+EVENT_TABLE+"` WHERE `groupID`=?",groupID);
+    }
+
+    /**
+     * 清空所有群窗口数据，用于 /antispam reset
+     */
+    public void resetWindows() {
+        windows.clear();
+        handledMessages.clear();
+    }
+
+    public int trackedUsers() {
+        return windows.size();
+    }
+
+    private boolean isBypassed(long userID) {
+        AntiSpamConfig current = config;
+        if (containsId(current.bypassUsers,userID)) return true;
+        if (containsId(current.whitelistUsers,userID)) return true;
+        if (!current.bypassAdmin) return false;
+        if (containsId(joinIds(plugin.getServer().getOwnerList()),userID)) return true;
+        return containsId(joinIds(plugin.getServer().getAdminList()),userID);
+    }
+
+    private String joinIds(List<Long> values) {
+        if (values == null || values.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
+        for (Long value : values) {
+            if (builder.length() > 0) builder.append(",");
+            builder.append(value);
+        }
+        return builder.toString();
+    }
+
+    private boolean containsId(String csv,long userID) {
+        if (csv == null || csv.trim().isEmpty() || userID <= 0) return false;
+        for (String item : csv.split("[,，]")) {
+            String value = item.trim();
+            if (value.isEmpty()) continue;
+            try {
+                if (Long.parseLong(value) == userID) return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    private String shortText(String text,int maxChars) {
+        if (text == null) return "";
+        String trimmed = text.trim();
+        return trimmed.length() <= maxChars ? trimmed : trimmed.substring(0,maxChars);
+    }
+
+    private String join(List<String> actions) {
+        StringBuilder builder = new StringBuilder();
+        for (String action : actions) {
+            if (builder.length() > 0) builder.append("+");
+            builder.append(action);
+        }
+        return builder.toString();
+    }
+
+    private StorageService storage() {
+        return plugin.getServer().getStorage();
+    }
+}

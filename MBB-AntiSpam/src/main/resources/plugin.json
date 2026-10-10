@@ -1,0 +1,13 @@
+{
+  "name": "MBB-AntiSpam",
+  "version": "V0.1.0.0.1935",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.antispam.AntiSpamPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot 群聊刷屏治理插件：限流、复读、超长文本与艾特刷屏检测",
+  "website": "",
+  "depend": [],
+  "softDepend": [],
+  "loadBefore": [],
+  "provides": ["antispam"]
+}

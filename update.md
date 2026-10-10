@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.5.15.0.1935 | 2026-10-10 | 新增 `MBB-AntiSpam` 刷屏治理插件：检测短窗口连发、长窗口持续刷屏、同内容复读、单条超长文本以及窗口内艾特人数过多与 `@全体成员`；复读判定先做内容指纹（去掉空白、标点与大小写差异后截断），变体复读不能绕过。命中后按累计违规次数逐级处置：先只记录并在控制台输出，达到 `deleteAfterViolations` 后撤回消息，达到 `banAfterViolations` 后禁言 `banDurationSecond` 秒，两个阈值都可以设为 0 关闭。默认只记录并私信管理员，不自动撤回或禁言；管理员与所有者默认豁免，每个群可用 `/antispam on\|off` 单独开关，新群按 `defaultGroupEnable` 处理。事件写入 `plugin_mbb_antispam_event`，按 `retentionDays` 自动清理；内存窗口按最久未活动淘汰，上限 `maxTrackedUsers`。与 `MBB-AIGuard` 的分工：AIGuard 判断内容风险，本插件只看消息行为，两者互不依赖，可同时启用 |
 | V0.5.14.0.1739 | 2026-10-10 | `MBB-ComfyUI` 调整 `camera=photo` 的画面语义：不再向提示词追加手机、相机或手持设备标签，改为 `first person view / point of view` 的第一视角描述；`MBB-Roleplay` 同步要求拍照 prompt 只写角色第一视角能看到的内容，避免生成“拿着手机拍照”的画面 |
 | V0.5.13.0.1728 | 2026-10-10 | `MBB-Roleplay` 新增 `cameraEnable` 相机模式开关，默认 `true`。设为 `false` 后只关闭 `draw` 技能里的手机自拍/拍照模式，角色会忽略模型返回的 `camera` 参数，普通生图不受影响；旧配置会自动补全。配置改完执行 `/role reload` 或重启后生效 |
 | V0.5.12.0.1722 | 2026-10-10 | `MBB-Roleplay` 与 `MBB-ComfyUI` 接入角色手机相机：用户说“自拍一张”或“拍照看看你的布丁”时，`draw` 技能可以传 `camera=selfie/photo`，ComfyUI 会补充手机自拍或随手拍视角，自拍默认竖图、拍物默认横图，并继续走同一套排队、冷却、备份和完成回调。戳一戳回复改为专用的单条短消息发送路径，不再经过通用两段拆分，新增 `pokeReplyMaxChars`（默认 20）。ComfyUI 每群生图冷却默认从 600 秒降到 60 秒，旧配置会自动迁移 |
