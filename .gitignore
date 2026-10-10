@@ -4,6 +4,15 @@ build/
 MBB-Plugins.zip
 *.class
 
+# 运行期数据，不入库
+MoBoxBot/
+data/
+logs/
+*.db
+*.db-journal
+*.sqlite
+*.log
+
 # IDE
 .idea/
 *.iml

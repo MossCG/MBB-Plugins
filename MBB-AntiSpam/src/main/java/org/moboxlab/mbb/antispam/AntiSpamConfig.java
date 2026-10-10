@@ -42,9 +42,28 @@ public class AntiSpamConfig {
 
     public int minMessageLength = 2;
 
+    /**
+     * 玩梗豁免的人数区间：发过同一句话的不同用户数落在 [min, max] 内按玩梗只记录
+     *
+     * 低于下限说明只有自己在刷，按个人刷屏处置；高于上限说明是全群集体刷屏，照常处置。
+     * 下限最少为 2（1 个人不存在"一起玩梗"），默认 3；上限默认 4，且不会小于下限。
+     */
     public boolean repeatBanterForgive = true;
-    public int repeatBanterMinUsers = 1;
-    /** 全群复读同一句话的阈值：窗口秒数与允许次数，0 表示关闭群级复读判定 */
+    public int repeatBanterMinUsers = 3;
+    public int repeatBanterMaxUsers = 4;
+    /**
+     * 集体刷屏先整群提醒一次；多少秒内同一句话继续被刷，就对提醒之后的参与者开始处置
+     *
+     * 0 表示不对集体刷屏整群提醒（直接按违规处置）。
+     */
+    public int collectiveWarnCooldownSecond = 300;
+    /**
+     * 群内复读的阈值：窗口秒数与允许次数，0 表示关闭
+     *
+     * 统计的是本群所有人的发言（不按发言人区分），只要同一句话被反复发就算，
+     * 不需要群里每个人都发过。阈值由夹取逻辑保证不低于个人阈值 repeatMaxCount，
+     * 避免个人连刷先命中群级规则。
+     */
     public int repeatGroupWindowSecond = 10;
     public int repeatGroupCount = 6;
     public int repeatGroupLongWindowSecond = 60;
@@ -114,7 +133,12 @@ public class AntiSpamConfig {
         config.minMessageLength = plugin.getConfig().getInt("minMessageLength",2);
 
         config.repeatBanterForgive = plugin.getConfig().getBoolean("repeatBanterForgive",true);
-        config.repeatBanterMinUsers = plugin.getConfig().getInt("repeatBanterMinUsers",1);
+        config.repeatBanterMinUsers = plugin.getConfig().getInt("repeatBanterMinUsers",3);
+        config.repeatBanterMaxUsers = plugin.getConfig().getInt("repeatBanterMaxUsers",4);
+        config.collectiveWarnCooldownSecond =
+                plugin.getConfig().getInt("collectiveWarnCooldownSecond",300);
+        //旧默认 1 表示"2 人及以上都算玩梗"，迁移到新的下限 3
+        if (config.repeatBanterMinUsers < 2) config.repeatBanterMinUsers = 3;
         config.repeatGroupWindowSecond = plugin.getConfig().getInt("repeatGroupWindowSecond",10);
         config.repeatGroupCount = plugin.getConfig().getInt("repeatGroupCount",6);
         config.repeatGroupLongWindowSecond = plugin.getConfig().getInt("repeatGroupLongWindowSecond",60);
@@ -184,10 +208,19 @@ public class AntiSpamConfig {
         }
         if (config.longTextMaxChars < 0) config.longTextMaxChars = 0;
         if (config.mediaFloodMaxCount < 1) config.mediaFloodMaxCount = 1;
-        if (config.repeatBanterMinUsers < 1) config.repeatBanterMinUsers = 1;
-        if (config.repeatBanterMinUsers > 10) config.repeatBanterMinUsers = 10;
+        if (config.repeatBanterMinUsers < 2) config.repeatBanterMinUsers = 2;
+        if (config.repeatBanterMinUsers > 100) config.repeatBanterMinUsers = 100;
+        if (config.repeatBanterMaxUsers < config.repeatBanterMinUsers) {
+            config.repeatBanterMaxUsers = config.repeatBanterMinUsers;
+        }
+        if (config.repeatBanterMaxUsers > 100) config.repeatBanterMaxUsers = 100;
+        if (config.collectiveWarnCooldownSecond < 0) config.collectiveWarnCooldownSecond = 0;
         if (config.repeatGroupWindowSecond < 1) config.repeatGroupWindowSecond = 1;
         if (config.repeatGroupCount < 0) config.repeatGroupCount = 0;
+        //群内复读阈值不得低于个人复读阈值，否则一个人连刷会先命中群级规则
+        if (config.repeatGroupCount > 0 && config.repeatGroupCount < config.repeatMaxCount) {
+            config.repeatGroupCount = config.repeatMaxCount;
+        }
         if (config.repeatGroupLongWindowSecond < config.repeatGroupWindowSecond) {
             config.repeatGroupLongWindowSecond = config.repeatGroupWindowSecond;
         }

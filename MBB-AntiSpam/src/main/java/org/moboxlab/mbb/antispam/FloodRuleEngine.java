@@ -58,10 +58,16 @@ public final class FloodRuleEngine {
         /** 中文说明，写进日志与事件表 */
         public String detail = "";
         /**
+         * 触发范围：personal 个人刷屏，collective 集体刷屏
+         *
+         * 只用于说明文案，个人名字写进 detail 后置空，由服务层补上发言人 QQ。
+         */
+        public String scope = "personal";
+        /**
          * 只记录、不升级处置
          *
-         * 用于纯图片表情刷屏这类无害情况：事件照常入库便于管理员了解情况，
-         * 但不计入累计违规，因此不会撤回也不会禁言。
+         * 用于参与人数少的玩梗复读和纯图片表情刷屏这类无害情况：事件照常入库便于
+         * 管理员了解情况，但不计入累计违规，因此不会撤回也不会禁言。
          */
         public boolean forgive = false;
 
@@ -133,8 +139,12 @@ public final class FloodRuleEngine {
             List<Long> everyone = snapshot.groupFingerprints == null
                     ? null : snapshot.groupFingerprints.get(fingerprint);
             int users = distinctUsers(snapshot,fingerprint);
-            //多人一起复读同一句话属于玩梗，只记录不升级处置
-            boolean banter = config.repeatBanterForgive && users > config.repeatBanterMinUsers;
+            //参与人数落在 [下限, 上限] 内属于几个人一起玩梗：只记录不升级处置
+            boolean banter = config.repeatBanterForgive
+                    && users >= config.repeatBanterMinUsers
+                    && users <= config.repeatBanterMaxUsers;
+            //超过上限说明是全群集体刷屏，点名说明一下
+            boolean collective = users > config.repeatBanterMaxUsers;
             //个人自己的复读按"自己发过几次"判定，个人阈值更严
             if (mine != null) {
                 int myShort = (int) countIn(config.repeatWindowSecond,mine,now);
@@ -147,7 +157,7 @@ public final class FloodRuleEngine {
                             config.repeatLongMaxCount,config.repeatLongWindowSecond));
                 }
             }
-            //全群一起复读同一句话按群级阈值判定，命中后只有个人在刷时才处置
+            //群内复读：统计本群所有人的发言，只要同一句话反复出现就算，不按发言人区分
             if (everyone != null && config.repeatGroupCount > 0) {
                 int shortCount = (int) countIn(config.repeatGroupWindowSecond,everyone,now);
                 int longCount = (int) countIn(config.repeatGroupLongWindowSecond,everyone,now);
@@ -156,12 +166,16 @@ public final class FloodRuleEngine {
                             config.repeatGroupCount,config.repeatGroupWindowSecond);
                     if (banter) {
                         result.forgive = true;
-                        result.detail = "群内复读：窗口 "+config.repeatGroupWindowSecond+" 秒内 "
-                                +shortCount+" 次，由 "+users+" 人一起发，按玩梗处理，只记录";
+                        result.detail = "群内复读：窗口 "+config.repeatGroupWindowSecond+" 秒内同一句话出现 "
+                                +shortCount+" 次，来自 "+users+" 个不同的人，按玩梗处理，只记录";
+                    } else if (collective) {
+                        result.scope = "collective";
+                        result.detail = "群内复读：窗口 "+config.repeatGroupWindowSecond+" 秒内同一句话出现 "
+                                +shortCount+" 次，来自 "+users+" 个不同的人（集体刷屏）";
                     } else {
                         result.label = "复读刷屏";
-                        result.detail = "复读刷屏：窗口 "+config.repeatGroupWindowSecond+" 秒内 "
-                                +shortCount+" 次，来自同一个人";
+                        result.detail = "复读刷屏：窗口 "+config.repeatGroupWindowSecond+" 秒内同一句话出现 "
+                                +shortCount+" 次，都来自同一个人（个人刷屏）";
                     }
                     best = better(best,result);
                 } else if (longCount > config.repeatGroupLongCount) {
@@ -169,6 +183,18 @@ public final class FloodRuleEngine {
                             config.repeatGroupLongCount,config.repeatGroupLongWindowSecond);
                     if (banter) {
                         result.forgive = true;
+                        result.detail = "群内持续复读：窗口 "+config.repeatGroupLongWindowSecond
+                                +" 秒内同一句话出现 "+longCount+" 次，来自 "+users
+                                +" 个不同的人，按玩梗处理，只记录";
+                    } else if (collective) {
+                        result.scope = "collective";
+                        result.detail = "群内持续复读：窗口 "+config.repeatGroupLongWindowSecond
+                                +" 秒内同一句话出现 "+longCount+" 次，来自 "+users
+                                +" 个不同的人（集体刷屏）";
+                    } else {
+                        result.label = "复读刷屏";
+                        result.detail = "复读刷屏：窗口 "+config.repeatGroupLongWindowSecond
+                                +" 秒内同一句话出现 "+longCount+" 次，都来自同一个人（个人刷屏）";
                     }
                     best = better(best,result);
                 }

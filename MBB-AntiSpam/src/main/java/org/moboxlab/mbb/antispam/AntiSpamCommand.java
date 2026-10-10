@@ -162,8 +162,12 @@ public class AntiSpamCommand extends BotCommand {
                 +"\n人性化设置：首次命中"+(config.forgiveFirst ? "只提醒" : "直接计数")
                 +" / 提醒方式"+(config.noticeEnable
                 ? "群内艾特（"+config.noticeCooldownSecond+" 秒冷却）" : "关")
-                +" / 多人玩梗"+(config.repeatBanterForgive
-                ? "不处罚（≥"+config.repeatBanterMinUsers+" 人）" : "照常计数")
+                +" / 玩梗豁免"+(config.repeatBanterForgive
+                ? "参与人数 "+config.repeatBanterMinUsers+"~"+config.repeatBanterMaxUsers+" 人只记录"
+                +"（低于下限按个人刷屏）" : "已关闭")
+                +"\n集体刷屏："+(config.collectiveWarnCooldownSecond > 0
+                ? "先整群提醒一次（不艾特人），"+config.collectiveWarnCooldownSecond
+                +" 秒内继续刷则处置提醒后的参与者" : "不整群提醒，直接按违规处置")
                 +"\n违规计数："+("message".equals(config.violationCountMode)
                 ? "每条命中都计数" : "同一波只算一次（"+config.violationCooldownSecond+" 秒内合并）")
                 +"\n处置阶梯：撤回≥"+config.deleteAfterViolations

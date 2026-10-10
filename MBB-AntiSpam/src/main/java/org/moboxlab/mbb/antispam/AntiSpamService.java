@@ -37,6 +37,14 @@ public class AntiSpamService {
         private long lastActive = 0L;
     }
 
+    /** 一次命中后的处置依据 */
+    private static class Handled {
+        /** 计入后的累计违规次数，0 表示本轮只记录 */
+        private int violationCount = 0;
+        /** 本次是否发出了集体刷屏的整群提醒 */
+        private boolean warnCollective = false;
+    }
+
     private final Plugin plugin;
     private volatile AntiSpamConfig config;
     private final Map<String,UserWindow> windows = new ConcurrentHashMap<>();
@@ -44,12 +52,17 @@ public class AntiSpamService {
     private final Map<String,Set<Long>> fingerprintUsers = new ConcurrentHashMap<>();
     /** 群ID|内容指纹 -> 本群所有人发过的时间戳，用于识别多人一起复读 */
     private final Map<String,List<Long>> groupFingerprints = new ConcurrentHashMap<>();
+    /** 群ID|内容指纹 -> 上次整群提醒的时间，提醒后仍继续刷才对参与者处置 */
+    private final Map<String,Long> collectiveWarnTimes = new ConcurrentHashMap<>();
     /** 已经提醒过的用户，避免反复打扰：groupID|userID -> 上次提醒时间 */
     private final Map<String,Long> noticeTimes = new ConcurrentHashMap<>();
-    private final Set<Long> handledMessages = Collections.newSetFromMap(
-            new ConcurrentHashMap<Long,Boolean>());
+    /**
+     * 已处置过的消息 ID -> 处置时间，用于防止同一条消息被重复投递时重复处置
+     *
+     * 存时间而不是只存 ID，是为了能在清理时按时间回收，避免长期运行无限增长。
+     */
+    private final Map<Long,Long> handledMessages = new ConcurrentHashMap<>();
     private final AtomicLong lastCleanup = new AtomicLong(0L);
-    private final AtomicLong eventSequence = new AtomicLong(0L);
 
     public AntiSpamService(Plugin plugin,AntiSpamConfig config) {
         this.plugin = plugin;
@@ -92,7 +105,24 @@ public class AntiSpamService {
     /**
      * 处理一条群消息，命中刷屏规则时记录并按阶梯处置
      */
+    /**
+     * 处理一条群消息
+     *
+     * 这条逻辑运行在插件任务线程上，任何异常都不能往外抛，否则会把异常带进调度线程；
+     * 出错时只记录日志，不影响机器人继续运行。
+     */
     public void handle(GroupMessageEvent event) {
+        try {
+            handleInternal(event);
+        } catch (Exception e) {
+            plugin.getLogger().sendException(e);
+        }
+    }
+
+    /**
+     * 刷屏判定与处置的实际实现
+     */
+    private void handleInternal(GroupMessageEvent event) {
         AntiSpamConfig current = config;
         if (event == null || current == null || !current.enable) return;
         long groupID = event.getGroupID();
@@ -110,7 +140,7 @@ public class AntiSpamService {
 
         String key = groupID+"|"+userID;
         FloodRuleEngine.Result result;
-        int violationCount;
+        Handled handled;
         synchronized (key.intern()) {
             UserWindow window = windows.get(key);
             if (window == null) {
@@ -124,23 +154,29 @@ public class AntiSpamService {
             result = FloodRuleEngine.evaluate(current,snapshot,now);
             append(window,fingerprint,now,content.mentionCount);
             appendFingerprintUser(groupID,userID,fingerprint,now);
-            violationCount = result.violated ? registerViolation(window,current,result,now) : 0;
+            handled = result.violated
+                    ? registerViolation(window,current,result,groupKey(groupID,fingerprint),now)
+                    : new Handled();
         }
         if (!result.violated) return;
         //同一条消息可能被重复投递，按消息 ID 去重，避免重复处置
         long messageID = event.getMessageID();
-        if (messageID > 0 && !handledMessages.add(messageID)) return;
+        if (messageID > 0 && handledMessages.putIfAbsent(messageID,now) != null) return;
+        //个人刷屏时在说明里写上发言人，便于管理员核对
+        if ("personal".equals(result.scope) && result.detail != null && !result.detail.isEmpty()) {
+            result.detail = result.detail + "，发言人 "+userID;
+        }
 
         List<String> actions = new ArrayList<>();
         String action = current.defaultAction == null ? "log" : current.defaultAction.trim().toLowerCase();
-        //只记录不升级的命中（纯图片表情、多人玩梗、首次违规）：不入处置阶梯
-        boolean forgiven = result.forgive || violationCount <= 0;
+        //只记录不升级的命中（纯图片表情、参与人数适中的玩梗、首次违规）：不入处置阶梯
+        boolean forgiven = result.forgive || handled.violationCount <= 0;
         if (!forgiven && current.deleteAfterViolations > 0
-                && violationCount >= current.deleteAfterViolations) {
+                && handled.violationCount >= current.deleteAfterViolations) {
             if (deleteMessage(event)) actions.add("delete");
         }
         if (!forgiven && current.banAfterViolations > 0
-                && violationCount >= current.banAfterViolations) {
+                && handled.violationCount >= current.banAfterViolations) {
             //配置单位是分钟，OneBot 的 set_group_ban 用秒，这里换算
             long seconds = current.banDurationMinute * 60L;
             if (banUser(groupID,userID,seconds)) actions.add("ban");
@@ -152,13 +188,14 @@ public class AntiSpamService {
         if (!"ignore".equals(action)) {
             plugin.getLogger().sendInfo("[刷屏] 群"+groupID+" 用户"+userID
                     +" 规则="+result.rule+" 说明="+result.detail
-                    +(forgiven ? " 处置=仅记录" : " 累计违规="+violationCount
+                    +(forgiven ? " 处置=仅记录" : " 累计违规="+handled.violationCount
                     +(actions.isEmpty() ? "" : " 处置="+join(actions))));
         }
-        logEvent(groupID,userID,messageID,result,violationCount,
+        logEvent(groupID,userID,messageID,result,handled.violationCount,
                 forgiven ? "forgiven" : join(actions),content.text,now);
+        if (handled.warnCollective) collectiveWarn(groupID,userID,result,current);
         if (alert && !forgiven) {
-            alert(groupID,userID,result,violationCount);
+            alert(groupID,userID,result,handled.violationCount);
         }
         if (!forgiven) notice(groupID,userID,result);
         purgeOldEvents(now);
@@ -281,32 +318,79 @@ public class AntiSpamService {
     }
 
     /**
-     * 计入一次违规，返回窗口内的累计次数
+     * 计入一次违规，返回本轮处置依据
      *
-     * 只记录不升级的命中（纯图片表情、多人玩梗）直接返回 0，不进入处置阶梯。
-     * forgiveFirst 打开时，窗口内第一次命中也不计数，等于先给一次提醒。
+     * 只记录不升级的命中（纯图片表情、参与人数适中的玩梗）直接返回 0，不进入处置阶梯。
+     * forgiveFirst 打开时，窗口内第一次命中也不计数，等于先给一次提醒；但对集体刷屏
+     * 不适用——集体刷屏的"第一次"是整群提醒（warnCollective），提醒之后仍继续刷的
+     * 参与者才计数处置，而且每个参与者都不再单独享有"首次只提醒"。
      * violationCountMode=session（默认）时，同一波刷屏只算一次：间隔不足
      * violationCooldownSecond 秒的连续命中会被合并，避免一个人因为一时的连发
      * 就被迅速禁言；改成 message 则每条命中都计数。
      */
-    private int registerViolation(UserWindow window,AntiSpamConfig current,
-                                  FloodRuleEngine.Result result,long now) {
-        if (result != null && result.forgive) return 0;
+    private Handled registerViolation(UserWindow window,AntiSpamConfig current,
+                                      FloodRuleEngine.Result result,String key,long now) {
+        Handled handled = new Handled();
+        if (result != null && result.forgive) return handled;
+        boolean collective = result != null && "collective".equals(result.scope);
+        if (collective && current.collectiveWarnCooldownSecond > 0
+                && shouldWarnCollective(key,now)) {
+            handled.warnCollective = true;
+            return handled;
+        }
         long from = now - current.violationWindowSecond * 1000L;
         trimTimes(window.violationTimes,from);
-        if (!"message".equals(current.violationCountMode)
+        //集体刷屏的"一波"就是整群一起刷，提醒之后每一条都要算，否则参与者永远停在 1 次
+        if (!collective && !"message".equals(current.violationCountMode)
                 && window.lastCountedViolation > 0
                 && now - window.lastCountedViolation < current.violationCooldownSecond * 1000L) {
             //同一波刷屏：已经计过一次，这里只记录事件，不再累加
-            return window.violationTimes.size();
+            handled.violationCount = window.violationTimes.size();
+            return handled;
         }
         window.lastCountedViolation = now;
-        if (current.forgiveFirst && window.violationTimes.isEmpty()) {
+        if (current.forgiveFirst && !collective && window.violationTimes.isEmpty()) {
             window.violationTimes.add(now);
-            return 0;
+            return handled;
         }
         window.violationTimes.add(now);
-        return window.violationTimes.size();
+        handled.violationCount = window.violationTimes.size();
+        return handled;
+    }
+
+    private String groupKey(long groupID,String fingerprint) {
+        return groupID+"|"+fingerprint;
+    }
+
+    /**
+     * 同一个群同一句话是否还需要整群提醒，需要时记录提醒时间
+     */
+    private boolean shouldWarnCollective(String key,long now) {
+        Long last = collectiveWarnTimes.get(key);
+        if (last != null && now - last < config.collectiveWarnCooldownSecond * 1000L) return false;
+        collectiveWarnTimes.put(key,now);
+        return true;
+    }
+
+    /**
+     * 集体刷屏的整群提醒：不艾特任何参与者，避免把公屏变成点名现场
+     */
+    private void collectiveWarn(long groupID,long userID,FloodRuleEngine.Result result,
+                                AntiSpamConfig current) {
+        String warning = "这条消息发得有点多了（"+result.label+"），大家先停一下～"
+                +"\n如果继续这样的话，后面参与的朋友可能会被撤回消息";
+        if (current.banAfterViolations > 0) {
+            warning = warning+"或禁言 "+current.banDurationMinute+" 分钟";
+        }
+        warning = warning+"。";
+        try {
+            JSONArray message = MessageUtil.message(MessageUtil.text(warning));
+            plugin.getServer().getOneBotClient().sendGroupMessage(groupID,message);
+        } catch (Exception e) {
+            plugin.getLogger().sendException(e);
+        }
+        plugin.getLogger().sendInfo("[刷屏] 群"+groupID+" 集体刷屏已整群提醒（未艾特参与者）"
+                +" 触发者="+userID+" 规则="+result.rule);
     }
 
     private long[] toArray(List<Long> values) {
@@ -429,16 +513,41 @@ public class AntiSpamService {
             Map.Entry<String,UserWindow> entry = iterator.next();
             if (entry.getValue().lastActive < idleFrom) iterator.remove();
         }
-        //指纹用户集合与提醒记录同样按空闲时间回收，避免长期运行只增不减
+        //指纹用户集合按时间回收：只保留仍在群级时间线里的指纹
+        long fingerprintFrom = now - Math.max(current.repeatGroupLongWindowSecond,
+                current.repeatLongWindowSecond) * 1000L;
         java.util.Iterator<Map.Entry<String,Set<Long>>> userIterator =
                 fingerprintUsers.entrySet().iterator();
         while (userIterator.hasNext()) {
-            if (userIterator.next().getValue().isEmpty()) userIterator.remove();
+            Map.Entry<String,Set<Long>> entry = userIterator.next();
+            List<Long> timeline = groupFingerprints.get(entry.getKey());
+            boolean empty = entry.getValue().isEmpty();
+            boolean stale = timeline == null || timeline.isEmpty()
+                    || timeline.get(timeline.size() - 1) < fingerprintFrom;
+            if (empty || stale) {
+                userIterator.remove();
+                if (stale) groupFingerprints.remove(entry.getKey());
+            }
         }
         long noticeFrom = now - Math.max(current.noticeCooldownSecond,600) * 1000L;
         java.util.Iterator<Map.Entry<String,Long>> noticeIterator = noticeTimes.entrySet().iterator();
         while (noticeIterator.hasNext()) {
             if (noticeIterator.next().getValue() < noticeFrom) noticeIterator.remove();
+        }
+        //集体刷屏的整群提醒记录同样按冷却时间回收
+        long warnFrom = now - Math.max(current.collectiveWarnCooldownSecond,600) * 1000L;
+        java.util.Iterator<Map.Entry<String,Long>> warnIterator =
+                collectiveWarnTimes.entrySet().iterator();
+        while (warnIterator.hasNext()) {
+            if (warnIterator.next().getValue() < warnFrom) warnIterator.remove();
+        }
+        //消息去重记录只在短时间内有意义，按时长回收，避免长期运行无限增长
+        long handledFrom = now - Math.max(current.violationWindowSecond,
+                Math.max(current.rateLongWindowSecond,600)) * 1000L;
+        java.util.Iterator<Map.Entry<Long,Long>> handledIterator =
+                handledMessages.entrySet().iterator();
+        while (handledIterator.hasNext()) {
+            if (handledIterator.next().getValue() < handledFrom) handledIterator.remove();
         }
         if (windows.size() <= current.maxTrackedUsers) return;
         //仍然超限时按最久未活动优先淘汰
@@ -531,6 +640,7 @@ public class AntiSpamService {
         handledMessages.clear();
         fingerprintUsers.clear();
         groupFingerprints.clear();
+        collectiveWarnTimes.clear();
         noticeTimes.clear();
     }
 
