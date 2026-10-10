@@ -1,0 +1,100 @@
+#MBB-AntiSpam 配置
+#插件总开关，关闭后不检测任何消息
+enable: true
+#新群的默认开关；每个群的开关也可以由 /antispam on|off 单独保存
+defaultGroupEnable: true
+#命中规则后的动作：log 记录并输出控制台日志；ignore 静默处理（这条命中不写日志也不写事件表）
+defaultAction: "log"
+#是否把命中的刷屏告警私信发给机器人管理员
+alertAdminPrivate: true
+#是否在群里公开提示，关闭时只在控制台和管理员私信里出现
+alertCurrentGroup: false
+#管理员和所有者是否豁免，默认是；关闭后管理员也参与检测
+bypassAdmin: true
+#豁免用户 QQ，多个用英文逗号分隔，不受任何限制
+bypassUsers: ""
+#白名单用户 QQ，多个用英文逗号分隔；命中后不计数也不处罚
+whitelistUsers: ""
+#命中事件保留天数，自动清理更早的记录
+retentionDays: 30
+
+#限流：短时间内连发多少条算刷屏
+rateEnable: true
+#限流统计窗口秒数
+rateWindowSecond: 10
+#窗口内允许的最大条数
+rateMaxMessages: 6
+#长窗口限流窗口秒数
+rateLongWindowSecond: 60
+#长窗口内允许的最大条数
+rateLongMaxMessages: 20
+
+#复读：连续发同一条内容多少次算刷屏
+repeatEnable: true
+#内容指纹去重时忽略标点、空格与大小写后取用的最大长度
+repeatFingerprintChars: 64
+#短窗口内同一内容最多出现次数
+repeatWindowSecond: 10
+repeatMaxCount: 3
+#长窗口内同一内容最多出现次数
+repeatLongWindowSecond: 60
+repeatLongMaxCount: 5
+
+#超长文本刷屏：单条消息超过多少字符算刷屏，0 表示关闭
+longTextEnable: true
+longTextMaxChars: 800
+
+#纯图片或表情连发：单条消息含多少张图片或表情时记录，只记录不撤回不禁言
+mediaFloodEnable: true
+mediaFloodMaxCount: 5
+
+#艾特刷屏：窗口内艾特多少人算刷屏
+mentionEnable: true
+mentionWindowSecond: 60
+mentionMaxCount: 8
+#是否把 @全体成员 直接视为刷屏
+mentionAllEnable: true
+
+#过短内容不参与统计，避免把正常的表情、单字回复误判
+minMessageLength: 2
+
+#玩梗豁免的人数区间：发过同一句话的不同用户数在 [下限, 上限] 内时只记录不处置
+#低于下限=只有自己在刷，按个人刷屏处置；高于上限=集体刷屏，走下面的"先提醒后处置"
+#下限最少为 2（1 个人谈不上一起玩梗），默认 3；上限默认 4
+repeatBanterForgive: true
+repeatBanterMinUsers: 3
+repeatBanterMaxUsers: 4
+#集体刷屏（参与人数超过上限）先整群提醒一次，提醒不艾特任何参与者
+#多少秒内同一句话继续被刷，就对提醒之后参与的人开始处置；0 表示不整群提醒、直接按违规处置
+collectiveWarnCooldownSecond: 300
+#群内复读：统计本群所有人的发言，同一句话被反复发就算，不要求每个人都发过
+#窗口秒数与允许次数，超过即记录；该值不会低于个人阈值 repeatMaxCount
+repeatGroupWindowSecond: 10
+repeatGroupCount: 6
+repeatGroupLongWindowSecond: 60
+repeatGroupLongCount: 10
+
+#先提醒后处置：累计窗口内第一次命中只在群里艾特本人提醒一句，不计入处置阶梯
+forgiveFirst: true
+#是否开启群内艾特提醒，语气平和且带冷却，关闭后完全不提醒
+noticeEnable: true
+#同一个用户最多多少秒被提醒一次
+noticeCooldownSecond: 600
+#违规计数方式：session 表示同一波刷屏只算一次，message 表示每条命中都计数
+violationCountMode: "session"
+#同一波刷屏的最短间隔秒数，超过这个间隔再次刷屏才累计下一次违规
+violationCooldownSecond: 60
+
+#短窗口内累计违规多少次开始撤回消息，0 表示不撤回
+deleteAfterViolations: 2
+#短窗口内累计违规多少次开始禁言，0 表示不禁言
+banAfterViolations: 3
+#违规统计窗口秒数
+violationWindowSecond: 300
+#单次禁言时长，单位分钟（QQ 禁言以分钟为基本单位，写成 5 就是 5 分钟）
+banDurationMinute: 5
+#兼容旧配置：单次禁言秒数；banDurationMinute 存在时以分钟为准
+banDurationSecond: 300
+
+#内存中保留的活跃用户窗口数量上限，超过后清理最久未活动的记录
+maxTrackedUsers: 5000
