@@ -1,0 +1,68 @@
+#MBB-Trpg 插件配置
+#配置读取器按行解析，键名使用点号分层写法，不支持 YAML 嵌套
+#未知键会在启动时告警并被忽略；int 解析失败回退默认值并告警
+#aiHost.enabled 只在插件加载时读取一次，修改后需重载插件或重启主程序
+
+#规则集 ID，未知值回退内置 d100 并告警
+ruleset: d100
+
+#局面生命周期
+session.recruitExpireHours: 24
+session.runningExpireDays: 7
+session.confirmWindowSeconds: 30
+
+#冷却时长（秒）
+cooldown.startSeconds: 30
+cooldown.diceSeconds: 2
+cooldown.defaultSeconds: 1
+
+#同群同类错误去重窗口（秒）
+errorDedupeSeconds: 10
+
+#局内活动刷新节流（秒）
+activityThrottleSeconds: 60
+
+#文本日志
+log.maxContentChars: 2000
+log.pageSize: 10
+
+#归档保留天数
+retention.sessionDays: 30
+
+#呈现
+presentation.style: broadcast
+presentation.groupMaxChars: 500
+presentation.privateMaxChars: 1200
+presentation.splitMax: 3
+presentation.sceneImage: true
+presentation.reportImage: true
+presentation.imageMaxLines: 22
+
+#剧本
+script.maxBytes: 65536
+script.importIdleMinutes: 5
+script.importMaxMinutes: 30
+script.importMaxSegments: 200
+script.rejectedMaxFiles: 20
+script.genCooldownSeconds: 60
+
+#AI 主持（v1 只锁契约，默认关闭）
+aiHost.enabled: false
+aiHost.deadlineSeconds: 45
+aiHost.providerTimeoutSeconds: 10
+aiHost.retryCount: 0
+aiHost.maxConcurrent: 2
+aiHost.perGroupQueue: 3
+aiHost.globalQueue: 4
+aiHost.queueMaxAgeSeconds: 65
+aiHost.mergeWindowSeconds: 20
+aiHost.mergeWindowEvents: 5
+aiHost.suspendFailStreak: 3
+aiHost.suspendMinutes: 10
+aiHost.dedupeCacheSeconds: 60
+aiHost.promptBudgetChars: 6000
+aiHost.dynamicMinChars: 1500
+aiHost.narrationMaxChars: 300
+aiHost.traceEnabled: true
+aiHost.traceKeepHours: 168
+aiHost.traceMaxRows: 5000
