@@ -12,6 +12,9 @@ import java.util.regex.Pattern;
  * 结构化数据或明显丢失事实的短句。
  */
 public class RoleplayReplyTextValidator {
+    private static final String[] PROTECTED_TERMS = {
+            "妈妈","爸爸","姐姐","妹妹","哥哥","弟弟","老师","主人"
+    };
     private static final Pattern MEDIA_PLACEHOLDER = Pattern.compile(
             "(?i)[\\[［【](?:图片|表情包?|视频|语音|文件|动画表情|image|photo|sticker)[\\]］】]"
                     +"|<(?:image|photo|sticker)>");
@@ -44,7 +47,28 @@ public class RoleplayReplyTextValidator {
             return "改写结果过度缩短";
         }
         if (!numbers(before).equals(numbers(after))) return "改写结果改变了数字";
+        String termReason = protectedTermReason(before,after);
+        if (!termReason.isEmpty()) return termReason;
         return "";
+    }
+
+    private static String protectedTermReason(String before,String after) {
+        for (String term : PROTECTED_TERMS) {
+            if (countOf(before,term) != countOf(after,term)) {
+                return "改写结果改变了固定称呼："+term;
+            }
+        }
+        return "";
+    }
+
+    private static int countOf(String value,String target) {
+        int count = 0;
+        int index = value.indexOf(target);
+        while (index >= 0) {
+            count++;
+            index = value.indexOf(target,index + target.length());
+        }
+        return count;
     }
 
     private static int meaningfulLength(String value) {

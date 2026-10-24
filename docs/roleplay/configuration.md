@@ -352,6 +352,11 @@ quietReplyEnable: true
 `true` 自动迁移为关闭。去 AI 味、角色口吻和长度修正由执行层提示词与
 `replyReviewEnable` 复核链路负责；风格层配置键暂时保留，避免旧配置丢失。
 
+手动开启风格层后，只要任一分句超过 `replySegmentMaxChars`，即使 `styleLongReplyEnable=false`
+也会触发“单句超长”改写。风格层可以在不丢事实和关键信息的前提下压缩重复表达、换行或分成短句，
+最多使用 `replyBeatMaxSegments` 行；“妈妈、爸爸、姐姐、妹妹、哥哥、弟弟、老师、主人”等固定称呼
+必须原样保留，替换成近义词会被本地校验拒绝。`styleLongReplyEnable` 只控制整段总长度是否也额外触发。
+
 `traceEnable` 默认 `true`，按群记录路由与回复 trace，保留 `traceKeepHours` 小时，最多 `traceMaxRows` 行；`/role trace` 查看。`evalEnable` 默认 `true`，`/role eval` 运行内置或 `evals/roleplay-evals.json` 自定义评测集，`evalProfile` 留空时使用 `aiProfile`。
 
 `threadEnable` 默认 `true`，按群维护会话线程、参与者、上一位发言者和角色是否被等待回应；`threadWindowSecond` 控制多久没有新消息后视为新线程。

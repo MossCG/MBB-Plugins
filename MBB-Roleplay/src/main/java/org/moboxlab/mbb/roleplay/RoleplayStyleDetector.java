@@ -40,6 +40,7 @@ public class RoleplayStyleDetector {
         String value = text == null ? "" : text.trim();
         if (value.isEmpty()) return "";
         if (proactive) return "主动发言";
+        if (maxSentenceLength(value) > Math.max(1,config.replySegmentMaxChars)) return "单句超长";
         if (config.styleLongReplyEnable && value.length() > config.styleMaxChars) return "超长";
         if (value.contains("——")) return "破折号";
         if (value.contains("**") || value.contains("```")) return "Markdown残留";
@@ -83,6 +84,16 @@ public class RoleplayStyleDetector {
             max = Math.max(max,text.length());
         }
         return count >= 3 && min >= 4 && max - min <= 2;
+    }
+
+    private static int maxSentenceLength(String value) {
+        String[] parts = value.split("[。！？!?；;\\n]");
+        int max = 0;
+        for (String part : parts) {
+            String text = part == null ? "" : part.trim();
+            if (!text.isEmpty()) max = Math.max(max,text.length());
+        }
+        return max;
     }
 
     private static int countOf(String value,String target) {

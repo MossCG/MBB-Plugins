@@ -1,6 +1,6 @@
 {
   "name": "MBB-Roleplay",
-  "version": "V0.10.2.0.0622",
+  "version": "V0.10.3.0.0630",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.roleplay.RoleplayPlugin",
   "author": "MoBoxLab",

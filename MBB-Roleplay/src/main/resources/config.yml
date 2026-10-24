@@ -279,9 +279,9 @@ replyFeedbackBonus: 0.10
 replyFeedbackHistory: 30
 #本地风格层已暂时弃用；保留键位仅用于兼容旧配置
 styleEnable: false
-#超过多少字符视为超长回复
+#整段回复超过多少字符时额外触发风格层；单句超过 replySegmentMaxChars 会单独触发
 styleMaxChars: 60
-#超长回复是否交给风格层；默认关闭，交给大模型回复复核改写
+#是否启用“整段总长度超限”触发；单句超长不受这个开关影响
 styleLongReplyEnable: false
 #风格层使用的模型配置名，留空使用 aiProfile
 styleProfile: ""

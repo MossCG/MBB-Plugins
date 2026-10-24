@@ -185,7 +185,8 @@ promptTotalChars: 120000
 
 **本地风格层**：暂时退出主链路，`styleEnable` 默认 `false`，旧默认开启值升级时自动迁移为关闭。
 执行层负责避免 AI 味明显的模板句，`RoleplayReplyReviewService` 在发送前复核角色口吻、长度、
-重复、说教和剧情演出感；需要改写时由复核链路完成，不再额外调用本地小模型。
+重复、说教和剧情演出感。手动重新开启风格层后，任一分句超过 `replySegmentMaxChars` 会触发
+压缩简写、换行或分句；固定关系称呼如“妈妈”必须原样保留，否则本地校验会丢弃改写结果。
 
 ```yaml
 styleEnable: false
