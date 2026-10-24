@@ -275,8 +275,8 @@ public class RoleplayConfig {
     public int replyImageMaxTokens = 4000;
     public int replySegmentMaxChars = 30;
     public String replySplitPunctuation = "。！？!?；;，、：,:～~…";
-    public int replyMaxSegments = 2;
-    public int replyBeatMaxSegments = 3;
+    public int replyMaxSegments = 5;
+    public int replyBeatMaxSegments = 5;
     public int replyBeatBaseDelayMs = 450;
     public int replyBeatPerCharMs = 35;
     public int replyBeatMaxDelayMs = 2200;
@@ -704,8 +704,8 @@ public class RoleplayConfig {
         config.replySegmentMaxChars = plugin.getConfig().getInt("replySegmentMaxChars",30);
         config.replySplitPunctuation = plugin.getConfig().getString(
                 "replySplitPunctuation","。！？!?；;，、：,:～~…");
-        config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",2);
-        config.replyBeatMaxSegments = plugin.getConfig().getInt("replyBeatMaxSegments",3);
+        config.replyMaxSegments = plugin.getConfig().getInt("replyMaxSegments",5);
+        config.replyBeatMaxSegments = plugin.getConfig().getInt("replyBeatMaxSegments",5);
         config.replyBeatBaseDelayMs = plugin.getConfig().getInt("replyBeatBaseDelayMs",450);
         config.replyBeatPerCharMs = plugin.getConfig().getInt("replyBeatPerCharMs",35);
         config.replyBeatMaxDelayMs = plugin.getConfig().getInt("replyBeatMaxDelayMs",2200);
@@ -1165,7 +1165,7 @@ public class RoleplayConfig {
             config.replySplitPunctuation = "。！？!?；;，、：,:～~…";
         }
         if (config.replyMaxSegments < 1) config.replyMaxSegments = 1;
-        if (config.replyMaxSegments > 2) config.replyMaxSegments = 2;
+        if (config.replyMaxSegments > 5) config.replyMaxSegments = 5;
         if (config.replyBeatMaxSegments < 1) config.replyBeatMaxSegments = 1;
         if (config.replyBeatMaxSegments > 5) config.replyBeatMaxSegments = 5;
         if (config.replyBeatBaseDelayMs < 100) config.replyBeatBaseDelayMs = 100;

@@ -65,11 +65,11 @@ public class RoleplayReplyExecutor {
                     +service.shortText(reply,80));
             sendText = false;
         }
-        if (sendText) reply = polishReply(groupID,reply,content,event.getUserID(),decision);
         if (sendText) {
             RoleplayReplyReviewService.Result review = service.getReplyReviewService().review(
                     groupID,event.getUserID(),content,reply,decision);
-            if (!review.pass && review.text != null && !review.text.trim().isEmpty()) {
+            if (review.text != null && !review.text.trim().isEmpty()
+                    && !review.text.trim().equals(reply)) {
                 String beforeReviewClean = reply;
                 reply = RoleplayReplySanitizer.clean(service.persona(),
                         service.plugin().getServer().getBotName(),review.text);
@@ -155,7 +155,19 @@ public class RoleplayReplyExecutor {
                 sendText = false;
             }
             if (sendText) {
-                reply = polishReply(groupID,reply,target.content,target.userID,decision);
+                RoleplayReplyReviewService.Result review = service.getReplyReviewService().review(
+                        groupID,target.userID,target.content,reply,decision,
+                        Math.max(1,service.config().replyMaxSegments));
+                if (review.text != null && !review.text.trim().isEmpty()
+                        && !review.text.trim().equals(reply)) {
+                    String beforeReviewClean = reply;
+                    reply = RoleplayReplySanitizer.clean(service.persona(),
+                            service.plugin().getServer().getBotName(),review.text);
+                    logSanitizeChange(groupID,beforeReviewClean,reply);
+                    sendText = !reply.isEmpty();
+                }
+            }
+            if (sendText) {
                 ensurePokeBackAction(segmentDraft,decision,reply);
                 long quoteMessageID = target.event.getMessageID();
                 boolean forceQuote = decision != null && decision.quoteRequired && target == primary;
@@ -232,21 +244,6 @@ public class RoleplayReplyExecutor {
             if (existing.type.equals(call.type)) return;
         }
         segment.actions.add(call);
-    }
-
-    private String polishReply(long groupID,String reply,String content,
-                               long userID,RoleplayRouteDecision decision) {
-        if (!service.config().styleEnable) return reply;
-        boolean proactive = service.config().styleProactiveEnable
-                && decision != null && "ambient".equals(decision.addressed);
-        String trigger = RoleplayStyleDetector.reason(service.config(),reply,proactive);
-        if (trigger.isEmpty()) return reply;
-        String polished = service.styler().polish(service.config(),service.persona(),groupID,reply,trigger,
-                service.speechPrompt(groupID,userID,content,false,decision));
-        if (polished.isEmpty() || polished.equals(reply)) return reply;
-        service.plugin().getLogger().sendInfo("[角色] 风格 群"+groupID+" 触发="+trigger
-                +" 原文="+service.shortText(reply,40)+" 改写="+service.shortText(polished,40));
-        return polished;
     }
 
     private void logSanitizeChange(long groupID,String before,String after) {

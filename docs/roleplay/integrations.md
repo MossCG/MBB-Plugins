@@ -99,7 +99,7 @@ draw 工具成功只表示任务已提交。Roleplay 会在本轮最终回复阶
 
 ## 回复复核与隐式反馈
 
-主动发言反馈除了“窗口内有人接话”，还会把引用角色消息、戳一戳、表情回应作为隐式反馈。发送前 `RoleplayReplyReviewService` 会对回复候选做一次复核，低于 `replyReviewMinScore` 且模型给出改写时使用改写文本。
+主动发言反馈除了“窗口内有人接话”，还会把引用角色消息、戳一戳、表情回应作为隐式反馈。发送前 `RoleplayReplyReviewService` 会统一处理角色口吻、AI 味、链接、长句简写、换行和分句；合法 `rewrite` 会直接采用，发送层仍保留链接过滤和最终拆分兜底。
 
 会话线程由 `RoleplayThreadService` 维护，线程提示会进入路由和回复提示词；拟人节奏由 `RoleplayPacingService` 控制；安全与防注入由 `RoleplaySafetyService` 在消息进入路由前和长期记忆写入前拦截。
 
@@ -241,8 +241,8 @@ learnContextAfter: 3
 
 ## 本地小模型实验与训练
 
-`MBB-Model` 是一个独立部署的本地小模型服务（默认 Qwen3-1.7B）。本地风格层暂未接入回复主链路，
-当前保留推理与训练接口，用于后续单独评估。路由、决策、技能、记忆和发送前复核仍走主模型链路。
+`MBB-Model` 是一个独立部署的本地小模型服务（默认 Qwen3-1.7B）。独立风格层已从回复主链路移除，
+相关职责合并到 `replyReviewEnable` 复核层；本地服务仍保留推理与训练接口，供后续单独评估。
 
 Roleplay 通过 HTTP 调它，地址由 `modelServiceUrl` 配置（默认 `http://127.0.0.1:8770`）：
 

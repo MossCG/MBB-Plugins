@@ -42,7 +42,7 @@
 | `/role learn [备注]` | `BOT_ADMIN` | 回复某条消息再发，采集那条消息和前后文到训练语料；不带引用时采集最近一条群消息 |
 | `/role learn stats` | `BOT_ADMIN` | 查看累计采集的语料数量 |
 | `/role learn recent [条数]` | `BOT_ADMIN` | 查看最近采集的语料记录 |
-| `/role train` | `BOT_ADMIN` | 查看本地模型服务与训练状态；本地风格层当前未接入回复主链路 |
+| `/role train` | `BOT_ADMIN` | 查看本地模型服务与训练状态；独立风格层已合并到回复复核 |
 | `/role train corpus [条数]` | `BOT_ADMIN` | 把上次截止到现在的新群消息导出，并基于当前 adapter 继续训练；成功后推进截止时间 |
 | `/role train fresh [条数]` | `BOT_ADMIN` | 从最早群消息开始导出，丢弃 adapter 链并从底座新开一轮训练 |
 | `/role train learn` | `BOT_ADMIN` | 用 `/role learn` 采集的特挑语料提交训练 |

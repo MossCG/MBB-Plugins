@@ -91,7 +91,7 @@ flowchart TB
 | 路由层 | 角色/技能/资料 → 判断规则 → 输出格式 → 对话状态 | 已重排，把「对话状态」移到末尾 |
 | 记忆整理 | 角色/规则 → 已有短期记忆 | 本来就正确，动态部分在末尾 |
 | 长期/永久记忆合并 | system 放规则，user 放批次数据 | 本来就正确 |
-| 本地风格层 | 已暂时退出主链路 | 配置键保留兼容，默认关闭；去 AI 味由执行层和回复复核负责 |
+| 回复复核与风格后处理 | `RoleplayReplyReviewService` | 复核层统一处理角色口吻、AI 味、链接、长句简写、换行和分句 |
 | 提醒确认/到点提醒 | 角色设定 → 规则 → 时间与任务 | 本来就正确，动态部分在末尾 |
 | 情绪分析 | 角色/性格 → 动态信息 → 判断原则 | 结构上同类，但整条只有约 600 token，低于服务商的最小缓存粒度，重排没有收益，暂不动 |
 | 提醒识别 | 「你是定时提醒识别器。当前时间：…」+ 规则 | 动态时间在最前，但整条约 250 token，同样低于缓存粒度，暂不动 |
@@ -183,18 +183,15 @@ promptTotalChars: 120000
 最近群聊背景放在用户消息前半段，当前消息放在最后。单轮工具循环固定 `tools` schema，
 `tool_search` 只扩充本地可执行工具集合，不再改变后续请求的工具定义前缀。
 
-**本地风格层**：暂时退出主链路，`styleEnable` 默认 `false`，旧默认开启值升级时自动迁移为关闭。
-执行层负责避免 AI 味明显的模板句，`RoleplayReplyReviewService` 在发送前复核角色口吻、长度、
-重复、说教和剧情演出感。手动重新开启风格层后，任一分句超过 `replySegmentMaxChars` 会触发
-压缩简写、换行或分句；固定关系称呼如“妈妈”必须原样保留，否则本地校验会丢弃改写结果。
+**回复复核与风格后处理**：独立 `RoleplayStyler` 已移除，去 AI 味、压缩简写、链接清理、
+换行和分句统一进入 `RoleplayReplyReviewService`。单条回复和合批段落都会复核；单条最多使用
+`replyBeatMaxSegments` 行，合批段落最多使用 `replyMaxSegments` 行。固定关系称呼如“妈妈”
+必须原样保留，否则本地校验会丢弃改写结果。发送层仍保留链接过滤和最终拆分的本地兜底。
 
 ```yaml
-styleEnable: false
-styleMaxChars: 60
-styleLongReplyEnable: false
-styleProactiveEnable: false
-styleFailureThreshold: 2
-styleFailureCooldownSecond: 600
+replyReviewEnable: true
+replyReviewProfile: ""
+replyReviewMinScore: 70
 ```
 
 

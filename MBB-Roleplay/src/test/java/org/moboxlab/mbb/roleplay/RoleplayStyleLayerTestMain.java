@@ -9,6 +9,9 @@ public class RoleplayStyleLayerTestMain {
         config.replySegmentMaxChars = 30;
         config.styleMaxChars = 60;
         config.styleLongReplyEnable = false;
+        if (config.replyMaxSegments != 5 || config.replyBeatMaxSegments != 5) {
+            throw new AssertionError("单条与合批分段上限默认都应为 5");
+        }
 
         String normal = "妈妈，晚安。";
         if (!RoleplayStyleDetector.reason(config,normal,false).isEmpty()) {

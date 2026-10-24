@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "48";
+    private static final String CURRENT_VERSION = "49";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -180,15 +180,15 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("routerProfile","","路由层使用的模型配置名，留空则使用 aiProfile"),
             new ConfigEntry("routerMaxTokens","2400","路由层输出 Token 上限，reasoning 模型建议不低于 2400"),
             new ConfigEntry("routerReasoningEffort","none","路由层思考强度：none / low / medium / high，留空表示不发送"),
-            new ConfigEntry("styleEnable","false","本地风格层已暂时弃用；保留键位仅用于兼容旧配置"),
-            new ConfigEntry("styleMaxChars","60","整段回复超过多少字时额外触发风格层；单句超长单独触发"),
-            new ConfigEntry("styleLongReplyEnable","false","是否启用整段总长度超限触发；单句超长不受这个开关影响"),
-            new ConfigEntry("styleProfile","","风格层使用的模型配置名，留空则使用 aiProfile"),
-            new ConfigEntry("styleMaxTokens","1200","风格层输出 Token 上限，reasoning 模型需要留出思考预算"),
-            new ConfigEntry("styleReasoningEffort","low","风格层思考强度：low / medium / high，留空表示不发送"),
-            new ConfigEntry("styleProactiveEnable","false","主动发言时是否也触发风格层"),
-            new ConfigEntry("styleFailureThreshold","2","风格层连续多少次无效改写后临时熔断"),
-            new ConfigEntry("styleFailureCooldownSecond","600","风格层熔断冷却秒数"),
+            new ConfigEntry("styleEnable","false","独立风格层已移除；保留键位仅用于兼容旧配置"),
+            new ConfigEntry("styleMaxChars","60","整段回复超过多少字时给复核层附加超长提示"),
+            new ConfigEntry("styleLongReplyEnable","false","是否启用整段总长度超限提示；单句超长始终检测"),
+            new ConfigEntry("styleProfile","","旧独立风格层模型配置，已不再使用"),
+            new ConfigEntry("styleMaxTokens","1200","旧独立风格层 Token 配置，已不再使用"),
+            new ConfigEntry("styleReasoningEffort","low","旧独立风格层思考强度，已不再使用"),
+            new ConfigEntry("styleProactiveEnable","false","主动发言时是否给复核层附加风格处理提示"),
+            new ConfigEntry("styleFailureThreshold","2","旧独立风格层熔断配置，已不再使用"),
+            new ConfigEntry("styleFailureCooldownSecond","600","旧独立风格层熔断配置，已不再使用"),
             new ConfigEntry("maxLongMemories","150","最多加载多少条长期记忆"),
             new ConfigEntry("topicFatigueEnable","true","是否启用群级话题疲劳检测"),
             new ConfigEntry("topicFatigueWindowMinute","30","同一话题进入疲劳判定的时间窗口分钟数"),
@@ -203,12 +203,12 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replyFeedbackMaxPenalty","0.25","主动发言长期没人接时最多降低多少回复概率"),
             new ConfigEntry("replyFeedbackBonus","0.10","主动发言经常被接话时最多提高多少回复概率"),
             new ConfigEntry("replyFeedbackHistory","30","内存中保留最近多少次主动发言反馈"),
-            new ConfigEntry("replyReviewEnable","true","是否在发送前复核角色回复候选"),
+            new ConfigEntry("replyReviewEnable","true","是否在发送前复核角色回复，并处理风格、链接和长句分句"),
             new ConfigEntry("replyReviewProfile","","回复复核使用的模型配置名，留空使用 aiProfile"),
             new ConfigEntry("replyReviewMaxTokens","1200","回复复核输出 Token 上限"),
             new ConfigEntry("replyReviewReasoningEffort","none","回复复核思考强度"),
             new ConfigEntry("replyReviewTimeoutSecond","60","回复复核请求超时秒数"),
-            new ConfigEntry("replyReviewMinScore","70","回复复核最低通过分"),
+            new ConfigEntry("replyReviewMinScore","70","回复复核最低通过分；合法 rewrite 无论评分都会采用"),
             new ConfigEntry("toolEnable","true","是否允许角色通过原生工具调用查询信息或维护私有工作区"),
             new ConfigEntry("toolCoreTools","tool_search,end_turn,message_send,sticker","首轮直接开放的工具"),
             new ConfigEntry("toolLoadedMaxTools","8","单轮最多同时加载多少个工具 schema"),
@@ -297,8 +297,8 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
             new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，不设最低字数"),
             new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号，先找句末标点，再找弱标点"),
-            new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
-            new ConfigEntry("replyBeatMaxSegments","3","普通聊天最多拆成多少个连续节拍"),
+            new ConfigEntry("replyMaxSegments","5","最多拆分发送多少段"),
+            new ConfigEntry("replyBeatMaxSegments","5","普通聊天最多拆成多少个连续节拍"),
             new ConfigEntry("replyBeatBaseDelayMs","450","连续节拍基础间隔毫秒"),
             new ConfigEntry("replyBeatPerCharMs","35","节拍中每个字符增加的间隔毫秒"),
             new ConfigEntry("replyBeatMaxDelayMs","2200","连续节拍单次最大间隔毫秒"),
@@ -370,6 +370,10 @@ public class RoleplayConfigMigrator {
                 config.getString("emotionAnalyzeMaxDelta",""));
         boolean legacyReplySegmentMaxChars20 = version < 48 && "20".equals(
                 config.getString("replySegmentMaxChars",""));
+        boolean legacyReplyMaxSegments = version < 49 && "2".equals(
+                config.getString("replyMaxSegments",""));
+        boolean legacyReplyBeatMaxSegments = version < 49 && "3".equals(
+                config.getString("replyBeatMaxSegments",""));
         boolean legacyReplySegmentMaxChars = version < 12 && "160".equals(
                 config.getString("replySegmentMaxChars",""));
         boolean legacyReplySplitPunctuation = version < 13
@@ -463,9 +467,17 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 48) {
+        if (version < 49) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
+        }
+        if (legacyReplyMaxSegments) {
+            config.set("replyMaxSegments","5");
+            changed++;
+        }
+        if (legacyReplyBeatMaxSegments) {
+            config.set("replyBeatMaxSegments","5");
+            changed++;
         }
         if (legacyStyleEnable) {
             config.set("styleEnable","false");

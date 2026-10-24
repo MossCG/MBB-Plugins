@@ -172,7 +172,7 @@ styleFailureCooldownSecond: 600
 replyImageMaxTokens: 4000
 replySegmentMaxChars: 30
 replySplitPunctuation: "。！？!?；;，、：,:～~…"
-replyMaxSegments: 2
+replyMaxSegments: 5
 replyLinkFilterEnable: true
 cameraEnable: true
 drawPromptCompilerEnable: true
@@ -302,13 +302,13 @@ quietReplyEnable: true
 
 `pokeReplyMaxChars` 默认 `20`，只约束戳一戳回复。戳一戳不会走普通回复的多段拆分，只会发送一条短消息，超出长度时优先在句末或弱标点处截断。
 
-`replyLinkFilterEnable` 默认 `true`。开启后，角色最终发送的文本会在发送前过滤掉 `http(s)://`、`www.` 和常见裸域名链接，避免模型凭空编造网址。过滤只作用于角色文本回复，不影响图片、文件和其他技能消息。
+`replyLinkFilterEnable` 默认 `true`。复核层会优先在改写阶段删除模型凭空生成的链接；最终发送前仍会本地过滤 `http(s)://`、`www.` 和常见裸域名，作为复核关闭、漏改或改写失败时的兜底。过滤只作用于角色文本回复，不影响图片、文件和其他技能消息。
 
 `cameraEnable` 默认 `true`。设为 `false` 后只关闭 `draw` 技能里的手机自拍和拍照模式，角色会忽略 `camera=selfie/photo`，普通生图仍可继续使用。改完执行 `/role reload` 或重启主程序后生效。
 
 `drawPromptCompilerEnable` 默认 `true`。开启后角色层只生成画面 brief，`RoleplayDrawPromptService` 用独立上下文按 `brief.characters/subject` 解析目标角色，注入对应角色的 `imageTags`、`imageNegativeTags`、外貌和知识库条目，再交给 `MBB-ComfyUI`。画别人时不会自动把当前角色加入画面。`drawPromptProfile` 留空时使用 `aiProfile`；编译默认使用 `reasoningEffort: none`，避免把预算耗在思考上。`drawPromptMaxChars` 和 `drawPromptNegativeMaxChars` 分别限制最终正向、角色专属负向 prompt；`drawPromptKnowledgeMaxChars` 只注入目标角色自己的学生条目，不会把凯伊等其他角色外貌带进生图上下文。
 
-`replyReviewEnable` 默认 `true`。角色回复在发送前会经过 `RoleplayReplyReviewService` 复核：检查是否像角色、是否有 AI 味、总结腔、说教、重复或过长；分数低于 `replyReviewMinScore` 且模型给出 `rewrite` 时使用改写文本。`replyReviewProfile` 留空时使用 `aiProfile`。
+`replyReviewEnable` 默认 `true`。角色回复在发送前会经过 `RoleplayReplyReviewService` 统一复核和风格后处理：检查角色口吻、AI 味、总结腔、说教和重复；删除模型凭空生成的链接；单句超过 `replySegmentMaxChars` 时做压缩简写、换行或分成短句。复核返回合法 `rewrite` 时会使用改写文本，不再要求必须先低于 `replyReviewMinScore`。单条回复和合批段落默认都最多使用 5 行；分别由 `replyBeatMaxSegments` 和 `replyMaxSegments` 控制。`replyReviewProfile` 留空时使用 `aiProfile`。
 
 `privateChatEnable` 控制私聊入口。准入规则是 owner 或机器人 QQ 好友，好友列表按
 `privateChatFriendCacheSecond` 缓存；查询失败时拒绝非 owner 私聊。`privateChatWhitelist`
@@ -348,14 +348,12 @@ quietReplyEnable: true
 `contextHardLimitEnable` 默认关闭，关闭时不按 `promptTotalChars` 截断动态资料；
 只有显式打开本地硬预算时才使用该上限。即使关闭总硬预算，各类资料仍有单项预算。
 
-本地 Qwen 风格层暂时退出主链路，`styleEnable` 默认 `false`，升级时会把旧默认值
-`true` 自动迁移为关闭。去 AI 味、角色口吻和长度修正由执行层提示词与
-`replyReviewEnable` 复核链路负责；风格层配置键暂时保留，避免旧配置丢失。
-
-手动开启风格层后，只要任一分句超过 `replySegmentMaxChars`，即使 `styleLongReplyEnable=false`
-也会触发“单句超长”改写。风格层可以在不丢事实和关键信息的前提下压缩重复表达、换行或分成短句，
-最多使用 `replyBeatMaxSegments` 行；“妈妈、爸爸、姐姐、妹妹、哥哥、弟弟、老师、主人”等固定称呼
-必须原样保留，替换成近义词会被本地校验拒绝。`styleLongReplyEnable` 只控制整段总长度是否也额外触发。
+独立 Qwen 风格层已经移除，相关职责全部合并到 `replyReviewEnable` 复核链路。
+`styleEnable`、`styleProfile`、`styleMaxTokens`、`styleReasoningEffort` 和风格熔断配置
+仅保留旧配置兼容，不再参与回复处理。`styleMaxChars`、`styleLongReplyEnable` 和
+`styleProactiveEnable` 仍可作为复核层的本地触发提示，但不会发起额外模型调用。
+“妈妈、爸爸、姐姐、妹妹、哥哥、弟弟、老师、主人”等固定称呼必须原样保留，
+替换成近义词会被本地校验拒绝。
 
 `traceEnable` 默认 `true`，按群记录路由与回复 trace，保留 `traceKeepHours` 小时，最多 `traceMaxRows` 行；`/role trace` 查看。`evalEnable` 默认 `true`，`/role eval` 运行内置或 `evals/roleplay-evals.json` 自定义评测集，`evalProfile` 留空时使用 `aiProfile`。
 

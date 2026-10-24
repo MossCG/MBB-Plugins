@@ -281,7 +281,7 @@ HTTP 连接另有连接和读取超时，取消后会尽快释放，不依赖外
 运行时根据下一段长度、群活跃度和时段计算延迟：
 
 ```yaml
-replyBeatMaxSegments: 3
+replyBeatMaxSegments: 5
 replyBeatBaseDelayMs: 450
 replyBeatPerCharMs: 35
 replyBeatMaxDelayMs: 2200

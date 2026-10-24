@@ -277,25 +277,25 @@ replyFeedbackMaxPenalty: 0.25
 replyFeedbackBonus: 0.10
 #内存中保留最近多少次主动发言反馈
 replyFeedbackHistory: 30
-#本地风格层已暂时弃用；保留键位仅用于兼容旧配置
+#独立风格层已移除；保留键位仅用于兼容旧配置，实际不再使用
 styleEnable: false
-#整段回复超过多少字符时额外触发风格层；单句超过 replySegmentMaxChars 会单独触发
+#整段回复超过多少字符时给复核层附加“超长”提示；单句超长始终单独检测
 styleMaxChars: 60
-#是否启用“整段总长度超限”触发；单句超长不受这个开关影响
+#是否启用整段总长度超限提示；单句超长不受这个开关影响
 styleLongReplyEnable: false
-#风格层使用的模型配置名，留空使用 aiProfile
+#旧独立风格层模型配置，已不再使用
 styleProfile: ""
-#风格层输出 Token 上限
+#旧独立风格层 Token 配置，已不再使用
 styleMaxTokens: 1200
-#风格层思考强度：none / low / medium / high
+#旧独立风格层思考强度，已不再使用
 styleReasoningEffort: "low"
-#主动发言时是否也触发风格层
+#主动发言时是否给复核层附加风格处理提示
 styleProactiveEnable: false
-#风格层连续多少次无效改写后临时熔断
+#旧独立风格层熔断配置，已不再使用
 styleFailureThreshold: 2
-#风格层熔断冷却秒数
+#旧独立风格层熔断配置，已不再使用
 styleFailureCooldownSecond: 600
-#是否在发送前复核角色回复候选
+#是否在发送前复核角色回复，并统一处理风格、链接和长句分句
 replyReviewEnable: true
 #复核使用的模型配置名，留空使用 aiProfile
 replyReviewProfile: ""
@@ -305,7 +305,7 @@ replyReviewMaxTokens: 1200
 replyReviewReasoningEffort: "none"
 #复核请求超时秒数
 replyReviewTimeoutSecond: 60
-#复核最低通过分，低于该分数且模型给出改写时使用改写文本
+#复核最低通过分；合法 rewrite 无论评分是否通过都会采用
 replyReviewMinScore: 70
 #是否允许角色通过原生工具调用查询信息或维护私有工作区
 toolEnable: true
@@ -486,9 +486,9 @@ replySegmentMaxChars: 30
 #回复拆分时优先使用的断句符号；先找句末标点，再找逗号、顿号、冒号、分号、波浪号等弱标点
 replySplitPunctuation: "。！？!?；;，、：,:～~…"
 #最多拆分发送多少段
-replyMaxSegments: 2
+replyMaxSegments: 5
 #普通聊天最多拆成多少个连续节拍
-replyBeatMaxSegments: 3
+replyBeatMaxSegments: 5
 #连续节拍基础间隔毫秒
 replyBeatBaseDelayMs: 450
 #节拍中每个字符增加的间隔毫秒

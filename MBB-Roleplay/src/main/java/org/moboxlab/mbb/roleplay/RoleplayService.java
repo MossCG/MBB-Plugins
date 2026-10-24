@@ -110,7 +110,6 @@ public class RoleplayService {
     private final RoleplayToolMemoryService toolMemoryService;
     private final RoleplayToolTurnService toolTurnService;
     private final RoleplayRouter router;
-    private final RoleplayStyler styler;
     private volatile RoleplayConfig config;
     private volatile RoleplayPersona persona;
     final Map<Long,RoleplayConversationState> conversationStateMap = new ConcurrentHashMap<>();
@@ -338,7 +337,6 @@ public class RoleplayService {
         this.toolTurnService = new RoleplayToolTurnService(plugin,config);
         this.toolLoopService = new RoleplayToolLoopService(this,config);
         this.router = new RoleplayRouter(plugin,this);
-        this.styler = new RoleplayStyler(plugin);
     }
 
     public void init() {
@@ -365,8 +363,11 @@ public class RoleplayService {
         executorService.ensureBackgroundExecutor();
         dailyReviewService.ensureTask();
         randomTickService.ensureTask();
-        if (!config.styleEnable) {
-            plugin.getLogger().sendInfo("[角色] 本地风格层已暂时弃用，回复表达由执行层和回复复核负责。");
+        if (config.replyReviewEnable) {
+            plugin.getLogger().sendInfo("[角色] 回复风格、链接处理和长句分句已统一归入回复复核。");
+        } else {
+            plugin.getLogger().sendWarn("[角色] 回复复核已关闭；语义风格和链接清理不执行，"
+                    +"本地链接过滤与最终拆分仍作为发送兜底。");
         }
     }
 
@@ -681,10 +682,6 @@ public class RoleplayService {
 
     RoleplaySpeechCorpusService speechCorpusService() {
         return speechCorpusService;
-    }
-
-    RoleplayStyler styler() {
-        return styler;
     }
 
     RoleplayToolLoopService toolLoopService() {

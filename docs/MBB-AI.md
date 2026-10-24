@@ -103,9 +103,9 @@ logRequestContent: false
 
 不要把真实密钥提交到仓库。
 
-## 本地风格层 profile
+## 本地小模型 profile（实验）
 
-配合 `MBB-Model`（本地 Qwen3-1.7B 风格层服务）使用时，加一个 `local` profile 指向它：
+配合 `MBB-Model`（本地 Qwen3-1.7B 推理与训练服务）使用时，加一个 `local` profile 指向它：
 
 ```json
 "local": {
@@ -140,20 +140,11 @@ logRequestContent: false
 **不要把云端密钥填进这个 profile**。本地服务不需要真密钥，把 opencode 之类的 key 放进来
 既没用又容易跟着配置文件一起泄露。
 
-本地 profile 仍可用于 MBB-Model 的推理和训练接口。`MBB-Roleplay` 的本地风格层已暂时退出主链路，
-以下配置只保留兼容；当前保持关闭：
+本地 profile 仍可用于 MBB-Model 的推理和训练接口。`MBB-Roleplay` 的独立风格层已移除，
+风格、链接和长句处理均合并到 `replyReviewEnable` 复核层；旧 `styleProfile`、
+`styleMaxTokens` 和 `styleReasoningEffort` 配置不再参与回复处理。
 
-```yaml
-styleEnable: false
-styleProfile: "local"
-styleMaxTokens: 256
-styleReasoningEffort: ""
-```
-
-以后如果重新评估风格层，`styleMaxTokens` 和 `styleReasoningEffort` 再按本地模型能力单独调整。
-当前不要通过把 `styleEnable` 改回 `true` 来恢复主链路，应先做效果和成本对比。
-
-其他层（路由、生成、记忆、识图、提醒）继续用 `default` profile，不受影响。
+其他层（路由、生成、复核、记忆、识图、提醒）继续使用各自配置的 profile。
 本地服务是否启动不影响角色主回复链路。
 
 ## 调用约定

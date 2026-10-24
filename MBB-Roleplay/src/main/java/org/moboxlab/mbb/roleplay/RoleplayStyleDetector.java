@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 /**
  * AI 味本地检测
  *
- * 风格层默认不调用，先用本地规则判断这条回复是否值得花一次改写。
+ * 复核层先用本地规则判断这条回复是否需要风格改写或长句处理。
  * 特征清单参考维基百科 Wikipedia:Signs of AI writing，并补了中文特有的书面语表达。
  */
 public class RoleplayStyleDetector {
