@@ -365,6 +365,9 @@ public class RoleplayService {
         executorService.ensureBackgroundExecutor();
         dailyReviewService.ensureTask();
         randomTickService.ensureTask();
+        if (!config.styleEnable) {
+            plugin.getLogger().sendInfo("[角色] 本地风格层已暂时弃用，回复表达由执行层和回复复核负责。");
+        }
     }
 
     public void reload(RoleplayConfig config,RoleplayPersona persona) {

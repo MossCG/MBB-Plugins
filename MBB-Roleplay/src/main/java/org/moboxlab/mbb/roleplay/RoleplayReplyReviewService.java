@@ -47,7 +47,8 @@ public class RoleplayReplyReviewService {
             params.put("temperature",0.1);
             params.put("reasoningEffort",service.config().replyReviewReasoningEffort);
             params.put("timeoutSeconds",service.config().replyReviewTimeoutSecond);
-            params.put("sessionId","roleplay-review-"+groupID+"-"+userID);
+            params.put("sessionId","roleplay-review-"
+                    +Integer.toHexString(service.persona().name.hashCode()));
             params.put("messages",messages);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);

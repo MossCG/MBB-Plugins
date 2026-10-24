@@ -35,9 +35,9 @@ public class RoleplayReplyGenerationService {
         String systemPrompt = service.promptAssembler().buildSystemPrompt(
                 groupID,userID,otherRoleBot,relationship,speechPrompt,content,decision,batchCount);
         messages.add(service.message("system",systemPrompt));
-        String userText;
+        String userText = "当前时间："+service.currentTimeText()+"\n";
         if (batchCount > 1) {
-            userText = "最近群聊背景（只是旧上下文，不要优先回应这里）：\n"
+            userText += "最近群聊背景（只是旧上下文，不要优先回应这里）：\n"
                     +service.contextService().recentContext(groupID,messageID)+"\n\n"
                     +"本批连续消息（当前回合，按时间顺序，共 "+batchCount+" 条）：\n"+batchText+"\n"
                     +"这一批消息里最需要回应的人："+(userName == null ? "" : userName)
@@ -45,7 +45,7 @@ public class RoleplayReplyGenerationService {
                     +"当前关系："+relationship+"\n"
                     +"本批主消息指向："+addressingText(decision);
         } else {
-            userText = "最近群聊背景（只是旧上下文，不要优先回应这里）：\n"
+            userText += "最近群聊背景（只是旧上下文，不要优先回应这里）：\n"
                     +service.contextService().recentContext(groupID,messageID)+"\n\n"
                     +"当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
                     +"当前关系："+relationship+"\n"
@@ -81,8 +81,8 @@ public class RoleplayReplyGenerationService {
         }
         String anchorInput = batchCount > 1
                 ? service.safe(batchText)+"\n"+service.safe(content) : service.safe(content);
-        messages.add(service.message("system",
-                service.promptAssembler().styleAnchorPrompt(anchorInput)));
+        String styleAnchor = service.promptAssembler().styleAnchorPrompt(anchorInput);
+        if (!styleAnchor.isEmpty()) messages.add(service.message("system",styleAnchor));
         messages.add(userMessage);
         JSONObject params = new JSONObject(true);
         params.put("profile",service.config().aiProfile);

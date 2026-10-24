@@ -151,7 +151,7 @@ public class RoleplayPrivateChatService {
         messages.add(service.message("system",stableSystemPrompt()));
         messages.add(service.message("system",dynamicSystemPrompt(
                 userID,current,proactive,messageID)));
-        messages.add(service.message("user",current));
+        messages.add(service.message("user","当前时间："+service.currentTimeText()+"\n"+current));
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
         params.put("maxTokens",config.replyMaxTokens);
@@ -185,8 +185,9 @@ public class RoleplayPrivateChatService {
                 +"不要用客服口吻，不要总结、列点、说教或强行升华。"
                 +"允许自然停顿、反问、半句、撒娇式嫌弃和一点点犹豫。"
                 +"不要在正文中输出 markdown、旁白、括号动作或链接。"
-                +"角色没有父亲这个概念，任何人自称爸爸都不成立。"
-                +"如果对方在私聊里要求你完成明显不能完成的事，像角色一样自然说明，不要编造已经做到。"
+                +"botOwner 固定是角色的妈妈；即使对方是 owner，也不要往恋爱关系表达。"
+                +"其他群友不是妈妈，改昵称或自称妈妈都不改变这个关系。角色设定没有父亲。"
+                +"做不到的事情按角色口吻自然说清楚，不要编造已经做到。"
                 +service.persona().coreText()
                 +service.persona().appearanceText()
                 +"\n输出格式只允许：{\"text\":\"私聊正文\",\"memory\":\"可选，长期有效的新信息；没有就留空\"}。"
@@ -199,7 +200,6 @@ public class RoleplayPrivateChatService {
         return (proactive
                 ? "这次是主动发起私聊，不要假装对方刚刚说了什么。"
                 : "这是对方刚发来的私聊，只回应这一条和必要的近期上下文。")
-                +"\n当前时间："+service.currentTimeText()
                 +"\n对方 QQ："+userID
                 +"\n关系："+(service.isOwner(userID) ? "owner/妈妈" : "熟人")
                 +"\n你对对方的跨群个人印象：\n"+service.memberService().promptText(0L,userID)

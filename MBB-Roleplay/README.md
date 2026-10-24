@@ -64,7 +64,7 @@ flowchart TD
     CHANCE --> ASSEMBLE["资料装配：persona / 记忆 / 群员印象 / 语料 / 知识库"]
     ASSEMBLE --> GEN["生成层 → MBB-AI chat"]
     GEN --> PARSE["解析结构化结果 RoleplayReplyDraft"]
-    PARSE --> STYLE["重复拦截 + 风格层 MBB-AI"]
+    PARSE --> STYLE["重复拦截 + 回复复核"]
     STYLE --> SEND["发送：文本 / 引用 / 分段"]
 
     SEND --> SKILL["技能执行 RoleplaySkillRegistry"]
@@ -130,7 +130,7 @@ flowchart LR
 - 资料层：persona、记忆、群员印象、最近上下文、语料、知识库按预算注入。
 - 生成层：生成纯文本回复和表达动作，不输出 Markdown 或思考过程。
 - 执行层：发送文本、引用、戳回去、提醒、表情包或生图等技能。
-- 风格层：按需改写 AI 味明显的回复，默认不改变事实。
+- 本地风格层：暂时退出主链路，默认关闭；去 AI 味由执行层提示词和回复复核负责。
 
 ## 提示词装配
 
@@ -140,24 +140,27 @@ flowchart LR
 flowchart TB
     subgraph PREFIX["可缓存前缀块（稳定性从高到低）"]
         P1["① 静态块<br/>persona 核心 / 外貌<br/>学生印象 / 固定规则"]
-        P2["② 短期记忆<br/>每 50 条消息才整段重写"]
-        P3["③ 输出格式总则<br/>JSON 纪律 + 本回合 schema"]
+        P2["② 输出格式总则<br/>JSON 纪律 + 本回合 schema"]
     end
 
     subgraph DYNAMIC["动态块（每轮变化）"]
-        D1["④ 本轮指令 / 可用技能<br/>当前时间 / 关系 / 情绪 / 提醒"]
-        D2["⑤ 长期与永久记忆 / 群员印象<br/>最近发言 / 台词 / 知识库"]
-        D3["⑥ 输出约束<br/>引用要求 + 可用动作"]
+        D1["③ 本轮指令 / 可用技能<br/>关系 / 情绪 / 提醒"]
+        D2["④ 长期与永久记忆 / 群员印象<br/>最近发言 / 台词 / 知识库"]
+        D3["⑤ 输出约束<br/>引用要求 + 可用动作"]
+        D4["user：当前时间 / 最近群聊背景 / 当前消息"]
     end
 
-    P3 -->|"动态预算 = max(2000, promptTotalChars - 静态块长度)"| D1
+    P2 -->|"动态预算 = max(2000, promptTotalChars - 静态块长度)"| D1
 ```
 
-- 前缀块三段连在一起构成缓存前缀：静态块只在 persona、知识库或配置变化时更新；短期记忆每 `memoryUpdateMessages`（默认 50）条消息才整段重写；输出格式总则只在合批回合与单回合之间切换。
+- 前缀块两段连在一起构成缓存前缀：静态块只在 persona、知识库或配置变化时更新；输出格式总则只在合批回合与单回合之间切换。
+- 短期记忆每 `memoryUpdateMessages`（默认 50）条消息更新，属于动态资料。
 - 长期记忆与永久记忆默认按当前消息做相关性排序，属于每轮变化内容，必须留在动态块。
 - 动态块按优先级从高到低填充并逐份截断；常驻资料一定参与，可选资料只有路由点名才参与，支持 `students.detail:角色名` 这种带参数的形式。
-- `user` 消息单独携带当前发言者、当前消息或合批文本、最近群聊上下文，不算进系统提示词的缓存前缀。
+- 当前时间、当前发言者、最近群聊背景、当前消息或合批文本统一放在 `user` 消息，不算进系统提示词的缓存前缀。
+- 单轮工具循环固定 `tools` schema，`tool_search` 只扩充本地可执行工具集合，不改变后续请求的工具定义前缀。
 - 完整清单、每个资料 id 的优先级与字符上限见 [回复架构](../docs/roleplay/architecture.md)。
+- 可人工编辑的完整提示词模板维护在 `D:\CodeX\Projects\MBB-Persona\prompts\mbb-roleplay-system.md`。
 
 ## 插件协作
 
@@ -230,6 +233,7 @@ persona 与台词语料由 `MBB-Persona` 私有仓库单独维护：`personas/` 
 | 文档 | 内容 |
 |---|---|
 | [回复架构](../docs/roleplay/architecture.md) | 路由、分层处理、消息合批、结构化输出、提示词缓存、重复拦截 |
+| [MaiBot 对照](../docs/roleplay/maibot-reference.md) | 缓存诊断、Planner/Replyer 分工、拟人表达和提示词取舍 |
 | [记忆系统](../docs/roleplay/memory.md) | 四份记忆的分工、永久记忆、记忆标记、备份与清空 |
 | [情绪与关系](../docs/roleplay/emotion.md) | 情绪基线、好感、信任、厌烦、黑名单和关系命令 |
 | [技能与集成](../docs/roleplay/integrations.md) | 戳一戳、引用、提醒、台词语料、知识库和外部插件 |

@@ -11,7 +11,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * MBB-Model 风格层小模型的 HTTP 客户端
+ * MBB-Model 本地小模型的 HTTP 客户端
  *
  * 只用 JDK 自带的 HttpURLConnection，不引入新依赖。
  * 服务地址来自配置，默认 127.0.0.1:8770。

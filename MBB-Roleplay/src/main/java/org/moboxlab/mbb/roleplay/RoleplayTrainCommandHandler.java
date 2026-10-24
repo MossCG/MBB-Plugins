@@ -4,7 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Command.CommandSender;
 
 /**
- * /role train 训练语料与风格层模型管理
+ * /role train 训练语料与本地小模型管理
  */
 class RoleplayTrainCommandHandler {
     private final RoleplayCommand command;
@@ -92,7 +92,7 @@ class RoleplayTrainCommandHandler {
         }
         JSONObject health = status.getJSONObject("health");
         JSONObject job = status.getJSONObject("train");
-        StringBuilder builder = new StringBuilder("风格层模型状态");
+        StringBuilder builder = new StringBuilder("本地小模型状态");
         builder.append("\n服务：").append(service.config().modelServiceUrl).append(" 正常");
         builder.append("\n后端：").append(service.safe(health.getString("backend")))
                 .append("，模型：").append(service.safe(health.getString("model")))

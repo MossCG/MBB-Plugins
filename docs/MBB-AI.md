@@ -140,21 +140,21 @@ logRequestContent: false
 **不要把云端密钥填进这个 profile**。本地服务不需要真密钥，把 opencode 之类的 key 放进来
 既没用又容易跟着配置文件一起泄露。
 
-配好之后，在 `MBB-Roleplay` 的 `config.yml` 里把风格层指过去：
+本地 profile 仍可用于 MBB-Model 的推理和训练接口。`MBB-Roleplay` 的本地风格层已暂时退出主链路，
+以下配置只保留兼容；当前保持关闭：
 
 ```yaml
-styleEnable: true
+styleEnable: false
 styleProfile: "local"
 styleMaxTokens: 256
 styleReasoningEffort: ""
 ```
 
-这两个值要注意：`styleMaxTokens` 默认是 1200，对本地 1.7B 只做一句改写来说太大，会白等时间；
-`styleReasoningEffort` 默认是 `low`，Qwen3 的思考模式已经在 MBB-Model 侧关掉，这里留空不要再发。
-Roleplay 传的 `styleMaxTokens` 会覆盖 profile 里的 `maxTokens`，所以两边保持一致更省心。
+以后如果重新评估风格层，`styleMaxTokens` 和 `styleReasoningEffort` 再按本地模型能力单独调整。
+当前不要通过把 `styleEnable` 改回 `true` 来恢复主链路，应先做效果和成本对比。
 
 其他层（路由、生成、记忆、识图、提醒）继续用 `default` profile，不受影响。
-本地服务没起来时风格改写会失败，但角色回复本身照常——风格层是可选增强，不是必经链路。
+本地服务是否启动不影响角色主回复链路。
 
 ## 调用约定
 

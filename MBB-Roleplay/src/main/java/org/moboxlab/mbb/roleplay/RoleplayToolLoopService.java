@@ -115,6 +115,8 @@ public class RoleplayToolLoopService {
                 && registry.isEnabled("workspace_import_image",service.config())) {
             exposedTools.add("workspace_import_image");
         }
+        //一轮内固定工具 schema，后续 tool_search 只扩充可执行集合，不重发不同定义的 tools 前缀。
+        List<String> schemaTools = new ArrayList<>(exposedTools);
         int totalCalls = 0;
         int resultCharsUsed = 0;
         boolean finished = false;
@@ -137,12 +139,14 @@ public class RoleplayToolLoopService {
                 callParams.put("timeoutSeconds",remainingSeconds);
                 callParams.put("retryCount",service.config().toolAiRetryCount);
                 JSONArray schemas = registry.schemas(service.config(),
-                        new ArrayList<>(exposedTools));
+                        schemaTools);
                 JSONObject stepTrace = new JSONObject(true);
                 stepTrace.put("stage","tool_step");
                 stepTrace.put("step",step + 1);
                 stepTrace.put("exposedTools",new JSONArray());
                 stepTrace.getJSONArray("exposedTools").addAll(new ArrayList<>(exposedTools));
+                stepTrace.put("schemaTools",new JSONArray());
+                stepTrace.getJSONArray("schemaTools").addAll(schemaTools);
                 stepTrace.put("schemaCount",schemas.size());
                 toolTrace.add(stepTrace);
                 if (service.config().toolEnable && !schemas.isEmpty()) {

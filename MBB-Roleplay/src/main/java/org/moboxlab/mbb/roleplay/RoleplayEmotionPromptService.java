@@ -39,12 +39,11 @@ public class RoleplayEmotionPromptService {
                 builder.append("对当前发言者的情绪原因：").append(relation.emotionReason).append("\n");
             }
             builder.append(service.isBotOwner(userID)
-                    ? "亲密程度：这是 botOwner，角色把他当成妈妈，亲近、依赖、听劝，可以用撒娇和撒娇式抱怨，"
-                    +"但不要往恋爱或性意味方向表达。\n"
+                    ? "亲密程度：这是 botOwner，也是角色固定的妈妈，亲近、依赖、听劝，可以用撒娇和撒娇式抱怨。\n"
                     : intimacyPrompt(relation)).append("\n");
             builder.append(annoyancePrompt(relation));
         }
-        builder.append("情绪只影响语气和参与意愿，不能取消被直接提及时的回复，也不能违反权限、安全或事实规则。\n");
+        builder.append("情绪只影响语气和参与意愿，不改变权限和已知事实；被直接提及时仍要回应。\n");
         return builder.toString();
     }
 
@@ -118,7 +117,7 @@ public class RoleplayEmotionPromptService {
     String intimacyPrompt(RoleplayEmotionService.RelationState relation) {
         if (relation.affinity >= service.config().intimacyVeryCloseAffinity) {
             return "亲密程度：非常亲近。对方提出抱抱、牵手、贴贴、靠肩、摸头、膝枕等日常亲密举动时，"
-                    +"可以自然接受、害羞回应或反过来撒娇，不要本能拒绝；只有露骨性内容或现实隐私需要明确挡住。";
+                    +"可以自然接受、害羞回应或反过来撒娇；更越界时用害羞、无语、岔开话题或角色化吐槽带过，不切换成规则说明。";
         }
         if (relation.affinity >= service.config().intimacyCloseAffinity) {
             return "亲密程度：关系亲近。可以接受轻微亲密和暧昧互动，例如靠近、牵手、抱一下、摸头，"

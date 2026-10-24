@@ -164,7 +164,7 @@ public class RoleplayConfig {
     public String routerProfile = "";
     public int routerMaxTokens = 2400;
     public String routerReasoningEffort = "none";
-    public boolean styleEnable = true;
+    public boolean styleEnable = false;
     public int styleMaxChars = 60;
     public boolean styleLongReplyEnable = false;
     public String styleProfile = "";
@@ -572,7 +572,7 @@ public class RoleplayConfig {
         config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",2400);
         config.routerReasoningEffort = normalizeEffort(
                 plugin.getConfig().getString("routerReasoningEffort","none"));
-        config.styleEnable = plugin.getConfig().getBoolean("styleEnable",true);
+        config.styleEnable = plugin.getConfig().getBoolean("styleEnable",false);
         config.styleMaxChars = plugin.getConfig().getInt("styleMaxChars",60);
         config.styleLongReplyEnable = plugin.getConfig().getBoolean("styleLongReplyEnable",false);
         config.styleProfile = plugin.getConfig().getString("styleProfile","");

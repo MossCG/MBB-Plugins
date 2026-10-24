@@ -18,7 +18,7 @@ MoBoxBot 角色扮演插件。插件读取 persona 文件，让角色以普通�
 | 免打扰 | 群员自助加入名单，角色不再主动搭话，只回应主动叫到自己的消息 | [命令](roleplay/commands.md) |
 | 命令与配置 | 全部管理命令、配置项、默认性能、构建和升级 | [命令](roleplay/commands.md) / [配置与部署](roleplay/configuration.md) |
 | 训练语料采集 | `/role learn` 把任意群消息和前后文存成训练样本，供后续微调使用 | [技能与集成](roleplay/integrations.md) |
-| 风格层训练 | `/role train` 把群消息导出成 ShareGPT 交给本地 MBB-Model 训练；默认复制当前 adapter 到新任务目录后续训，可新开 adapter，截止游标避免重复喂数据 | [技能与集成](roleplay/integrations.md) |
+| 本地模型实验 | `/role train` 仍可把群消息导出成 ShareGPT 交给本地 MBB-Model 训练；本地风格层暂时退出回复主链路，训练能力保留供后续评估 | [技能与集成](roleplay/integrations.md) |
 | 工具与工作区 | 按需加载原生工具、QQ 工具、表情包主动收藏、图片导入与媒体索引、结构化笔记、草稿归档、多轮检索、私有工作区版本/回收站、工具回合恢复 | [工具与工作区](roleplay/tools.md) |
 | 待办与时间 | 用户待办、角色自身待办、完成与延后、提醒联动、时区时间计算 | [工具与工作区](roleplay/tools.md) |
 
@@ -68,7 +68,7 @@ flowchart TD
     TOOL -->|是| TOOLLOOP["执行工具 → 结果回模型"]
     TOOLLOOP --> GEN
     TOOL -->|否| PARSE["解析最终结构化结果"]
-    PARSE --> STYLE["重复拦截 + 风格层 MBB-AI"]
+    PARSE --> STYLE["重复拦截 + 回复复核"]
     STYLE --> SEND["发送：文本 / 引用 / 分段"]
 
     SEND --> SKILL["兼容技能执行 RoleplaySkillRegistry"]
@@ -118,7 +118,8 @@ flowchart TD
 私聊由 `PrivateMessageEvent` 进入独立的 `RoleplayPrivateChatService`。默认只响应 owner 和机器人 QQ 好友，
 好友列表通过 `get_friend_list` 缓存，查询失败时拒绝非 owner 私聊；旧 `privateChatWhitelist` 仅保留配置兼容。
 私聊不会进入群消息合批或群话题疲劳。
-私聊提示词分为固定前缀和动态块，时间、关系、记忆和近期私聊放在固定人设之后，以提高服务端提示词缓存命中率。
+私聊提示词分为固定前缀和动态块，关系、记忆和近期私聊放在固定人设之后，当前时间进入 user 消息，
+以提高服务端提示词缓存命中率。
 私聊图片会先经过 `MBB-Vision`，私聊长期结论以 `visibility=private` 写入记忆表，只在同一用户的私聊中读取。
 
 `RoleplayRandomTickService` 每隔 10 到 30 分钟检查一次随机刻，`00:00-08:00` 只调度不执行。随机刻先做夜间、去重、群主动频率和 Qzone 日限额判断，再让模型选择 `none / private_owner / group_topic / qzone_post`；`none` 是正常结果。主动私聊 owner 不做频率限制，主动群话题全局每 6 小时最多 2 次，Qzone 每天最多 2 次。
@@ -147,7 +148,7 @@ flowchart LR
 - 资料层：persona、记忆、群员印象、最近上下文、语料、知识库按优先级和单项预算注入。
 - 生成层：原生工具调用与最终回复共用同一套协议；旧 `actions` 只做兼容。
 - 执行层：发送文本、引用、工具结果和旧技能动作。
-- 风格层：按需改写 AI 味明显的回复，默认不改变事实。
+- 本地风格层：暂时退出主链路，默认关闭；去 AI 味由执行层提示词和回复复核负责。
 
 ## 提示词装配
 
@@ -161,10 +162,10 @@ flowchart TB
     end
 
     subgraph DYNAMIC["动态上下文"]
-        D1["当前时间 / 关系 / 情绪 / 注意力"]
+        D1["关系 / 情绪 / 注意力"]
         D2["群员印象 / 工具结果 / 短期记忆"]
         D3["长期与永久记忆 / 台词 / 知识库"]
-        D4["最近群聊背景 → 当前消息"]
+        D4["user：当前时间 / 最近群聊背景 → 当前消息"]
     end
 
     P2 --> D1 --> D2 --> D3 --> D4
@@ -172,7 +173,9 @@ flowchart TB
 
 - 短期记忆已经移出缓存前缀，避免每 `memoryUpdateMessages` 条消息就把前缀从中间打断。
 - 记忆和工具结果默认按当前消息相关性排序，属于动态内容。
+- 单轮工具循环固定 `tools` schema，`tool_search` 只扩充本地可执行工具集合，不改变后续请求的工具定义前缀。
 - 各资料保留单项上限；关闭 `contextHardLimitEnable` 只关闭总硬预算，不等于无限。
+- 可人工编辑的完整提示词模板维护在 `D:\CodeX\Projects\MBB-Persona\prompts\mbb-roleplay-system.md`。
 - 当前消息放在用户消息最后，最近群聊只作为背景，降低模型回复旧消息的概率。
 - 完整清单、每个资料 id 的优先级与字符上限见 [回复架构](roleplay/architecture.md)。
 
@@ -247,6 +250,7 @@ persona 与台词语料由 `MBB-Persona` 私有仓库单独维护：`personas/` 
 | 文档 | 内容 |
 |---|---|
 | [回复架构](roleplay/architecture.md) | 路由、分层处理、消息合批、结构化输出、提示词缓存、重复拦截 |
+| [MaiBot 对照](roleplay/maibot-reference.md) | 缓存诊断、Planner/Replyer 分工、拟人表达和提示词取舍 |
 | [记忆系统](roleplay/memory.md) | 四份记忆的分工、永久记忆、记忆标记、备份与清空 |
 | [情绪与关系](roleplay/emotion.md) | 情绪基线、好感、信任、厌烦、黑名单和关系命令 |
 | [技能与集成](roleplay/integrations.md) | 戳一戳、引用、提醒、台词语料、知识库和外部插件 |

@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "46";
+    private static final String CURRENT_VERSION = "47";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -180,7 +180,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("routerProfile","","路由层使用的模型配置名，留空则使用 aiProfile"),
             new ConfigEntry("routerMaxTokens","2400","路由层输出 Token 上限，reasoning 模型建议不低于 2400"),
             new ConfigEntry("routerReasoningEffort","none","路由层思考强度：none / low / medium / high，留空表示不发送"),
-            new ConfigEntry("styleEnable","true","是否在回复带 AI 味时调用风格层改写"),
+            new ConfigEntry("styleEnable","false","本地风格层已暂时弃用；保留键位仅用于兼容旧配置"),
             new ConfigEntry("styleMaxChars","60","回复超过多少字触发风格层"),
             new ConfigEntry("styleLongReplyEnable","false","超长回复是否交给风格层；默认交给大模型回复复核改写"),
             new ConfigEntry("styleProfile","","风格层使用的模型配置名，留空则使用 aiProfile"),
@@ -448,6 +448,8 @@ public class RoleplayConfigMigrator {
                 .equals(config.getString("webSearchFallbackUrl",""));
         boolean legacySearchMaxResults = version < 45
                 && "5".equals(config.getString("webSearchMaxResults",""));
+        boolean legacyStyleEnable = version < 47
+                && "true".equals(config.getString("styleEnable",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -461,9 +463,13 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 46) {
+        if (version < 47) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
+        }
+        if (legacyStyleEnable) {
+            config.set("styleEnable","false");
+            changed++;
         }
         if (legacyMemoryMergeRetryCount) {
             config.set("memoryMergeRetryCount","3");

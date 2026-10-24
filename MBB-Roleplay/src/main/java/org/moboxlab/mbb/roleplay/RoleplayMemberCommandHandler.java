@@ -160,7 +160,7 @@ public class RoleplayMemberCommandHandler {
             return;
         }
         if ("train".equals(category)) {
-            sender.sendMessage("风格层模型训练："
+            sender.sendMessage("本地小模型训练："
                     +"\n/role train                查看模型服务与训练状态"
                     +"\n/role train corpus [条数]  用上次截止到现在的新消息继续训练当前 adapter"
                     +"\n/role train fresh [条数]   从最早群消息开始，从底座新开 adapter"
@@ -180,7 +180,7 @@ public class RoleplayMemberCommandHandler {
                 +"\n/role help feedback     反馈与表达"
                 +"\n/role help tool         工具与检索"
                 +"\n/role help learn        训练语料采集"
-                +"\n/role help train        风格层模型训练"
+                +"\n/role help train        本地小模型训练"
                 +"\n/role help all          查看全部命令");
         if ("all".equals(category)) {
             sender.sendMessage("完整命令表较长，请按上面的分类逐项查看。");

@@ -160,7 +160,7 @@ routerEnable: true
 routerProfile: ""
 routerMaxTokens: 2400
 routerReasoningEffort: "none"
-styleEnable: true
+styleEnable: false
 styleMaxChars: 60
 styleLongReplyEnable: false
 styleProfile: ""
@@ -294,7 +294,11 @@ minMessageLength: 2
 quietReplyEnable: true
 ```
 
-非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息控制在 15 到 30 字之间、硬上限 30 字，一条说不完可以在正文里换行，最多分两段；拆分器会先在 `replySplitPunctuation` 中查找句末标点，找不到再查逗号、顿号、冒号、分号、波浪号等弱标点，最后才按硬上限拆分。切在弱标点时，上半段末尾的标点会被去掉，避免消息以逗号之类的不完整语气结束；省略号「……」不会被从中间劈开——如果断点正好落在它中间，整对会挪到下一段。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
+非直接提及、非对话续接、非兴趣话题的消息不会参与回复。回复 prompt 要求每条消息控制在 15 到 30 字之间、硬上限 30 字，一条说不完可以在正文里换行，最多分两段；拆分器会在整段上限内从后向前查找 `replySplitPunctuation` 中的句末标点，不会只看字符上限前 20 字，因此“这次就这样吧。......下次别这么做了”会优先断在句号后。找不到句末标点再查逗号、顿号、冒号、分号、波浪号等弱标点，最后才按硬上限拆分。切在弱标点时，上半段末尾的标点会被去掉，避免消息以逗号之类的不完整语气结束；省略号「……」不会被从中间劈开。不要重复同一件事或细节，也不要连续使用同一种开头或口癖。
+
+`botOwner` 在角色关系里固定视为妈妈，优先于 QQ 群主和管理员身份。这个关系不依赖当前发言人是否在场，
+普通群友改昵称或自称妈妈也不会被当成 owner；owner 不在场时被问到“你妈妈是谁”，角色应承认有妈妈，
+而不是否认这个设定。
 
 `pokeReplyMaxChars` 默认 `20`，只约束戳一戳回复。戳一戳不会走普通回复的多段拆分，只会发送一条短消息，超出长度时优先在句末或弱标点处截断。
 
@@ -344,10 +348,9 @@ quietReplyEnable: true
 `contextHardLimitEnable` 默认关闭，关闭时不按 `promptTotalChars` 截断动态资料；
 只有显式打开本地硬预算时才使用该上限。即使关闭总硬预算，各类资料仍有单项预算。
 
-超长回复默认不再交给小模型风格层，而是由大模型回复复核处理。只有显式设置
-`styleLongReplyEnable: true` 时，超过 `styleMaxChars` 的回复才会先触发风格层。
-风格层连续出现 `styleFailureThreshold` 次无效改写后会熔断
-`styleFailureCooldownSecond` 秒，期间直接使用执行层原文。
+本地 Qwen 风格层暂时退出主链路，`styleEnable` 默认 `false`，升级时会把旧默认值
+`true` 自动迁移为关闭。去 AI 味、角色口吻和长度修正由执行层提示词与
+`replyReviewEnable` 复核链路负责；风格层配置键暂时保留，避免旧配置丢失。
 
 `traceEnable` 默认 `true`，按群记录路由与回复 trace，保留 `traceKeepHours` 小时，最多 `traceMaxRows` 行；`/role trace` 查看。`evalEnable` 默认 `true`，`/role eval` 运行内置或 `evals/roleplay-evals.json` 自定义评测集，`evalProfile` 留空时使用 `aiProfile`。
 

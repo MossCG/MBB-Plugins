@@ -75,32 +75,32 @@ public class RoleplayMessageSender {
     }
 
     public List<String> splitReply(String text) {
+        return splitReply(text,service.config().replySegmentMaxChars,
+                service.config().replySplitPunctuation);
+    }
+
+    static List<String> splitReply(String text,int maxChars,String punctuation) {
         List<String> result = new ArrayList<>();
         if (text == null || text.trim().isEmpty()) return result;
-        int maxChars = service.config().replySegmentMaxChars;
+        if (maxChars < 1) maxChars = 1;
         String normalized = text.replace("\\n","\n").replace("\r\n","\n").replace("\r","\n");
         String[] paragraphs = normalized.split("\n");
         for (String paragraph : paragraphs) {
             String value = paragraph.replaceAll("\\s+"," ").trim();
             if (value.isEmpty()) continue;
             if (value.length() <= maxChars) result.add(value);
-            else addParagraph(result,value,maxChars);
+            else addParagraph(result,value,maxChars,punctuation);
         }
         return result;
     }
 
-    private void addParagraph(List<String> result,String text,int maxChars) {
+    private static void addParagraph(List<String> result,String text,int maxChars,String punctuation) {
         while (text.length() > maxChars) {
-            int cut = findSplitCut(text,maxChars,true);
-            if (cut <= 0) cut = findSplitCut(text,maxChars,false);
+            int cut = findSplitCut(text,maxChars,true,punctuation);
+            if (cut <= 0) cut = findSplitCut(text,maxChars,false,punctuation);
             if (cut <= 0) cut = maxChars;
-            if (cut > 0 && cut < text.length() && text.charAt(cut) == '…') {
-                int runStart = cut;
-                while (runStart > 0 && text.charAt(runStart - 1) == '…') runStart--;
-                if (runStart > 0) cut = runStart;
-                else while (cut < text.length() && text.charAt(cut) == '…') cut++;
-            }
-            String segment = trimWeakSplitPunctuation(text.substring(0,cut).trim());
+            cut = extendStrongPunctuationRun(text,cut,punctuation);
+            String segment = trimWeakSplitPunctuation(text.substring(0,cut).trim(),punctuation);
             if (!segment.isEmpty()) result.add(segment);
             text = text.substring(cut).trim();
         }
@@ -108,30 +108,54 @@ public class RoleplayMessageSender {
     }
 
     public int findSplitCut(String text,int maxChars,boolean strong) {
-        int start = Math.max(0,maxChars - 20);
+        return findSplitCut(text,maxChars,strong,service.config().replySplitPunctuation);
+    }
+
+    private static int findSplitCut(String text,int maxChars,boolean strong,String punctuation) {
+        //在整段上限内取最后一个符合等级的标点，避免句号明明在前文却不被采用。
+        int start = 1;
         for (int i = Math.min(maxChars - 1,text.length() - 1); i >= start; i--) {
             char value = text.charAt(i);
-            if (strong ? isStrongSplitPunctuation(value) : isWeakSplitPunctuation(value)) return i + 1;
+            if (strong ? isStrongSplitPunctuation(value,punctuation)
+                    : isWeakSplitPunctuation(value,punctuation)) return i + 1;
         }
         return -1;
     }
 
-    private boolean isSplitPunctuation(char value) {
-        String punctuation = service.config().replySplitPunctuation;
+    private static int extendStrongPunctuationRun(String text,int cut,String punctuation) {
+        if (cut <= 0 || cut > text.length()) return cut;
+        if (text.charAt(cut - 1) != '…') return cut;
+        int result = cut;
+        while (result < text.length() && text.charAt(result) == '…') result++;
+        if (result > cut && result < text.length() && text.charAt(result) == '。') result++;
+        return result;
+    }
+
+    private static boolean isSplitPunctuation(char value,String punctuation) {
         return punctuation != null && punctuation.indexOf(value) >= 0;
     }
 
-    private boolean isStrongSplitPunctuation(char value) {
-        return isSplitPunctuation(value) && STRONG_SPLIT_PUNCTUATION.indexOf(value) >= 0;
+    private static boolean isStrongSplitPunctuation(char value,String punctuation) {
+        return isSplitPunctuation(value,punctuation) && STRONG_SPLIT_PUNCTUATION.indexOf(value) >= 0;
     }
 
     boolean isWeakSplitPunctuation(char value) {
-        return isSplitPunctuation(value) && !isStrongSplitPunctuation(value);
+        return isWeakSplitPunctuation(value,service.config().replySplitPunctuation);
+    }
+
+    private static boolean isWeakSplitPunctuation(char value,String punctuation) {
+        return isSplitPunctuation(value,punctuation)
+                && !isStrongSplitPunctuation(value,punctuation);
     }
 
     String trimWeakSplitPunctuation(String text) {
+        return trimWeakSplitPunctuation(text,service.config().replySplitPunctuation);
+    }
+
+    private static String trimWeakSplitPunctuation(String text,String punctuation) {
         String value = text == null ? "" : text.trim();
-        while (!value.isEmpty() && isWeakSplitPunctuation(value.charAt(value.length() - 1))) {
+        while (!value.isEmpty()
+                && isWeakSplitPunctuation(value.charAt(value.length() - 1),punctuation)) {
             value = value.substring(0,value.length() - 1).trim();
         }
         return value;

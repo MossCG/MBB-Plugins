@@ -434,7 +434,7 @@ public class RoleplaySkillRegistry {
                     : "。只有用户明确要求普通生图时才调用；")
                     +"角色层只输出画面 brief，不直接写最终 booru prompt；最终 prompt 会由独立编译层注入角色 canonical tag 和负向词。"
                     +"如果用户只给出主体，没给背景、动作、构图或尺寸，可以自己补全 brief，"
-                    +"不要每一项都追问；只有主体不明确、可能违规或用户要求变化时再追问。"
+                    +"不要每一项都追问；只有主体不明确或用户要求前后冲突时再追问。"
                     +cameraInstruction
                     +"brief 字段：subject、characters、action、expression、outfit、scene、composition、camera、size、mustInclude、mustExclude。"
                     +"subject 写用户要求的主体；画当前角色本人时填当前角色，画别人时填别人。"

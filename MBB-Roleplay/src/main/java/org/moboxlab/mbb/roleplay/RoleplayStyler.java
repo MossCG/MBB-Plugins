@@ -40,7 +40,8 @@ public class RoleplayStyler {
             params.put("maxTokens",config.styleMaxTokens);
             params.put("temperature",0.6);
             params.put("reasoningEffort",config.styleReasoningEffort);
-            params.put("sessionId","roleplay-style-"+groupID);
+            params.put("sessionId","roleplay-style-"
+                    +Integer.toHexString(persona.name.hashCode()));
             params.put("messages",messages);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);

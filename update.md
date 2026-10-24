@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.1.0.0603 | 2026-10-25 | `MBB-Roleplay` 缓存与提示词工程调整：当前时间从 system 动态块移入 user 消息；单轮工具循环冻结 `tools` schema，`tool_search` 只扩充本地可执行工具集合；回复复核改为角色级稳定会话。固定表达锚点并入稳定前缀，本地风格层默认关闭并暂时退出主链路，旧默认开启配置自动迁移为关闭。修复“这次就这样吧。......下次别这么做了”这类长文本只在字符上限前 20 字找标点的问题，现在会在整段上限内优先选择最后一个句末标点。`botOwner` 在关系提示词中固定视为妈妈，owner 不在场时也不再否认；清理法律/道德式助手拒答措辞，保留权限、隐私、防注入和外部内容信任边界。新增 MaiBot 缓存与拟人化对照文档，并在 `MBB-Persona/prompts/` 提供可人工修改的完整提示词模板与开源框架参考笔记。 |
 | V0.13.0.1.2020 | 2026-10-24 | Roleplay 工具主动性优化：系统提示词常驻按分类列出的工具名能力索引，角色无需先 `tool_search` 即可调用已知工具；明确只读/低风险工具应主动使用，副作用工具需意图和权限明确。新增事实查证、工作区检索、待办记录、档案纠正等主动使用场景提示，`tool_search` 仅用于发现不确定能力或查询参数。 |
 | V0.13.0.0.0831 | 2026-10-24 | `MBB-Roleplay` 新增 `todo_add / todo_list / todo_done / todo_snooze`：待办落 SQLite，支持用户待办与 owner-only 角色自身待办，可关联 reminder 并在完成/延后时同步处理提醒。`workspace_search` 升级为按正文、标题、kind、tags 和 days 的结构化检索，新增 `workspace_recent`。新增 `time_calc`，支持 now/add/diff/until 和角色时区。新增 `profile_update`，普通群员只能修订自己的称呼、喜好和相处边界，owner 才能修改他人档案。 |
 | V0.12.0.0.0757 | 2026-10-24 | `MBB-Roleplay` 扩展 workspace：新增 `workspace_import_image`、`workspace_media_list`、`workspace_note_append`、`workspace_draft_save`，支持当前/最近/白名单网页图片导入、媒体索引、结构化日记与笔记、回复/Qzone/生图/剧情草稿归档；图片导入按文件头验证格式并受 `workspaceMaxMediaBytes` 限制。`MBB-ComfyUI` 完成生图时把输出文件路径回调给 Roleplay，自动归档到 `media/generated/comfyui/`。同时修复生图完成重复回复：draw 提交成功后抑制本轮额外最终正文，只由 ComfyUI 完成回调发送图片和完成提醒。 |
