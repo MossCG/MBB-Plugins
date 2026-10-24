@@ -187,6 +187,7 @@ promptTotalChars: 120000
 换行和分句统一进入 `RoleplayReplyReviewService`。单条回复和合批段落都会复核；单条最多使用
 `replyBeatMaxSegments` 行，合批段落最多使用 `replyMaxSegments` 行。固定关系称呼如“妈妈”
 必须原样保留，否则本地校验会丢弃改写结果。发送层仍保留链接过滤和最终拆分的本地兜底。
+正常心情下句号会转换成换行节拍，只有烦躁、低落或闹别扭时允许保留。
 
 ```yaml
 replyReviewEnable: true

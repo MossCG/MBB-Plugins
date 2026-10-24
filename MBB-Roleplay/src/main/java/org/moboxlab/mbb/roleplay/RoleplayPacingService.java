@@ -41,7 +41,7 @@ public class RoleplayPacingService {
     }
 
     public long beatDelayMillis(long groupID,String nextBeat) {
-        if (!service.config().pacingEnable) return 250L;
+        if (!service.config().pacingEnable) return 0L;
         int length = service.safe(nextBeat).replaceAll("\\s+","").length();
         long delay = service.config().replyBeatBaseDelayMs
                 + (long)length * service.config().replyBeatPerCharMs;

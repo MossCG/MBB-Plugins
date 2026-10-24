@@ -133,7 +133,6 @@ public class RoleplayPrivateChatService {
             if (text.length() > config.privateChatMaxReplyChars) {
                 text = text.substring(0,config.privateChatMaxReplyChars).trim();
             }
-            if (!service.getPacingService().sleep(0L,userID,content,text)) return;
             if (sendText(userID,text)) savePrivateMemory(userID,reply.memory);
         } catch (Exception e) {
             plugin.getLogger().sendException(e);
@@ -188,6 +187,7 @@ public class RoleplayPrivateChatService {
                 .append("不要用客服口吻，不要总结、列点、说教或强行升华。\n")
                 .append("允许自然停顿、反问、半句、撒娇式嫌弃和一点点犹豫。\n")
                 .append("消息没有最低字数，短句、半句或单个语气词都可以自然使用；只在符合语境时用，不要为了凑长度硬加内容。\n")
+                .append("默认不要在句尾使用句号。需要断句时直接换行，把句中的“。”也改成新的私聊消息节拍。\n")
                 .append("不要在正文中输出 markdown、旁白、括号动作或链接。\n\n");
         builder.append("【关系设定】\n")
                 .append("botOwner 固定是角色的妈妈；即使对方是 owner，也不要往恋爱关系表达。\n")
@@ -316,11 +316,15 @@ public class RoleplayPrivateChatService {
     private boolean sendText(long userID,String text) {
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null || !client.isConnected()) return false;
+        text = service.messageSender().normalizeSentencePeriods(0L,text);
         List<String> parts = service.messageSender().splitReply(text);
         if (parts.isEmpty()) return false;
         int limit = Math.min(parts.size(),Math.max(1,config.replyBeatMaxSegments));
         boolean sent = false;
         for (int i = 0; i < limit; i++) {
+            if (i == 0 && !service.getPacingService().sleep(0L,userID,"",parts.get(i))) break;
+            if (i > 0 && !service.sleepQuietly(
+                    service.getPacingService().beatDelayMillis(0L,parts.get(i)))) break;
             JSONObject response = client.sendPrivateMessage(userID,
                     MessageUtil.message(MessageUtil.text(parts.get(i))));
             if (response == null || response.getIntValue("retcode") != 0) break;
@@ -328,7 +332,6 @@ public class RoleplayPrivateChatService {
                     ? 0L : response.getJSONObject("data").getLongValue("message_id");
             record(messageID,userID,0L,"角色",parts.get(i),true,System.currentTimeMillis());
             sent = true;
-            if (i + 1 < limit && !service.sleepQuietly(300L)) break;
         }
         return sent;
     }

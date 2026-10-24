@@ -310,6 +310,8 @@ quietReplyEnable: true
 
 `replyReviewEnable` 默认 `true`。角色回复在发送前会经过 `RoleplayReplyReviewService` 统一复核和风格后处理：检查角色口吻、AI 味、总结腔、说教和重复；删除模型凭空生成的链接；单句超过 `replySegmentMaxChars` 时做压缩简写、换行或分成短句。复核返回合法 `rewrite` 时会使用改写文本，不再要求必须先低于 `replyReviewMinScore`。单条回复和合批段落默认都最多使用 5 行；分别由 `replyBeatMaxSegments` 和 `replyMaxSegments` 控制。`replyReviewProfile` 留空时使用 `aiProfile`。
 
+默认句尾不使用句号。正常心情下，复核和发送兜底都会把“。”转换成换行节拍；只有当前群情绪为烦躁、低落或闹别扭时才允许保留句号。私聊没有群情绪上下文，默认同样不使用句号。
+
 `privateChatEnable` 控制私聊入口。准入规则是 owner 或机器人 QQ 好友，好友列表按
 `privateChatFriendCacheSecond` 缓存；查询失败时拒绝非 owner 私聊。`privateChatWhitelist`
 只保留旧配置兼容，不再放行非好友。私聊使用独立上下文，图片会交给 `MBB-Vision`，
@@ -361,7 +363,7 @@ quietReplyEnable: true
 
 `memoryConflictResolveEnable` 默认 `true`。写入新长期记忆时，如果同群、同类型、同用户下存在相反极性的高重合旧记忆，会把旧记忆标记为 `archived` 并记录 `supersededBy`，不直接删除；`/role memory conflicts` 可查看。
 
-`pacingEnable` 默认 `true`。发送前按回复长度、深夜时段和群注意力计算拟人打字延迟，`pacingMaxMs` 控制上限；深夜使用 `pacingNightMultiplier`，群活跃时使用 `pacingActiveMultiplier`。角色可以在正文中换行表达连续节拍，节拍间隔由 `replyBeatBaseDelayMs`、`replyBeatPerCharMs` 和 `replyBeatMaxDelayMs` 控制。
+`pacingEnable` 默认 `true`。第一段发送前按首段长度计算打字延迟，后续每段按即将发送的下一段长度计算停顿；深夜时段和群注意力继续修正倍率，`pacingMaxMs` 控制上限。角色可以在正文中换行表达连续节拍，节拍间隔由 `replyBeatBaseDelayMs`、`replyBeatPerCharMs` 和 `replyBeatMaxDelayMs` 控制。关闭 `pacingEnable` 后不会保留固定节拍等待。
 
 `safetyGuardEnable` 默认 `true`，拦截系统提示词诱导、越狱指令和现实隐私索取；`promptInjectionGuardEnable` 和 `privacyGuardEnable` 可分别关闭。长期记忆写入也会经过同样的安全检查。
 

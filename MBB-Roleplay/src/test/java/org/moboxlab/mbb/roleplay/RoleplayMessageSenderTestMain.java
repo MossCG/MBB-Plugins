@@ -20,6 +20,7 @@ public class RoleplayMessageSenderTestMain {
                 "前面没有句末标点但是这里有一个逗号，后面还有很多很多内容需要继续说下去",
                 "，",punctuation,true);
         assertSingleSegment("嗯",punctuation);
+        assertPeriodRule();
     }
 
     private static void assertFirstSegmentEndsWith(String text,String expected,
@@ -47,6 +48,18 @@ public class RoleplayMessageSenderTestMain {
         List<String> segments = RoleplayMessageSender.splitReply(text,30,punctuation);
         if (segments.size() != 1 || !text.equals(segments.get(0))) {
             throw new AssertionError("短消息不应因为长度被改写或拆分："+segments);
+        }
+    }
+
+    private static void assertPeriodRule() {
+        String normalized = RoleplayMessageSender.normalizeSentencePeriods(
+                "这句先说完。下一句再接。",false);
+        if (!"这句先说完\n下一句再接".equals(normalized)) {
+            throw new AssertionError("正常心情应删除句号并改为换行："+normalized);
+        }
+        String allowed = "这句先说完。下一句再接。";
+        if (!allowed.equals(RoleplayMessageSender.normalizeSentencePeriods(allowed,true))) {
+            throw new AssertionError("心情不好时应允许保留句号");
         }
     }
 }

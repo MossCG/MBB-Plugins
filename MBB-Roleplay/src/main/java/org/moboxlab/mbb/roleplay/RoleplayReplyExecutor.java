@@ -80,7 +80,6 @@ public class RoleplayReplyExecutor {
         if (sendText) ensurePokeBackAction(draft,decision,reply);
         OneBotClient client = service.plugin().getServer().getOneBotClient();
         if (sendText && client != null) {
-            if (!service.getPacingService().sleep(groupID,event.getUserID(),content,reply)) return;
             service.messageSender().sendReply(client,groupID,selfID,event.getUserID(),reply,
                     decision != null && decision.quoteRequired,draft.quote,event.getMessageID());
         }
@@ -169,6 +168,7 @@ public class RoleplayReplyExecutor {
             }
             if (sendText) {
                 ensurePokeBackAction(segmentDraft,decision,reply);
+                reply = service.messageSender().normalizeSentencePeriods(groupID,reply);
                 long quoteMessageID = target.event.getMessageID();
                 boolean forceQuote = decision != null && decision.quoteRequired && target == primary;
                 boolean quote = service.config().quoteReplyEnable && quoteAllowed
@@ -177,7 +177,13 @@ public class RoleplayReplyExecutor {
                 List<String> parts = service.messageSender().splitReply(reply);
                 int partLimit = Math.min(parts.size(),Math.max(1,service.config().replyMaxSegments));
                 for (int p = 0; p < partLimit && sent < messageBudget; p++) {
-                    if (p > 0 && !service.sleepQuietly(250L)) break;
+                    if (p == 0 && sent == 0) {
+                        if (!service.getPacingService().sleep(
+                                groupID,target.userID,"",parts.get(p))) break;
+                    } else if (p > 0 && !service.sleepQuietly(
+                            service.getPacingService().beatDelayMillis(groupID,parts.get(p)))) {
+                        break;
+                    }
                     if (!service.messageSender().sendSingleMessage(client,groupID,selfID,target.userID,parts.get(p),
                             quote && p == 0,quoteMessageID)) break;
                     if (!responded.contains(target)) responded.add(target);

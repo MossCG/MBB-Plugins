@@ -27,8 +27,10 @@ public class RoleplayMessageSender {
 
     public void sendReply(OneBotClient client,long groupID,long selfID,long userID,String reply,
                           boolean quoteRequired,boolean quoteSuggested,long quoteMessageID) {
+        reply = normalizeSentencePeriods(groupID,reply);
         List<String> segments = splitReply(reply);
         if (segments.isEmpty()) return;
+        if (!service.getPacingService().sleep(groupID,userID,"",segments.get(0))) return;
         RoleplayConfig config = service.config();
         boolean quote = config.quoteReplyEnable
                 && (quoteRequired || quoteSuggested) && quoteMessageID > 0;
@@ -39,6 +41,19 @@ public class RoleplayMessageSender {
             if (i + 1 < count && !service.sleepQuietly(
                     service.getPacingService().beatDelayMillis(groupID,segments.get(i + 1)))) return;
         }
+    }
+
+    public String normalizeSentencePeriods(long groupID,String text) {
+        return normalizeSentencePeriods(text,service.emotionService().allowSentencePeriod(groupID));
+    }
+
+    static String normalizeSentencePeriods(String text,boolean allowPeriod) {
+        String value = text == null ? "" : text.replace("\r\n","\n").replace('\r','\n').trim();
+        if (value.isEmpty() || allowPeriod) return value;
+        return value.replace("。","\n")
+                .replaceAll("[ \\t]*\\n[ \\t]*","\n")
+                .replaceAll("\\n{2,}","\n")
+                .trim();
     }
 
     public boolean sendSingleMessage(OneBotClient client,long groupID,long selfID,long userID,

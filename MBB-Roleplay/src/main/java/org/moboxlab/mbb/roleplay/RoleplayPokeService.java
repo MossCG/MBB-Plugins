@@ -98,6 +98,7 @@ public class RoleplayPokeService {
         boolean sendText = !text.isEmpty() && !"<SKIP>".equalsIgnoreCase(text);
         if (sendText) {
             service.ensurePokeBackAction(draft,decision,text);
+            text = service.messageSender().normalizeSentencePeriods(groupID,text);
             text = normalizePokeReply(text);
             sendText = !text.isEmpty();
         }

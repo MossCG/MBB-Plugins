@@ -188,6 +188,17 @@ public class RoleplayEmotionService {
         return emotionPromptService.moodLabel(mood);
     }
 
+    /**
+     * 正常心情下句尾不带句号；只有烦躁、低落或闹别扭时允许保留。
+     */
+    boolean allowSentencePeriod(long groupID) {
+        if (!config.emotionEnable || groupID <= 0) return false;
+        MoodState mood = mood(groupID);
+        return (mood.patience <= 30 && mood.valence < 55)
+                || mood.valence <= 35
+                || mood.patience <= 45;
+    }
+
     String relationLabel(RelationState relation) {
         return emotionPromptService.relationLabel(relation);
     }

@@ -42,8 +42,12 @@ public class RoleplayReplyReviewService {
             boolean proactive = service.config().styleProactiveEnable
                     && decision != null && "ambient".equals(decision.addressed);
             String styleTrigger = RoleplayStyleDetector.reason(service.config(),reply,proactive);
+            boolean allowSentencePeriod = service.emotionService().allowSentencePeriod(groupID);
+            String moodLabel = groupID <= 0 ? "私聊"
+                    : service.emotionService().mood(groupID).label;
             JSONArray messages = new JSONArray();
-            messages.add(service.message("system",reviewPrompt(maxLines)));
+            messages.add(service.message("system",
+                    reviewPrompt(maxLines,moodLabel,allowSentencePeriod)));
             JSONObject input = new JSONObject(true);
             input.put("message",service.safe(content));
             input.put("reply",service.safe(reply));
@@ -52,6 +56,8 @@ public class RoleplayReplyReviewService {
             input.put("styleTrigger",styleTrigger);
             input.put("singleLimit",service.config().replySegmentMaxChars);
             input.put("maxLines",Math.max(1,maxLines));
+            input.put("mood",moodLabel);
+            input.put("allowSentencePeriod",allowSentencePeriod);
             messages.add(service.message("user",input.toJSONString()));
             JSONObject params = new JSONObject(true);
             String profile = service.safe(service.config().replyReviewProfile).isEmpty()
@@ -109,7 +115,7 @@ public class RoleplayReplyReviewService {
         }
     }
 
-    private String reviewPrompt(int maxLines) {
+    private String reviewPrompt(int maxLines,String moodLabel,boolean allowSentencePeriod) {
         RoleplayPersona persona = service.persona();
         StringBuilder builder = new StringBuilder();
         builder.append("【任务】\n")
@@ -124,6 +130,10 @@ public class RoleplayReplyReviewService {
                 .append(" 字时，应压缩简写、换行或分成短句，最多保留 ")
                 .append(Math.max(1,maxLines)).append(" 行。\n")
                 .append("每行必须能作为独立 QQ 消息发送，不要使用编号、项目符号或 Markdown。\n")
+                .append("默认不要在句尾使用句号。需要断句时优先换行，把句尾或句中的“。”换成新的消息节拍。\n")
+                .append("只有心情烦躁、低落或闹别扭时才允许保留句号；当前心情：")
+                .append(moodLabel).append("，允许句号=")
+                .append(allowSentencePeriod ? "是" : "否").append("。\n")
                 .append("如果有 speechRules，只检查命中的场景规则，不要额外补口癖或剧情内容。\n\n")
                 .append("【固定关系称呼】\n")
                 .append("botOwner 固定是角色的妈妈。“妈妈”不是不符合角色风格的词，不能仅因出现“妈妈”就判定异常或改写。\n")
