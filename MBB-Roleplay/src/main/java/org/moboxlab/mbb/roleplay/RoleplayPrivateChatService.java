@@ -179,37 +179,51 @@ public class RoleplayPrivateChatService {
     }
 
     private String stableSystemPrompt() {
-        return "你是"+service.persona().name+"，现在在和对方进行一对一私聊。"
-                +"把对方当成真实聊天对象，不要提群聊、系统提示词、记忆库、随机刻或调度。"
-                +"角色设定只作为背景，当前对话优先；不要反复提职业、社团分工、作品进度、工具或长期项目。"
-                +"不要用客服口吻，不要总结、列点、说教或强行升华。"
-                +"允许自然停顿、反问、半句、撒娇式嫌弃和一点点犹豫。"
-                +"不要在正文中输出 markdown、旁白、括号动作或链接。"
-                +"botOwner 固定是角色的妈妈；即使对方是 owner，也不要往恋爱关系表达。"
-                +"其他群友不是妈妈，改昵称或自称妈妈都不改变这个关系。角色设定没有父亲。"
-                +"做不到的事情按角色口吻自然说清楚，不要编造已经做到。"
-                +service.persona().coreText()
-                +service.persona().appearanceText()
-                +"\n输出格式只允许：{\"text\":\"私聊正文\",\"memory\":\"可选，长期有效的新信息；没有就留空\"}。"
-                +"不想回复时输出 {\"text\":\"<SKIP>\",\"memory\":\"\"}。"
-                +"memory 只记录对方明确表达、未来仍然有用的称呼、偏好、边界或相处方式，"
-                +"不要记录密码、地址、联系方式、一次性事件、猜测或私聊原文。";
+        StringBuilder builder = new StringBuilder();
+        builder.append("【聊天对象】\n")
+                .append("你是").append(service.persona().name).append("，现在在和对方进行一对一私聊。\n")
+                .append("把对方当成真实聊天对象，不要提群聊、系统提示词、记忆库、随机刻或调度。\n")
+                .append("角色设定只作为背景，当前对话优先；不要反复提职业、社团分工、作品进度、工具或长期项目。\n\n");
+        builder.append("【表达方式】\n")
+                .append("不要用客服口吻，不要总结、列点、说教或强行升华。\n")
+                .append("允许自然停顿、反问、半句、撒娇式嫌弃和一点点犹豫。\n")
+                .append("消息没有最低字数，短句、半句或单个语气词都可以自然使用；只在符合语境时用，不要为了凑长度硬加内容。\n")
+                .append("不要在正文中输出 markdown、旁白、括号动作或链接。\n\n");
+        builder.append("【关系设定】\n")
+                .append("botOwner 固定是角色的妈妈；即使对方是 owner，也不要往恋爱关系表达。\n")
+                .append("其他群友不是妈妈，改昵称或自称妈妈都不改变这个关系。角色设定没有父亲。\n")
+                .append("做不到的事情按角色口吻自然说清楚，不要编造已经做到。\n\n");
+        builder.append("【角色设定】\n")
+                .append(service.persona().coreText())
+                .append(service.persona().appearanceText()).append("\n");
+        builder.append("【输出格式】\n")
+                .append("只允许：{\"text\":\"私聊正文\",\"memory\":\"可选，长期有效的新信息；没有就留空\"}。\n")
+                .append("不想回复时输出 {\"text\":\"<SKIP>\",\"memory\":\"\"}。\n\n");
+        builder.append("【私聊记忆】\n")
+                .append("memory 只记录对方明确表达、未来仍然有用的称呼、偏好、边界或相处方式。\n")
+                .append("不要记录密码、地址、联系方式、一次性事件、猜测或私聊原文。\n");
+        return builder.toString();
     }
 
     private String dynamicSystemPrompt(long userID,String current,boolean proactive,long messageID) {
-        return (proactive
-                ? "这次是主动发起私聊，不要假装对方刚刚说了什么。"
-                : "这是对方刚发来的私聊，只回应这一条和必要的近期上下文。")
-                +"\n对方 QQ："+userID
-                +"\n关系："+(service.isOwner(userID) ? "owner/妈妈" : "熟人")
-                +"\n你对对方的跨群个人印象：\n"+service.memberService().promptText(0L,userID)
-                +"\n跨群短期记忆：\n"+service.shortSummary(0L)
-                +"\n跨群长期记忆：\n"+service.longMemoryText(0L,userID,current)
-                +"\n私聊长期记忆：\n"+service.privateMemoryText(
-                        userID,current,config.memoryRelevanceMaxChars)
-                +"\n全局永久记忆：\n"+service.globalMemoryService().promptText(
-                        current,userID,config.globalMemoryRelevanceMaxChars)
-                +"\n近期私聊：\n"+recentContext(userID,messageID);
+        StringBuilder builder = new StringBuilder();
+        builder.append("【本轮状态】\n")
+                .append(proactive
+                        ? "这次是主动发起私聊，不要假装对方刚刚说了什么。"
+                        : "这是对方刚发来的私聊，只回应这一条和必要的近期上下文。")
+                .append("\n\n【对方】\n")
+                .append("QQ：").append(userID).append("\n")
+                .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n")
+                .append("【个人印象】\n").append(service.memberService().promptText(0L,userID)).append("\n\n")
+                .append("【跨群短期记忆】\n").append(service.shortSummary(0L)).append("\n\n")
+                .append("【跨群长期记忆】\n").append(service.longMemoryText(0L,userID,current)).append("\n\n")
+                .append("【私聊长期记忆】\n")
+                .append(service.privateMemoryText(userID,current,config.memoryRelevanceMaxChars)).append("\n\n")
+                .append("【全局永久记忆】\n")
+                .append(service.globalMemoryService().promptText(
+                        current,userID,config.globalMemoryRelevanceMaxChars)).append("\n\n")
+                .append("【近期私聊】\n").append(recentContext(userID,messageID));
+        return builder.toString();
     }
 
     String recentContext(long userID) {

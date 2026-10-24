@@ -86,14 +86,20 @@ public class RoleplayReplyReviewService {
 
     private String reviewPrompt() {
         RoleplayPersona persona = service.persona();
-        return "你是角色回复复核器，只输出 JSON，不要解释。\n"
-                +"角色核心：\n"+persona.coreText()+"\n"
-                +"角色说话方式：\n"+persona.speechStyle+"\n"
-                +"检查回复是否像该角色、是否有明显 AI 味、是否总结/说教/客服腔、是否重复啰嗦、"
-                +"是否与当前消息有关、是否超过普通 QQ 聊天长度，以及是否像剧情台词、舞台动作或旁白。\n"
-                +"如果有 speechRules，只检查命中的场景规则，不要额外补口癖或剧情内容。\n"
-                +"输出格式：{\"pass\":true,\"score\":0,\"reason\":\"\",\"rewrite\":\"\"}。\n"
-                +"只有确实需要改写时才填 rewrite；改写必须保持原意和角色语气，不要增加新事实，"
-                +"不要角色名前缀、括号动作、心理旁白、镜头描写或 Markdown。";
+        StringBuilder builder = new StringBuilder();
+        builder.append("【任务】\n")
+                .append("你是角色回复复核器，只输出 JSON，不要解释。\n\n")
+                .append("【角色核心】\n").append(persona.coreText()).append("\n")
+                .append("【角色说话方式】\n").append(persona.speechStyle).append("\n\n")
+                .append("【检查项】\n")
+                .append("检查回复是否像该角色、是否有明显 AI 味、是否总结或说教、是否有客服腔、是否重复啰嗦。\n")
+                .append("检查是否与当前消息有关、是否超过普通 QQ 聊天单条上限，以及是否像剧情台词、舞台动作或旁白。\n")
+                .append("如果有 speechRules，只检查命中的场景规则，不要额外补口癖或剧情内容。\n\n")
+                .append("【输出格式】\n")
+                .append("{\"pass\":true,\"score\":0,\"reason\":\"\",\"rewrite\":\"\"}\n\n")
+                .append("【改写约束】\n")
+                .append("只有确实需要改写时才填 rewrite；改写必须保持原意和角色语气，不要增加新事实。\n")
+                .append("不要角色名前缀、括号动作、心理旁白、镜头描写或 Markdown。\n");
+        return builder.toString();
     }
 }

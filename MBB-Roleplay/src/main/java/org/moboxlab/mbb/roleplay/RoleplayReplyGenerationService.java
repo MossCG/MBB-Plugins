@@ -35,27 +35,27 @@ public class RoleplayReplyGenerationService {
         String systemPrompt = service.promptAssembler().buildSystemPrompt(
                 groupID,userID,otherRoleBot,relationship,speechPrompt,content,decision,batchCount);
         messages.add(service.message("system",systemPrompt));
-        String userText = "当前时间："+service.currentTimeText()+"\n";
+        String userText = "【当前时间】\n"+service.currentTimeText()+"\n\n";
         if (batchCount > 1) {
-            userText += "最近群聊背景（只是旧上下文，不要优先回应这里）：\n"
+            userText += "【最近群聊】\n只是旧上下文，不要优先回应这里。\n"
                     +service.contextService().recentContext(groupID,messageID)+"\n\n"
-                    +"本批连续消息（当前回合，按时间顺序，共 "+batchCount+" 条）：\n"+batchText+"\n"
-                    +"这一批消息里最需要回应的人："+(userName == null ? "" : userName)
-                    +"（QQ："+userID+"）\n"
-                    +"当前关系："+relationship+"\n"
-                    +"本批主消息指向："+addressingText(decision);
+                    +"【本批消息】\n当前回合，按时间顺序，共 "+batchCount+" 条。\n"+batchText+"\n\n"
+                    +"【主要回应对象】\n"+(userName == null ? "" : userName)
+                    +"（QQ："+userID+"）\n\n"
+                    +"【当前关系】\n"+relationship+"\n\n"
+                    +"【本批主消息指向】\n"+addressingText(decision);
         } else {
-            userText += "最近群聊背景（只是旧上下文，不要优先回应这里）：\n"
+            userText += "【最近群聊】\n只是旧上下文，不要优先回应这里。\n"
                     +service.contextService().recentContext(groupID,messageID)+"\n\n"
-                    +"当前发言者："+(userName == null ? "" : userName)+"（QQ："+userID+"）\n"
-                    +"当前关系："+relationship+"\n"
-                    +"当前消息指向："+addressingText(decision)+"\n"
-                    +"当前消息（必须优先回应）：\n"+content;
+                    +"【当前发言者】\n"+(userName == null ? "" : userName)+"（QQ："+userID+"）\n\n"
+                    +"【当前关系】\n"+relationship+"\n\n"
+                    +"【消息指向】\n"+addressingText(decision)+"\n\n"
+                    +"【当前消息】\n必须优先回应。\n"+content;
         }
         if (imageContext != null && !content.contains("[图片")) {
             String summary = service.imageSummary(imageContext);
             if (!summary.isEmpty()) {
-                userText += "\n\n用户最近发送的图片：\n"+summary
+                userText += "\n\n【图片上下文】\n"+summary
                         +"\n请结合这张图片回答当前问题。";
             }
         }

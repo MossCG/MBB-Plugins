@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "47";
+    private static final String CURRENT_VERSION = "48";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -295,7 +295,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("globalMemoryRelevanceMaxChars","10000","永久记忆按相关性注入的字符上限"),
             new ConfigEntry("replyMaxTokens","4000","单次角色回复最大 Token"),
             new ConfigEntry("replyImageMaxTokens","4000","带图片上下文时单次角色回复最大 Token"),
-            new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，提示词默认按 15 到 30 字生成"),
+            new ConfigEntry("replySegmentMaxChars","30","单段回复硬上限字符数，不设最低字数"),
             new ConfigEntry("replySplitPunctuation","。！？!?；;，、：,:～~…","回复拆分时优先使用的断句符号，先找句末标点，再找弱标点"),
             new ConfigEntry("replyMaxSegments","2","最多拆分发送多少段"),
             new ConfigEntry("replyBeatMaxSegments","3","普通聊天最多拆成多少个连续节拍"),
@@ -368,7 +368,7 @@ public class RoleplayConfigMigrator {
                 config.getString("routerReasoningEffort",""));
         boolean legacyEmotionAnalyzeMaxDelta08 = version < 23 && "0.8".equals(
                 config.getString("emotionAnalyzeMaxDelta",""));
-        boolean legacyReplySegmentMaxChars20 = version < 24 && "20".equals(
+        boolean legacyReplySegmentMaxChars20 = version < 48 && "20".equals(
                 config.getString("replySegmentMaxChars",""));
         boolean legacyReplySegmentMaxChars = version < 12 && "160".equals(
                 config.getString("replySegmentMaxChars",""));
@@ -448,7 +448,7 @@ public class RoleplayConfigMigrator {
                 .equals(config.getString("webSearchFallbackUrl",""));
         boolean legacySearchMaxResults = version < 45
                 && "5".equals(config.getString("webSearchMaxResults",""));
-        boolean legacyStyleEnable = version < 47
+        boolean legacyStyleEnable = version < 48
                 && "true".equals(config.getString("styleEnable",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
@@ -463,7 +463,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 47) {
+        if (version < 48) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -594,7 +594,7 @@ public class RoleplayConfigMigrator {
             changed++;
         }
         if (legacyReplySegmentMaxChars) {
-            config.set("replySegmentMaxChars","20");
+            config.set("replySegmentMaxChars","30");
             changed++;
         }
         if (legacyReplySplitPunctuation) {

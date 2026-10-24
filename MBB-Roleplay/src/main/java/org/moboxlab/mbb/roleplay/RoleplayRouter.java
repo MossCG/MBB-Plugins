@@ -97,9 +97,10 @@ public class RoleplayRouter {
     private String systemPrompt(RoleplayConfig config,RoleplayPersona persona,
                                 RoleplaySkillRegistry registry,RoleplayConversationState state) {
         StringBuilder builder = new StringBuilder();
-        builder.append("你是群聊消息路由器。判断这条消息是否需要当前角色回复，")
-                .append("并选择要挂载的技能和资料。只输出 JSON，不要解释。\n");
-        builder.append("角色：").append(persona.name);
+        builder.append("【任务】\n")
+                .append("你是群聊消息路由器。判断这条消息是否需要当前角色回复，并选择要挂载的技能和资料。只输出 JSON，不要解释。\n\n");
+        builder.append("【角色】\n")
+                .append("角色：").append(persona.name);
         if (!persona.school.isEmpty() || !persona.club.isEmpty()) {
             builder.append("（").append(persona.school).append("/").append(persona.club).append("）");
         }
@@ -108,6 +109,7 @@ public class RoleplayRouter {
             builder.append("角色兴趣（只是弱信号，不要仅因兴趣命中就抢答，也不要把兴趣词当口头禅）：")
                     .append(String.join("、",persona.interests)).append("\n");
         }
+        builder.append("\n【能力与资料】\n");
         if (config.toolEnable) {
             builder.append("能力分类（回复层会按需加载）：\n")
                     .append(service.toolLoopService().registry().categoryCatalogue(config));
@@ -115,7 +117,7 @@ public class RoleplayRouter {
             builder.append("可用技能：\n").append(registry.catalogue(config));
         }
         builder.append("可选资料（常驻资料不需要点名）：\n").append(service.materialCatalogue());
-        builder.append("判断规则：\n")
+        builder.append("\n【判断规则】\n")
                 .append("- 先判断这句话是不是对角色说的：只有明确艾特或回复角色、叫角色名字、")
                 .append("或延续角色参与的话题，才算对角色说\n")
                 .append("- 判断对谁说时严格按顺序：艾特目标 > 引用目标 > 开头称呼 > 最近对话对象 > 话题延续；")
@@ -132,10 +134,11 @@ public class RoleplayRouter {
                         ? "- 工具模式下 skills 必须为空数组，具体工具由回复层按需搜索和调用\n"
                         : "- 只有确实需要某个技能时才写进 skills，没有就留空数组\n")
                 .append("- 只有确实需要某份资料时才写进 materials，没有就留空数组\n");
-        builder.append("输出格式：{\"reply\":true,\"addressed\":\"direct|thread|ambient|none\",")
+        builder.append("\n【输出格式】\n")
+                .append("{\"reply\":true,\"addressed\":\"direct|thread|ambient|none\",")
                 .append("\"confidence\":0.8,\"skills\":[],\"materials\":[],\"reason\":\"一句话原因\"}");
         //对话状态每轮都变，放在稳定部分之后，否则服务端缓存前缀会在这里断掉
-        builder.append("\n对话状态：").append(stateSummary(state));
+        builder.append("\n\n【对话状态】\n").append(stateSummary(state));
         return builder.toString();
     }
 
@@ -144,19 +147,19 @@ public class RoleplayRouter {
                               String topicHint) {
         StringBuilder builder = new StringBuilder();
         if (recentContext != null && !recentContext.trim().isEmpty()) {
-            builder.append("最近群聊：\n").append(recentContext.trim()).append("\n\n");
+            builder.append("【最近群聊】\n").append(recentContext.trim()).append("\n\n");
         }
-        builder.append("当前消息：\n").append(content == null ? "" : content.trim()).append("\n");
-        builder.append("发送者：").append(userName == null ? "" : userName)
+        builder.append("【当前消息】\n").append(content == null ? "" : content.trim()).append("\n\n");
+        builder.append("【发送者】\n").append(userName == null ? "" : userName)
                 .append("（关系：").append(relationship == null ? "朋友" : relationship).append("）");
         if (addressingHint != null && !addressingHint.trim().isEmpty()) {
-            builder.append("\n发言指向：").append(addressingHint.trim());
+            builder.append("\n\n【发言指向】\n").append(addressingHint.trim());
         }
         if (topicHint != null && !topicHint.trim().isEmpty()) {
-            builder.append("\n话题疲劳：").append(topicHint.trim());
+            builder.append("\n\n【话题疲劳】\n").append(topicHint.trim());
         }
         if (emotionSummary != null && !emotionSummary.trim().isEmpty()) {
-            builder.append("\n当前情绪与关系：").append(emotionSummary.trim());
+            builder.append("\n\n【当前情绪与关系】\n").append(emotionSummary.trim());
         }
         return builder.toString();
     }

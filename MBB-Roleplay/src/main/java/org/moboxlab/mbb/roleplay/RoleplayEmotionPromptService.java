@@ -18,7 +18,8 @@ public class RoleplayEmotionPromptService {
         if (!service.config().emotionEnable || groupID <= 0) return "";
         RoleplayEmotionService.MoodState mood = service.mood(groupID);
         StringBuilder builder = new StringBuilder();
-        builder.append("当前群情绪：").append(mood.label)
+        builder.append("【群情绪】\n")
+                .append("当前群情绪：").append(mood.label)
                 .append("，心情").append(levelText(mood.valence))
                 .append("，精力").append(levelText(mood.energy))
                 .append("，耐心").append(levelText(mood.patience)).append("。\n");
@@ -30,7 +31,8 @@ public class RoleplayEmotionPromptService {
             builder.append("亲密程度：按角色设定中的同伴关系处理，关系数值保持满值。\n");
         } else if (userID > 0) {
             RoleplayEmotionService.RelationState relation = service.relation(groupID,userID);
-            builder.append("对当前发言者的关系：").append(relation.emotionLabel)
+            builder.append("\n【当前关系】\n")
+                    .append("对当前发言者的关系：").append(relation.emotionLabel)
                     .append("，好感").append(levelText(relation.affinity))
                     .append("，信任").append(levelText(relation.trust))
                     .append("，厌烦").append(levelText(relation.annoyance)).append("。\n");
@@ -43,7 +45,8 @@ public class RoleplayEmotionPromptService {
                     : intimacyPrompt(relation)).append("\n");
             builder.append(annoyancePrompt(relation));
         }
-        builder.append("情绪只影响语气和参与意愿，不改变权限和已知事实；被直接提及时仍要回应。\n");
+        builder.append("\n【情绪约束】\n")
+                .append("情绪只影响语气和参与意愿，不改变权限和已知事实；被直接提及时仍要回应。\n");
         return builder.toString();
     }
 
@@ -131,13 +134,13 @@ public class RoleplayEmotionPromptService {
 
     String annoyancePrompt(RoleplayEmotionService.RelationState relation) {
         if (relation.annoyance >= 75) {
-            return "语气约束：你现在对这个人相当厌烦。表现方式是话变短、敷衍应付、回避话题、"
+            return "【语气约束】\n你现在对这个人相当厌烦。表现方式是话变短、敷衍应付、回避话题、"
                     +"只回必要的一句，或者干脆不想接话；可以用冷淡、无奈、嫌弃的口气。"
                     +"但不要辱骂、不要人身攻击、不要用命令式或威胁性的语气，也不要真的发火；"
                     +"角色是有教养的学生，厌烦不等于攻击。\n";
         }
         if (relation.annoyance >= 50) {
-            return "语气约束：你对这个人有点不耐烦。可以简短、敷衍、吐槽或半开玩笑地嫌弃，"
+            return "【语气约束】\n你对这个人有点不耐烦。可以简短、敷衍、吐槽或半开玩笑地嫌弃，"
                     +"但不要辱骂、不要人身攻击，也不要突然发火。\n";
         }
         return "";

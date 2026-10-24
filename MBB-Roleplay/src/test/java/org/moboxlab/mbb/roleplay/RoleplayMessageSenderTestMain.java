@@ -19,6 +19,7 @@ public class RoleplayMessageSenderTestMain {
         assertFirstSegmentEndsWith(
                 "前面没有句末标点但是这里有一个逗号，后面还有很多很多内容需要继续说下去",
                 "，",punctuation,true);
+        assertSingleSegment("嗯",punctuation);
     }
 
     private static void assertFirstSegmentEndsWith(String text,String expected,
@@ -39,6 +40,13 @@ public class RoleplayMessageSenderTestMain {
         }
         if (!first.endsWith(expected)) {
             throw new AssertionError("首段应以 "+expected+" 结束，实际="+first);
+        }
+    }
+
+    private static void assertSingleSegment(String text,String punctuation) {
+        List<String> segments = RoleplayMessageSender.splitReply(text,30,punctuation);
+        if (segments.size() != 1 || !text.equals(segments.get(0))) {
+            throw new AssertionError("短消息不应因为长度被改写或拆分："+segments);
         }
     }
 }

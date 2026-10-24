@@ -481,8 +481,8 @@ globalMemoryRelevanceMaxChars: 10000
 replyMaxTokens: 4000
 #带图片上下文时单次角色回复最大 Token
 replyImageMaxTokens: 4000
-#单段回复硬上限字符数，提示词默认按 12 字以内生成
-replySegmentMaxChars: 20
+#单段回复硬上限字符数，不设最低字数
+replySegmentMaxChars: 30
 #回复拆分时优先使用的断句符号；先找句末标点，再找逗号、顿号、冒号、分号、波浪号等弱标点
 replySplitPunctuation: "。！？!?；;，、：,:～~…"
 #最多拆分发送多少段

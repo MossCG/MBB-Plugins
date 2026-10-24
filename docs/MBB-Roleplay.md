@@ -174,6 +174,7 @@ flowchart TB
 - 短期记忆已经移出缓存前缀，避免每 `memoryUpdateMessages` 条消息就把前缀从中间打断。
 - 记忆和工具结果默认按当前消息相关性排序，属于动态内容。
 - 单轮工具循环固定 `tools` schema，`tool_search` 只扩充本地可执行工具集合，不改变后续请求的工具定义前缀。
+- 群聊、工具、动态状态、当前消息、私聊和复核提示词均按功能标题与空行分区；回复只设单条上限，不设最低字数。
 - 各资料保留单项上限；关闭 `contextHardLimitEnable` 只关闭总硬预算，不等于无限。
 - 可人工编辑的完整提示词模板维护在 `D:\CodeX\Projects\MBB-Persona\prompts\mbb-roleplay-system.md`。
 - 当前消息放在用户消息最后，最近群聊只作为背景，降低模型回复旧消息的概率。
