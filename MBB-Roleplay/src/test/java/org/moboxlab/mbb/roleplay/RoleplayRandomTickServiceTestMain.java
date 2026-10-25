@@ -22,6 +22,12 @@ public class RoleplayRandomTickServiceTestMain {
                 || !groupB.contains("20002")) {
             throw new AssertionError("不同群的随机刻正文会话必须隔离");
         }
+        long[] groups = {10001L,20002L};
+        double[] weights = {1.0,3.0};
+        if (RoleplayRandomTickService.weightedGroup(groups,weights,0.24) != 10001L
+                || RoleplayRandomTickService.weightedGroup(groups,weights,0.25) != 20002L) {
+            throw new AssertionError("群活跃度加权抽样边界不正确");
+        }
         RoleplayConfig config = new RoleplayConfig();
         if (config.randomTickOwnerRecentWindowMinute != 180
                 || Math.abs(config.randomTickOwnerRecentBoostChance - 0.30) > 0.0001) {

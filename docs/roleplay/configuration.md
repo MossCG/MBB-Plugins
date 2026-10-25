@@ -124,7 +124,9 @@ randomTickTimeoutSecond: 90
 randomTickReasoningEffort: "low"
 
 随机刻的群主动话题不再由模型填写群号或正文。程序从最近 24 小时活跃群中选目标群，
-生成阶段只注入该群自己的短期摘要和近期消息，并使用按群隔离的 `sessionId`。
+目标群按角色最近 24 小时在该群的发言量加权抽样：发言最多的群权重为 `1.0`，
+其他群按比例缩放，并统一增加 `0.25` 基础权重，避免冷门群永久失去机会。
+生成阶段只注入目标群自己的短期摘要和近期消息，并使用按群隔离的 `sessionId`。
 `randomTickQzoneDailyMax > 0` 时，每天第一次满足条件的随机刻会优先保底发布一条 Qzone。
 `randomTickOwnerRecentWindowMinute` 内的最近互动 owner 会提高 `private_owner` 优先级；
 `randomTickOwnerRecentBoostChance` 控制直接触发主动私聊的基础概率，范围 `0` 到 `1`。

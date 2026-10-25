@@ -41,6 +41,12 @@ public class RoleplayRandomTickService {
         private long lastTime;
     }
 
+    private static class GroupCandidate {
+        private long groupID;
+        private int botMessages;
+        private double weight;
+    }
+
     public RoleplayRandomTickService(Plugin plugin,RoleplayConfig config,RoleplayService service) {
         this.plugin = plugin;
         this.config = config;
@@ -302,7 +308,7 @@ public class RoleplayRandomTickService {
     private List<String> candidates() {
         List<String> result = new ArrayList<>();
         if (config.privateChatEnable && !owners().isEmpty()) result.add(ACTION_PRIVATE_OWNER);
-        if (config.randomTickGroupMaxActions > 0 && !activeGroups().isEmpty()) {
+        if (config.randomTickGroupMaxActions > 0 && !groupCandidates().isEmpty()) {
             result.add(ACTION_GROUP_TOPIC);
         }
         if (plugin.getServer().getPluginManager().getService("MBB-QQ") != null
@@ -344,11 +350,30 @@ public class RoleplayRandomTickService {
     }
 
     private long chooseGroup() {
-        JSONArray groups = activeGroups();
-        if (groups == null || groups.isEmpty()) return 0L;
-        int index = (int)(Math.random() * groups.size());
-        Object value = groups.get(index);
-        return value == null ? 0L : Long.parseLong(String.valueOf(value));
+        List<GroupCandidate> candidates = groupCandidates();
+        if (candidates.isEmpty()) return 0L;
+        long[] groupIDs = new long[candidates.size()];
+        double[] weights = new double[candidates.size()];
+        for (int i = 0; i < candidates.size(); i++) {
+            GroupCandidate candidate = candidates.get(i);
+            groupIDs[i] = candidate.groupID;
+            weights[i] = candidate.weight;
+        }
+        return weightedGroup(groupIDs,weights,Math.random());
+    }
+
+    static long weightedGroup(long[] groupIDs,double[] weights,double roll) {
+        if (groupIDs == null || weights == null
+                || groupIDs.length == 0 || groupIDs.length != weights.length) return 0L;
+        double totalWeight = 0;
+        for (double weight : weights) totalWeight += Math.max(0,weight);
+        if (totalWeight <= 0) return groupIDs[0];
+        double target = Math.max(0,Math.min(0.999999999,roll)) * totalWeight;
+        for (int i = 0; i < groupIDs.length; i++) {
+            target -= Math.max(0,weights[i]);
+            if (target < 0) return groupIDs[i];
+        }
+        return groupIDs[groupIDs.length - 1];
     }
 
     private long privateOwnerTarget(OwnerInteraction recent,long now) {
@@ -426,9 +451,10 @@ public class RoleplayRandomTickService {
 
     /**
      * 只有近期有消息、且角色开启的群才适合主动发起话题。
+     * 角色在该群最近一天的发言量越高，被选中的基础权重越大。
      */
-    private JSONArray activeGroups() {
-        JSONArray result = new JSONArray();
+    private List<GroupCandidate> groupCandidates() {
+        List<GroupCandidate> result = new ArrayList<>();
         JSONArray enabled = service.listGroups();
         if (enabled == null || enabled.isEmpty()) return result;
         long since = System.currentTimeMillis() - 24L * 3600000L;
@@ -436,10 +462,24 @@ public class RoleplayRandomTickService {
             long groupID = object == null ? 0L : Long.parseLong(String.valueOf(object));
             if (groupID <= 0) continue;
             JSONObject row = storage().queryOne(
-                    "SELECT MAX(`messageTime`) AS `lastTime` FROM `"+RoleplayService.MSG_TABLE+"` "
-                            + "WHERE `groupID`=?",
-                    groupID);
-            if (row != null && row.getLongValue("lastTime") >= since) result.add(groupID);
+                    "SELECT COUNT(*) AS `totalCount`,"
+                            + "SUM(CASE WHEN `isBot`=1 THEN 1 ELSE 0 END) AS `botCount` "
+                            + "FROM `"+RoleplayService.MSG_TABLE+"` "
+                            + "WHERE `groupID`=? AND `messageTime`>=?",
+                    groupID,since);
+            if (row == null || row.getIntValue("totalCount") <= 0) continue;
+            GroupCandidate candidate = new GroupCandidate();
+            candidate.groupID = groupID;
+            candidate.botMessages = Math.max(0,row.getIntValue("botCount"));
+            result.add(candidate);
+        }
+        int maxBotMessages = 1;
+        for (GroupCandidate candidate : result) {
+            maxBotMessages = Math.max(maxBotMessages,candidate.botMessages);
+        }
+        for (GroupCandidate candidate : result) {
+            double activity = (double)candidate.botMessages / maxBotMessages;
+            candidate.weight = 0.25 + activity * 0.75;
         }
         return result;
     }
