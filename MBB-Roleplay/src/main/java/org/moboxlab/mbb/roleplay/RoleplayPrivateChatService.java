@@ -9,9 +9,13 @@ import org.moboxlab.moboxbot.API.Plugin;
 import org.moboxlab.moboxbot.API.PluginService;
 import org.moboxlab.moboxbot.API.Storage.StorageService;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,10 +36,25 @@ public class RoleplayPrivateChatService {
     private volatile boolean friendCacheReady = false;
     private volatile long friendCacheTime = 0L;
     private volatile long friendCacheRetryTime = 0L;
+    private final Object queueLock = new Object();
+    private final Map<Long,List<PrivateIncoming>> pendingMap = new HashMap<>();
+    private final Map<Long,Integer> generationMap = new HashMap<>();
 
     private static class ReplyResult {
         private String text = "";
         private String memory = "";
+    }
+
+    private static class PrivateIncoming {
+        long messageID;
+        long userID;
+        long selfID;
+        String userName = "";
+        String content = "";
+        boolean hasImage;
+        boolean hasSticker;
+        boolean hasMeaningfulText;
+        PrivateMessageEvent event;
     }
 
     public RoleplayPrivateChatService(Plugin plugin,RoleplayConfig config,RoleplayService service) {
@@ -80,9 +99,17 @@ public class RoleplayPrivateChatService {
             JSONObject login = loginInfo();
             selfID = login == null ? 0L : login.getLongValue("user_id");
         }
-        final long resolvedSelfID = selfID;
-        service.submitBackground(() -> reply(userID,resolvedSelfID,userName,content,
-                event.getMessageID(),event));
+        PrivateIncoming incoming = new PrivateIncoming();
+        incoming.messageID = event.getMessageID();
+        incoming.userID = userID;
+        incoming.selfID = selfID;
+        incoming.userName = userName;
+        incoming.content = content;
+        incoming.event = event;
+        incoming.hasImage = service.hasImageContent(event.getMessage());
+        incoming.hasSticker = service.hasStickerContent(event.getMessage());
+        incoming.hasMeaningfulText = service.hasMeaningfulText(event.getMessage());
+        enqueue(incoming);
     }
 
     public boolean allowed(long userID) {
@@ -107,7 +134,7 @@ public class RoleplayPrivateChatService {
                 +"禁止使用客服式关心、总结、清单和过度亲昵。\n"
                 +"触发原因："+service.safe(reason)+"\n"
                 +"最近私聊：\n"+recentContext(userID);
-        return callAi(userID,prompt,true,0L).text;
+        return callAi(userID,prompt,true,Collections.<Long>emptySet()).text;
     }
 
     public boolean sendProactive(long userID,String content,String reason) {
@@ -122,12 +149,78 @@ public class RoleplayPrivateChatService {
         return sent;
     }
 
-    private void reply(long userID,long selfID,String userName,String content,long messageID,
-                       PrivateMessageEvent event) {
-        if (!running.add(userID)) return;
+    private void enqueue(PrivateIncoming incoming) {
+        int generation = 0;
+        int delaySeconds = 0;
+        boolean schedule = false;
+        int pendingCount = 0;
+        synchronized (queueLock) {
+            long userID = incoming.userID;
+            List<PrivateIncoming> pending = pendingMap.get(userID);
+            if (pending == null) {
+                pending = new ArrayList<>();
+                pendingMap.put(userID,pending);
+            }
+            int max = Math.max(1,config.privateChatPendingMaxMessages);
+            while (pending.size() >= max) pending.remove(0);
+            pending.add(incoming);
+            pendingCount = pending.size();
+            if (!running.contains(userID)) {
+                generation = nextGenerationLocked(userID);
+                delaySeconds = delayForPending(pending);
+                schedule = true;
+            }
+        }
+        if ((incoming.hasImage || incoming.hasSticker) && !incoming.hasMeaningfulText) {
+            plugin.getLogger().sendInfo("[私聊] 用户"+incoming.userID+" 收到"
+                    +(incoming.hasSticker ? "表情包" : "图片")
+                    +"，防抖 "+config.privateChatImageDebounceSecond+" 秒"
+                    +(pendingCount > 1 ? "，当前待处理 "+pendingCount+" 条" : ""));
+        }
+        if (schedule) scheduleFlush(incoming.userID,generation,delaySeconds);
+    }
+
+    private void scheduleFlush(long userID,int generation,int delaySeconds) {
+        plugin.getServer().getPluginManager().runTaskLater(plugin,
+                () -> flushPending(userID,generation),Math.max(0,delaySeconds));
+    }
+
+    private void flushPending(long userID,int generation) {
+        List<PrivateIncoming> batch;
+        synchronized (queueLock) {
+            Integer current = generationMap.get(userID);
+            if (current == null || current != generation || running.contains(userID)) return;
+            batch = pendingMap.remove(userID);
+            if (batch == null || batch.isEmpty()) return;
+            running.add(userID);
+        }
+        service.submitBackground(() -> runBatch(userID,batch));
+    }
+
+    private void runBatch(long userID,List<PrivateIncoming> initial) {
+        List<PrivateIncoming> batch = new ArrayList<>(initial);
+        int merges = 0;
         try {
-            String enriched = service.enrichPrivateImageContent(event,content);
-            ReplyResult reply = callAi(userID,enriched,false,messageID);
+            ReplyResult reply;
+            while (true) {
+                String current = buildBatchContent(batch);
+                Set<Long> excluded = excludedMessageIDs(batch);
+                reply = callAi(userID,current,false,excluded);
+                List<PrivateIncoming> extra = null;
+                if (merges < Math.max(0,config.privateChatLiveMergeMaxRounds)) {
+                    synchronized (queueLock) {
+                        List<PrivateIncoming> pending = pendingMap.get(userID);
+                        if (pending != null && !pending.isEmpty()) {
+                            extra = pendingMap.remove(userID);
+                        }
+                    }
+                }
+                if (extra == null || extra.isEmpty()) break;
+                batch.addAll(extra);
+                merges++;
+                plugin.getLogger().sendInfo("[私聊] 用户"+userID+" 生成期间收到 "
+                        +extra.size()+" 条新消息，丢弃旧候选并合并重生成（第"+merges+"次）");
+            }
             String text = clean(reply.text);
             if (text.isEmpty() || "<SKIP>".equalsIgnoreCase(text)) return;
             if (text.length() > config.privateChatMaxReplyChars) {
@@ -137,11 +230,76 @@ public class RoleplayPrivateChatService {
         } catch (Exception e) {
             plugin.getLogger().sendException(e);
         } finally {
-            running.remove(userID);
+            synchronized (queueLock) {
+                running.remove(userID);
+            }
+            schedulePending(userID);
         }
     }
 
-    private ReplyResult callAi(long userID,String current,boolean proactive,long messageID) {
+    private void schedulePending(long userID) {
+        int generation;
+        int delaySeconds;
+        synchronized (queueLock) {
+            if (running.contains(userID)) return;
+            List<PrivateIncoming> pending = pendingMap.get(userID);
+            if (pending == null || pending.isEmpty()) {
+                generationMap.remove(userID);
+                return;
+            }
+            generation = nextGenerationLocked(userID);
+            delaySeconds = delayForPending(pending);
+        }
+        if (delaySeconds > 0) {
+            plugin.getLogger().sendInfo("[私聊] 用户"+userID+" 图片防抖中，"
+                    +delaySeconds+" 秒后处理待回复消息");
+        }
+        scheduleFlush(userID,generation,delaySeconds);
+    }
+
+    private int nextGenerationLocked(long userID) {
+        Integer current = generationMap.get(userID);
+        int next = current == null ? 1 : current + 1;
+        generationMap.put(userID,next);
+        return next;
+    }
+
+    private int delayForPending(List<PrivateIncoming> pending) {
+        if (pending == null || pending.isEmpty()) return 0;
+        PrivateIncoming last = pending.get(pending.size() - 1);
+        return RoleplayPrivateChatDebounce.delaySeconds(last.hasImage || last.hasSticker,
+                last.hasMeaningfulText,config.privateChatImageDebounceSecond);
+    }
+
+    private String buildBatchContent(List<PrivateIncoming> batch) {
+        if (batch == null || batch.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
+        if (batch.size() > 1) {
+            builder.append("对方在短时间内连续发了 ").append(batch.size())
+                    .append(" 条私聊，按时间顺序如下：\n");
+        }
+        for (int i = 0; i < batch.size(); i++) {
+            PrivateIncoming item = batch.get(i);
+            String content = item.hasImage
+                    ? service.enrichPrivateImageContent(item.event,item.content)
+                    : item.content;
+            if (batch.size() > 1) builder.append(i + 1).append(". ");
+            builder.append(service.safe(content).trim()).append("\n");
+        }
+        return builder.toString().trim();
+    }
+
+    private Set<Long> excludedMessageIDs(List<PrivateIncoming> batch) {
+        Set<Long> result = new LinkedHashSet<>();
+        if (batch == null) return result;
+        for (PrivateIncoming item : batch) {
+            if (item.messageID > 0) result.add(item.messageID);
+        }
+        return result;
+    }
+
+    private ReplyResult callAi(long userID,String current,boolean proactive,
+                               Set<Long> excludedMessageIDs) {
         ReplyResult reply = new ReplyResult();
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return reply;
@@ -149,7 +307,7 @@ public class RoleplayPrivateChatService {
         //固定规则和人设放在最前，时间、用户、记忆与最近消息继续放在动态系统块。
         messages.add(service.message("system",stableSystemPrompt()));
         messages.add(service.message("system",dynamicSystemPrompt(
-                userID,current,proactive,messageID)));
+                userID,current,proactive,excludedMessageIDs)));
         messages.add(service.message("user","当前时间："+service.currentTimeText()+"\n"+current));
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
@@ -208,7 +366,8 @@ public class RoleplayPrivateChatService {
         return builder.toString();
     }
 
-    private String dynamicSystemPrompt(long userID,String current,boolean proactive,long messageID) {
+    private String dynamicSystemPrompt(long userID,String current,boolean proactive,
+                                       Set<Long> excludedMessageIDs) {
         StringBuilder builder = new StringBuilder();
         builder.append("【本轮状态】\n")
                 .append(proactive
@@ -225,29 +384,44 @@ public class RoleplayPrivateChatService {
                 .append("【全局永久记忆】\n")
                 .append(service.globalMemoryService().promptText(
                         current,userID,config.globalMemoryRelevanceMaxChars)).append("\n\n")
-                .append("【近期私聊】\n").append(recentContext(userID,messageID));
+                .append("【近期私聊】\n").append(recentContext(userID,excludedMessageIDs));
         return builder.toString();
     }
 
     String recentContext(long userID) {
-        return recentContext(userID,0L);
+        return recentContext(userID,Collections.<Long>emptySet());
     }
 
     String recentContext(long userID,long excludedMessageID) {
+        return recentContext(userID,excludedMessageID <= 0
+                ? Collections.<Long>emptySet()
+                : Collections.singleton(excludedMessageID));
+    }
+
+    String recentContext(long userID,Set<Long> excludedMessageIDs) {
         int limit = Math.max(4,config.privateChatContextMessages);
-        List<JSONObject> rows;
-        if (excludedMessageID > 0) {
-            rows = storage().query(
-                    "SELECT `userName`,`content`,`isBot`,`messageTime` FROM `"+TABLE+"` "
-                            + "WHERE `userID`=? AND `messageID`<>? "
-                            + "ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?",
-                    userID,excludedMessageID,limit);
-        } else {
-            rows = storage().query(
-                    "SELECT `userName`,`content`,`isBot`,`messageTime` FROM `"+TABLE+"` "
-                            + "WHERE `userID`=? ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?",
-                    userID,limit);
+        Set<Long> excluded = new LinkedHashSet<>();
+        if (excludedMessageIDs != null) {
+            for (Long id : excludedMessageIDs) {
+                if (id != null && id > 0) excluded.add(id);
+            }
         }
+        String sql = "SELECT `userName`,`content`,`isBot`,`messageTime` FROM `"+TABLE+"` "
+                + "WHERE `userID`=?";
+        List<Object> params = new ArrayList<>();
+        params.add(userID);
+        if (!excluded.isEmpty()) {
+            StringBuilder placeholders = new StringBuilder();
+            for (Long id : excluded) {
+                if (placeholders.length() > 0) placeholders.append(",");
+                placeholders.append("?");
+                params.add(id);
+            }
+            sql += " AND `messageID` NOT IN ("+placeholders+")";
+        }
+        sql += " ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?";
+        params.add(limit);
+        List<JSONObject> rows = storage().query(sql,params.toArray());
         if (rows == null || rows.isEmpty()) return "暂无。";
         StringBuilder builder = new StringBuilder();
         for (int i = rows.size() - 1; i >= 0; i--) {

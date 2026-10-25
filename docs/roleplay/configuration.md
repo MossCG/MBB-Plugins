@@ -114,6 +114,9 @@ privateChatWhitelist: ""
 privateChatFriendCacheSecond: 300
 privateChatContextMessages: 40
 privateChatMaxReplyChars: 160
+privateChatImageDebounceSecond: 4
+privateChatLiveMergeMaxRounds: 2
+privateChatPendingMaxMessages: 10
 randomTickEnable: true
 randomTickMinMinute: 10
 randomTickMaxMinute: 30
@@ -354,6 +357,12 @@ quietReplyEnable: true
 `privateChatFriendCacheSecond` 缓存；查询失败时拒绝非 owner 私聊。`privateChatWhitelist`
 只保留旧配置兼容，不再放行非好友。私聊使用独立上下文，图片会交给 `MBB-Vision`，
 长期结论以 `visibility=private` 写入记忆表。
+
+私聊按用户串行处理。纯图片或表情包会先等待 `privateChatImageDebounceSecond` 秒，
+用户在这段时间补发文字时立即结束等待并与图片合并；回复生成期间到达的新消息进入 pending，
+不会因为同一用户已有任务而直接丢弃。默认允许 `privateChatLiveMergeMaxRounds=2` 次“丢弃旧候选、
+合并新消息后重生成”，发送阶段才到达的内容则在当前回合结束后进入下一轮。
+`privateChatPendingMaxMessages` 控制单个用户最多积压多少条待处理消息。
 
 `toolEnable` 默认 `true`，通过 `MBB-AI` 的 OpenAI `tools/tool_calls` 执行有限工具循环。
 首轮只开放 `toolCoreTools`，其他工具由 `tool_search` 按需加载，最多同时加载

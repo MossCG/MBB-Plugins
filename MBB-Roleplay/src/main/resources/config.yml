@@ -597,6 +597,12 @@ privateChatFriendCacheSecond: 300
 privateChatContextMessages: 40
 #私聊单条回复最大字符数
 privateChatMaxReplyChars: 160
+#私聊收到图片或表情包后等待补充文字再回复的秒数
+privateChatImageDebounceSecond: 4
+#生成期间又收到私聊时，最多丢弃旧候选并合并重生成几次
+privateChatLiveMergeMaxRounds: 2
+#单个用户等待处理的私聊消息上限
+privateChatPendingMaxMessages: 10
 #是否启用随机刻主动互动
 randomTickEnable: true
 #随机刻最短间隔分钟数

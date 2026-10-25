@@ -333,6 +333,9 @@ public class RoleplayConfig {
     public int privateChatFriendCacheSecond = 300;
     public int privateChatContextMessages = 40;
     public int privateChatMaxReplyChars = 160;
+    public int privateChatImageDebounceSecond = 4;
+    public int privateChatLiveMergeMaxRounds = 2;
+    public int privateChatPendingMaxMessages = 10;
     public boolean randomTickEnable = true;
     public int randomTickMinMinute = 10;
     public int randomTickMaxMinute = 30;
@@ -829,6 +832,12 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("privateChatFriendCacheSecond",300);
         config.privateChatContextMessages = plugin.getConfig().getInt("privateChatContextMessages",40);
         config.privateChatMaxReplyChars = plugin.getConfig().getInt("privateChatMaxReplyChars",160);
+        config.privateChatImageDebounceSecond =
+                plugin.getConfig().getInt("privateChatImageDebounceSecond",4);
+        config.privateChatLiveMergeMaxRounds =
+                plugin.getConfig().getInt("privateChatLiveMergeMaxRounds",2);
+        config.privateChatPendingMaxMessages =
+                plugin.getConfig().getInt("privateChatPendingMaxMessages",10);
         config.randomTickEnable = plugin.getConfig().getBoolean("randomTickEnable",true);
         config.randomTickMinMinute = plugin.getConfig().getInt("randomTickMinMinute",10);
         config.randomTickMaxMinute = plugin.getConfig().getInt("randomTickMaxMinute",30);
@@ -1348,6 +1357,24 @@ public class RoleplayConfig {
         if (config.privateChatContextMessages > 200) config.privateChatContextMessages = 200;
         if (config.privateChatMaxReplyChars < 20) config.privateChatMaxReplyChars = 20;
         if (config.privateChatMaxReplyChars > 1000) config.privateChatMaxReplyChars = 1000;
+        if (config.privateChatImageDebounceSecond < 1) {
+            config.privateChatImageDebounceSecond = 1;
+        }
+        if (config.privateChatImageDebounceSecond > 15) {
+            config.privateChatImageDebounceSecond = 15;
+        }
+        if (config.privateChatLiveMergeMaxRounds < 0) {
+            config.privateChatLiveMergeMaxRounds = 0;
+        }
+        if (config.privateChatLiveMergeMaxRounds > 4) {
+            config.privateChatLiveMergeMaxRounds = 4;
+        }
+        if (config.privateChatPendingMaxMessages < 2) {
+            config.privateChatPendingMaxMessages = 2;
+        }
+        if (config.privateChatPendingMaxMessages > 50) {
+            config.privateChatPendingMaxMessages = 50;
+        }
         if (config.randomTickMinMinute < 1) config.randomTickMinMinute = 1;
         if (config.randomTickMinMinute > 1440) config.randomTickMinMinute = 1440;
         if (config.randomTickMaxMinute < config.randomTickMinMinute) {
