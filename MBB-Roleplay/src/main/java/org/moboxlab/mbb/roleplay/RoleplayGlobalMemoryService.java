@@ -260,6 +260,8 @@ public class RoleplayGlobalMemoryService {
         params.put("retryCount",0);
         params.put("sessionId","roleplay-global-memory-merge-r"+round+"-b"+batchNo);
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.global_memory.merge",
+                RoleplayGlobalMemoryService.class);
         long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),"永久记忆合并 第"+round+"轮 批次"+batchNo+"/"+batchCount,

@@ -103,6 +103,8 @@ public class RoleplayDailyReviewService {
             params.put("retryCount",0);
             params.put("sessionId","roleplay-daily-"+groupID+"-"+day);
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.daily_review",
+                    RoleplayDailyReviewService.class);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);
             RoleplayAiLog.log(plugin.getLogger(),"每日复盘",groupID,response,

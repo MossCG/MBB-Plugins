@@ -153,20 +153,22 @@ AI 调用是同步网络请求，调用方必须放入插件任务中执行，�
 
 ```text
 plugin_mbb_ai_usage
+plugin_mbb_ai_usage_task
 ```
 
 统计维度：
 
-- 日期
-- 模型配置
-- 模型名
-- 动作
+- 日期、模型配置、模型名、动作：汇总到 `plugin_mbb_ai_usage`
+- 日期、模型配置、模型名、调用点、Prompt 版本：汇总到 `plugin_mbb_ai_usage_task`
 - 请求数、成功数、失败数
 - 输入、输出、总 Token
 - 总耗时与平均耗时
 - 服务端提示词缓存命中的输入 Token
 
-`/ai usage [天数]` 会输出图片，默认展示最近 7 天，最长 30 天。
+`/ai usage [天数]` 会输出图片，默认展示最近 7 天，最长 30 天。图片除 Token 趋势和
+模型配置统计外，还会展示调用点、Prompt 版本、请求数、Token、缓存率和成功率。
+调用方可在 `chat` / `complete` 参数中传 `taskName`、`promptVersion`；未传任务名时
+回退为 `action`。当前不保存完整请求快照，也不提供重放。
 
 **两种缓存不是一回事**，统计图里的缓存率指的是后者：
 

@@ -96,6 +96,20 @@ flowchart TB
 | 情绪分析 | 角色/性格 → 动态信息 → 判断原则 | 结构上同类，但整条只有约 600 token，低于服务商的最小缓存粒度，重排没有收益，暂不动 |
 | 提醒识别 | 「你是定时提醒识别器。当前时间：…」+ 规则 | 动态时间在最前，但整条约 250 token，同样低于缓存粒度，暂不动 |
 
+### 调用点观测
+
+Roleplay 的 AI 请求会带两个观测字段：
+
+- `taskName`：固定调用点标识，例如 `roleplay.reply`、`roleplay.router`、
+  `roleplay.reply.review`、`roleplay.private.reply`、`roleplay.memory.update`。
+- `promptVersion`：提示词模板版本指纹。主回复对静态资料、固定规则、工具协议和
+  输出格式的稳定段做哈希；辅助任务对提示词构建类做字节指纹，避免时间、情绪、
+  记忆和当前消息等动态内容让版本每轮变化。
+
+`MBB-AI` 会按调用点和版本分别累计请求、Token、耗时、缓存命中和成功率，
+`/ai usage` 图片可以直接看出低缓存调用点，以及修改 Prompt 前后的效果差异。
+请求快照与重放暂不落库，留到后续 UI 阶段处理。
+
 ## 分层处理
 
 ```mermaid

@@ -76,12 +76,14 @@ public class AIService implements PluginService {
         if (profile == null) {
             return error("没有找到 AI 模型配置："+(profileName == null ? config.defaultProfile : profileName),"profile",false);
         }
+        String taskName = params.getString("taskName");
+        String promptVersion = params.getString("promptVersion");
         long startTime = System.currentTimeMillis();
         boolean toolRequest = params.getJSONArray("tools") != null;
         String cacheKey = cacheKey(profile,messages,params);
         JSONObject cached = toolRequest ? null : getCache(cacheKey);
         if (cached != null) {
-            stats.record(profile,action,true,true,0L,null);
+            stats.record(profile,action,taskName,promptVersion,true,true,0L,null);
             return cached;
         }
 
@@ -90,26 +92,32 @@ public class AIService implements PluginService {
         try {
             acquired = semaphore.tryAcquire(timeoutSeconds,TimeUnit.SECONDS);
             if (!acquired) {
-                stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,null);
+                stats.record(profile,action,taskName,promptVersion,false,false,
+                        System.currentTimeMillis() - startTime,null);
                 return error("AI 服务当前并发已满，请稍后再试！","busy",true);
             }
             JSONObject result = callWithRetry(profile,messages,params);
             if (result.getBooleanValue("status")) {
                 result.put("action",action);
                 result.put("profile",profile.name);
+                result.put("taskName",taskName == null ? action : taskName);
+                result.put("promptVersion",promptVersion == null ? "" : promptVersion);
                 result.put("cached",false);
                 result.put("content",MarkdownUtil.toPlainText(result.getString("content")));
-                stats.record(profile,action,true,false,System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
+                stats.record(profile,action,taskName,promptVersion,true,false,
+                        System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
                 if (!toolRequest && result.getJSONArray("toolCalls") == null) {
                     putCache(cacheKey,result);
                 }
             } else {
-                stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
+                stats.record(profile,action,taskName,promptVersion,false,false,
+                        System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
             }
             return result;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            stats.record(profile,action,false,false,System.currentTimeMillis() - startTime,null);
+            stats.record(profile,action,taskName,promptVersion,false,false,
+                    System.currentTimeMillis() - startTime,null);
             return error("AI 服务等待并发许可时被中断！","interrupted",true);
         } finally {
             if (acquired) semaphore.release();
@@ -127,6 +135,8 @@ public class AIService implements PluginService {
         chatParams.put("reasoningEffort",params.get("reasoningEffort"));
         chatParams.put("timeoutSeconds",params.get("timeoutSeconds"));
         chatParams.put("retryCount",params.get("retryCount"));
+        chatParams.put("taskName",params.get("taskName"));
+        chatParams.put("promptVersion",params.get("promptVersion"));
         JSONArray messages = new JSONArray();
         messages.add(message("user",prompt));
         chatParams.put("messages",messages);
@@ -230,11 +240,15 @@ public class AIService implements PluginService {
         int maxTokens = params != null && params.getIntValue("maxTokens") > 0
                 ? params.getIntValue("maxTokens") : profile.maxTokens;
         String sessionId = params == null ? "" : params.getString("sessionId");
+        String taskName = params == null ? "" : params.getString("taskName");
+        String promptVersion = params == null ? "" : params.getString("promptVersion");
         String reasoningEffort = params == null || params.getString("reasoningEffort") == null
                 ? "" : params.getString("reasoningEffort");
         int timeoutSeconds = timeoutSeconds(profile,params);
         int retryCount = retryCount(params);
         return profile.name+"|"+(sessionId == null ? "" : sessionId)+"|"
+                +(taskName == null ? "" : taskName)+"|"
+                +(promptVersion == null ? "" : promptVersion)+"|"
                 +temperature+"|"+maxTokens+"|"+reasoningEffort+"|"+timeoutSeconds+"|"
                 +retryCount+"|"+(params == null || params.get("tools") == null
                 ? "" : params.get("tools").toString())+"|"

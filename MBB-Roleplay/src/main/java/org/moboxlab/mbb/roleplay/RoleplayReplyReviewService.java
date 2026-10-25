@@ -70,6 +70,8 @@ public class RoleplayReplyReviewService {
             params.put("sessionId","roleplay-review-"
                     +Integer.toHexString(service.persona().name.hashCode()));
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.reply.review",
+                    RoleplayReplyReviewService.class);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);
             RoleplayAiLog.log(service.plugin().getLogger(),"回复复核",groupID,response,

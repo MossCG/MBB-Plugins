@@ -18,6 +18,7 @@ import java.util.Map;
  */
 public class AIStatsService {
     private static final String TABLE = "plugin_mbb_ai_usage";
+    private static final String TASK_TABLE = "plugin_mbb_ai_usage_task";
     private final Plugin plugin;
     private final Object lock = new Object();
 
@@ -46,6 +47,26 @@ public class AIStatsService {
                 + "UNIQUE(`statDate`,`profile`,`model`,`action`)"
                 + ")");
         ensureColumn("cachedPromptTokens","INTEGER NOT NULL DEFAULT 0");
+        storage().update("CREATE TABLE IF NOT EXISTS `"+TASK_TABLE+"` ("
+                + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "`statDate` TEXT NOT NULL,"
+                + "`profile` TEXT NOT NULL,"
+                + "`model` TEXT NOT NULL,"
+                + "`taskName` TEXT NOT NULL,"
+                + "`promptVersion` TEXT NOT NULL DEFAULT '',"
+                + "`requests` INTEGER NOT NULL DEFAULT 0,"
+                + "`successes` INTEGER NOT NULL DEFAULT 0,"
+                + "`failures` INTEGER NOT NULL DEFAULT 0,"
+                + "`promptTokens` INTEGER NOT NULL DEFAULT 0,"
+                + "`completionTokens` INTEGER NOT NULL DEFAULT 0,"
+                + "`totalTokens` INTEGER NOT NULL DEFAULT 0,"
+                + "`totalLatencyMs` INTEGER NOT NULL DEFAULT 0,"
+                + "`cachedHits` INTEGER NOT NULL DEFAULT 0,"
+                + "`cachedPromptTokens` INTEGER NOT NULL DEFAULT 0,"
+                + "`lastRequestTime` INTEGER NOT NULL DEFAULT 0,"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0,"
+                + "UNIQUE(`statDate`,`profile`,`model`,`taskName`,`promptVersion`)"
+                + ")");
     }
 
     /**
@@ -67,6 +88,11 @@ public class AIStatsService {
 
     public void record(AIProfile profile,String action,boolean success,boolean cached,
                        long latencyMs,JSONObject usage) {
+        record(profile,action,action,"",success,cached,latencyMs,usage);
+    }
+
+    public void record(AIProfile profile,String action,String taskName,String promptVersion,
+                       boolean success,boolean cached,long latencyMs,JSONObject usage) {
         if (profile == null) return;
         String date = formatDate(new Date());
         String model = profile.model == null ? "" : profile.model;
@@ -96,6 +122,40 @@ public class AIStatsService {
                         Math.max(0,latencyMs),cached ? 1 : 0,cachedPrompt,
                         now,now,date,profile.name,model,act);
             }
+            recordTask(date,profile.name,model,normalizeTask(taskName,act),
+                    normalizeVersion(promptVersion),success,cached,latencyMs,
+                    prompt,completion,total,cachedPrompt,now);
+        }
+    }
+
+    private void recordTask(String date,String profile,String model,String taskName,
+                            String promptVersion,boolean success,boolean cached,long latencyMs,
+                            long prompt,long completion,long total,long cachedPrompt,long now) {
+        JSONObject exists = storage().queryOne(
+                "SELECT `ID` FROM `"+TASK_TABLE+"` WHERE `statDate`=? AND `profile`=? "
+                        + "AND `model`=? AND `taskName`=? AND `promptVersion`=?",
+                date,profile,model,taskName,promptVersion);
+        if (exists == null) {
+            storage().insert("INSERT INTO `"+TASK_TABLE+"` "
+                            + "(`statDate`,`profile`,`model`,`taskName`,`promptVersion`,`requests`,"
+                            + "`successes`,`failures`,`promptTokens`,`completionTokens`,`totalTokens`,"
+                            + "`totalLatencyMs`,`cachedHits`,`cachedPromptTokens`,`lastRequestTime`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    date,profile,model,taskName,promptVersion,1,success ? 1 : 0,
+                    success ? 0 : 1,prompt,completion,total,Math.max(0,latencyMs),
+                    cached ? 1 : 0,cachedPrompt,now,now);
+        } else {
+            storage().update("UPDATE `"+TASK_TABLE+"` SET `requests`=`requests`+1,"
+                            + "`successes`=`successes`+?,`failures`=`failures`+?,"
+                            + "`promptTokens`=`promptTokens`+?,`completionTokens`=`completionTokens`+?,"
+                            + "`totalTokens`=`totalTokens`+?,`totalLatencyMs`=`totalLatencyMs`+?,"
+                            + "`cachedHits`=`cachedHits`+?,`cachedPromptTokens`=`cachedPromptTokens`+?,"
+                            + "`lastRequestTime`=?,`updateTime`=? "
+                            + "WHERE `statDate`=? AND `profile`=? AND `model`=? "
+                            + "AND `taskName`=? AND `promptVersion`=?",
+                    success ? 1 : 0,success ? 0 : 1,prompt,completion,total,
+                    Math.max(0,latencyMs),cached ? 1 : 0,cachedPrompt,now,now,
+                    date,profile,model,taskName,promptVersion);
         }
     }
 
@@ -110,7 +170,54 @@ public class AIStatsService {
         result.put("daily",readDaily(days));
         result.put("profiles",readGroup("profile"));
         result.put("models",readGroup("model"));
+        result.put("tasks",readTasks(days));
         return result;
+    }
+
+    private JSONArray readTasks(int days) {
+        JSONArray result = new JSONArray();
+        Calendar calendar = Calendar.getInstance(Locale.CHINA);
+        calendar.add(Calendar.DAY_OF_MONTH,-(Math.max(1,days) - 1));
+        String since = formatDate(calendar.getTime());
+        List<JSONObject> rows = storage().query(
+                "SELECT `taskName`,`promptVersion`,SUM(`requests`) AS `requests`,"
+                        + "SUM(`successes`) AS `successes`,SUM(`failures`) AS `failures`,"
+                        + "SUM(`promptTokens`) AS `promptTokens`,SUM(`completionTokens`) AS `completionTokens`,"
+                        + "SUM(`totalTokens`) AS `totalTokens`,SUM(`totalLatencyMs`) AS `totalLatencyMs`,"
+                        + "SUM(`cachedPromptTokens`) AS `cachedPromptTokens` "
+                        + "FROM `"+TASK_TABLE+"` WHERE `statDate`>=? "
+                        + "GROUP BY `taskName`,`promptVersion` ORDER BY `requests` DESC",
+                since);
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("name",row.getString("taskName"));
+            item.put("promptVersion",row.getString("promptVersion"));
+            item.put("requests",value(row,"requests"));
+            item.put("successes",value(row,"successes"));
+            item.put("failures",value(row,"failures"));
+            item.put("promptTokens",value(row,"promptTokens"));
+            item.put("completionTokens",value(row,"completionTokens"));
+            item.put("totalTokens",value(row,"totalTokens"));
+            item.put("totalLatencyMs",value(row,"totalLatencyMs"));
+            item.put("cachedPromptTokens",value(row,"cachedPromptTokens"));
+            item.put("successRate",rate(value(row,"successes"),value(row,"requests")));
+            item.put("promptCacheHitRate",
+                    rate(value(row,"cachedPromptTokens"),value(row,"promptTokens")));
+            item.put("averageLatencyMs",value(row,"requests") <= 0 ? 0
+                    : value(row,"totalLatencyMs") / value(row,"requests"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    private String normalizeTask(String taskName,String fallback) {
+        String value = taskName == null ? "" : taskName.trim();
+        return value.isEmpty() ? fallback : value;
+    }
+
+    private String normalizeVersion(String promptVersion) {
+        return promptVersion == null ? "" : promptVersion.trim();
     }
 
     private JSONObject readSummary(String date) {

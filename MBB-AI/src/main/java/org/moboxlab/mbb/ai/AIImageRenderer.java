@@ -79,8 +79,10 @@ public class AIImageRenderer {
         if (usage == null) return null;
         JSONArray daily = usage.getJSONArray("daily");
         JSONArray profiles = usage.getJSONArray("profiles");
+        JSONArray tasks = usage.getJSONArray("tasks");
         int rowCount = profiles == null ? 0 : Math.min(6,profiles.size());
-        int height = 760 + rowCount * 28;
+        int taskRowCount = tasks == null ? 0 : Math.min(8,tasks.size());
+        int height = 850 + rowCount * 28 + Math.max(1,taskRowCount) * 28;
         BufferedImage image = new BufferedImage(WIDTH,height,BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = image.createGraphics();
         try {
@@ -126,6 +128,23 @@ public class AIImageRenderer {
                     JSONObject item = profiles.getJSONObject(i);
                     drawTableRow(graphics,PADDING + 20,rowY,item);
                     rowY += 28;
+                }
+            }
+
+            int taskY = tableY + 136 + rowCount * 28;
+            drawPanel(graphics,PADDING,taskY,WIDTH - PADDING * 2,
+                    58 + Math.max(1,taskRowCount) * 28,"调用点统计");
+            int taskHeaderY = taskY + 66;
+            drawTaskTableHeader(graphics,PADDING + 20,taskHeaderY);
+            int taskRowY = taskHeaderY + 26;
+            if (tasks == null || tasks.isEmpty()) {
+                drawText(graphics,"暂无调用点统计。",PADDING + 20,taskRowY,
+                        new Color(120,113,108),Font.PLAIN,16);
+            } else {
+                for (int i = 0; i < taskRowCount; i++) {
+                    drawTaskTableRow(graphics,PADDING + 20,taskRowY,
+                            tasks.getJSONObject(i));
+                    taskRowY += 28;
                 }
             }
         } finally {
@@ -272,6 +291,31 @@ public class AIImageRenderer {
         graphics.drawString(String.valueOf(value(item,"requests")),x + 260,y);
         graphics.drawString(formatNumber(value(item,"totalTokens")),x + 400,y);
         graphics.drawString(formatPercent(item.getDoubleValue("successRate")),x + 580,y);
+    }
+
+    private static void drawTaskTableHeader(Graphics2D graphics,int x,int y) {
+        graphics.setColor(new Color(146,138,130));
+        graphics.setFont(new Font("Microsoft YaHei",Font.PLAIN,13));
+        graphics.drawString("调用点",x,y);
+        graphics.drawString("版本",x + 235,y);
+        graphics.drawString("请求",x + 375,y);
+        graphics.drawString("Token",x + 460,y);
+        graphics.drawString("缓存率",x + 585,y);
+        graphics.drawString("成功率",x + 715,y);
+    }
+
+    private static void drawTaskTableRow(Graphics2D graphics,int x,int y,JSONObject item) {
+        graphics.setColor(new Color(68,64,60));
+        graphics.setFont(new Font("Microsoft YaHei",Font.BOLD,13));
+        graphics.drawString(fitText(graphics,safe(item.getString("name")),220),x,y);
+        graphics.setFont(new Font("Microsoft YaHei",Font.PLAIN,11));
+        graphics.drawString(fitText(graphics,
+                safe(item.getString("promptVersion")),125),x + 235,y);
+        graphics.setFont(new Font("Microsoft YaHei",Font.PLAIN,13));
+        graphics.drawString(String.valueOf(value(item,"requests")),x + 375,y);
+        graphics.drawString(formatNumber(value(item,"totalTokens")),x + 460,y);
+        graphics.drawString(formatPercent(item.getDoubleValue("promptCacheHitRate")),x + 585,y);
+        graphics.drawString(formatPercent(item.getDoubleValue("successRate")),x + 715,y);
     }
 
     private static void drawText(Graphics2D graphics,String text,int x,int y,Color color,int style,int size) {

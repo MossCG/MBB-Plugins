@@ -16,6 +16,11 @@ public class RoleplayPromptAssembler {
         this.service = service;
     }
 
+    public String stablePromptVersion(int batchCount) {
+        return RoleplayAiMetadata.fingerprint(assembleStableMaterials()+stableRulesText()
+                +toolPolicyText()+outputFormatLead(batchCount));
+    }
+
     public String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,
                                     String relationship,String speechPrompt,String messageText,
                                     RoleplayRouteDecision decision,int batchCount) {

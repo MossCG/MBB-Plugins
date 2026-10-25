@@ -66,6 +66,8 @@ public class RoleplayEmotionAnalyzer {
         params.put("reasoningEffort",service.config().emotionAnalyzeReasoningEffort);
         params.put("sessionId","roleplay-emotion-"+groupID+"-"+userID);
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.emotion.analyze",
+                RoleplayEmotionAnalyzer.class);
         long startTime = System.currentTimeMillis();
         JSONObject response = ai.call("chat",params);
         RoleplayAiLog.log(service.plugin().getLogger(),"情绪分析",groupID,response,

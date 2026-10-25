@@ -70,6 +70,7 @@ public class RoleplayRouter {
         params.put("reasoningEffort",config.routerReasoningEffort);
         params.put("sessionId","roleplay-route-"+state.groupID);
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.router",RoleplayRouter.class);
         long startTime = System.currentTimeMillis();
         JSONObject response = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),tag,state.groupID,response,

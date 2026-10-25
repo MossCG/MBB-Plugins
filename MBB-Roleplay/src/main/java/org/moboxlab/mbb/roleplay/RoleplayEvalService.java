@@ -57,6 +57,7 @@ public class RoleplayEvalService {
             params.put("timeoutSeconds",service.config().evalTimeoutSecond);
             params.put("sessionId","roleplay-eval-"+service.persona().name+"-"+id);
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.eval",RoleplayEvalService.class);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);
             RoleplayAiLog.log(service.plugin().getLogger(),"评测",0,response,

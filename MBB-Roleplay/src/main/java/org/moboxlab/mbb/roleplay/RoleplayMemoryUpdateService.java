@@ -124,6 +124,8 @@ public class RoleplayMemoryUpdateService {
         params.put("retryCount",0);
         params.put("sessionId","roleplay-memory-"+groupID+"-"+contextToken+(retry ? "-retry" : ""));
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.memory.update",
+                RoleplayMemoryUpdateService.class);
         long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(service.plugin().getLogger(),"记忆整理",groupID,result,System.currentTimeMillis() - startTime);
@@ -712,6 +714,8 @@ public class RoleplayMemoryUpdateService {
         params.put("retryCount",0);
         params.put("sessionId","roleplay-memory-merge-"+groupID+"-r"+round+"-b"+batchNo);
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.memory.merge",
+                RoleplayMemoryUpdateService.class);
         long startTime = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(service.plugin().getLogger(),"长期记忆合并 第"+round+"轮 批次"+batchNo+"/"+batchCount,

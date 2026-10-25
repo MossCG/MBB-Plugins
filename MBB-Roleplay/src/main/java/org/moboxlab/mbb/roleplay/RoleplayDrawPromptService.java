@@ -63,6 +63,8 @@ public class RoleplayDrawPromptService {
             params.put("timeoutSeconds",config.drawPromptTimeoutSecond);
             params.put("sessionId","roleplay-draw-prompt-"+groupID+"-"+userID);
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.draw.prompt",
+                    RoleplayDrawPromptService.class);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);
             RoleplayAiLog.log(service.plugin().getLogger(),"生图prompt",groupID,response,

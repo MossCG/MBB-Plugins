@@ -91,6 +91,8 @@ public class RoleplayReplyGenerationService {
                 : Math.max(service.config().replyMaxTokens,service.config().replyImageMaxTokens));
         params.put("reasoningEffort",service.config().replyReasoningEffort);
         params.put("sessionId","roleplay-"+groupID+"-"+service.contextToken(groupID));
+        RoleplayAiMetadata.tag(params,"roleplay.reply",
+                service.promptAssembler().stablePromptVersion(batchCount));
         RoleplayToolContext toolContext = new RoleplayToolContext();
         toolContext.groupID = groupID;
         toolContext.userID = userID;

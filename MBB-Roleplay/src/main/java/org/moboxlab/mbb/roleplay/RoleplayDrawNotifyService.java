@@ -144,6 +144,8 @@ public class RoleplayDrawNotifyService {
         params.put("timeoutSeconds",90);
         params.put("sessionId","roleplay-draw-notify-"+groupID);
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.draw.notify",
+                RoleplayDrawNotifyService.class);
         return ai.call("chat",params);
     }
 

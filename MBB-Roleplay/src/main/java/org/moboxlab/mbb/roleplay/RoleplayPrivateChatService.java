@@ -160,6 +160,9 @@ public class RoleplayPrivateChatService {
         params.put("retryCount",0);
         params.put("sessionId","roleplay-private-"+userID);
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,proactive
+                ? "roleplay.private.proactive" : "roleplay.private.reply",
+                RoleplayPrivateChatService.class);
         long start = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),proactive ? "主动私聊" : "私聊回复",

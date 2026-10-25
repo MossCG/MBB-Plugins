@@ -241,6 +241,8 @@ public class RoleplayRandomTickService {
         params.put("retryCount",0);
         params.put("sessionId","roleplay-random-tick-"+service.getRoleName());
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.random.decide",
+                RoleplayRandomTickService.class);
         long start = System.currentTimeMillis();
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),"随机刻决策",0L,result,
@@ -296,6 +298,8 @@ public class RoleplayRandomTickService {
         params.put("retryCount",0);
         params.put("sessionId",contentSessionId(action,targetID));
         params.put("messages",messages);
+        RoleplayAiMetadata.tagTemplate(params,"roleplay.random.content",
+                RoleplayRandomTickService.class);
         JSONObject result = ai.call("chat",params);
         if (result == null || !result.getBooleanValue("status")) return "";
         String content = service.safe(result.getString("content"));

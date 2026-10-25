@@ -331,6 +331,8 @@ public class RoleplayReminderService {
             params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-parse-"+groupID+"-"+userID);
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.reminder.parse",
+                    RoleplayReminderService.class);
             long startTime = System.currentTimeMillis();
             JSONObject response = ai.call("chat",params);
             RoleplayAiLog.log(plugin.getLogger(),"提醒识别",groupID,response,System.currentTimeMillis() - startTime);
@@ -499,6 +501,8 @@ public class RoleplayReminderService {
             params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-create-"+id+"-"+groupID);
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.reminder.create",
+                    RoleplayReminderService.class);
             long startTime = System.currentTimeMillis();
             JSONObject result = ai.call("chat",params);
             RoleplayAiLog.log(plugin.getLogger(),"提醒确认生成",groupID,result,System.currentTimeMillis() - startTime);
@@ -544,6 +548,8 @@ public class RoleplayReminderService {
             params.put("reasoningEffort",config.replyReasoningEffort);
             params.put("sessionId","roleplay-reminder-"+id+"-"+groupID);
             params.put("messages",messages);
+            RoleplayAiMetadata.tagTemplate(params,"roleplay.reminder.notify",
+                    RoleplayReminderService.class);
             long startTime = System.currentTimeMillis();
             JSONObject result = ai.call("chat",params);
             RoleplayAiLog.log(plugin.getLogger(),"提醒内容生成",groupID,result,System.currentTimeMillis() - startTime);
