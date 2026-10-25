@@ -133,6 +133,7 @@ public class RoleplayEmotionService {
 
     public void init() {
         emotionStateRepository.init();
+        relationService.normalizeSharedAffinity();
     }
 
     public synchronized JSONObject exportState() {
@@ -141,6 +142,7 @@ public class RoleplayEmotionService {
 
     public synchronized void restoreState(JSONObject state) {
         emotionStateRepository.restoreState(state);
+        relationService.normalizeSharedAffinity();
     }
 
     RoleplayService roleplayService() {
@@ -485,6 +487,7 @@ public class RoleplayEmotionService {
         relation.dayDeltaAnnoyance = 0;
         relation.provisionalInitial = false;
         emotionStateRepository.saveRelation(relation);
+        relationService.enforceSharedAffinity(relation);
         if (oldAffinity != relation.affinity || oldTrust != relation.trust
                 || oldAnnoyance != relation.annoyance) {
             emotionStateRepository.insertEvent(groupID,userID,0L,"command-reset",
@@ -532,6 +535,7 @@ public class RoleplayEmotionService {
         relation.dayDeltaAffinity = 0;
         relation.provisionalInitial = false;
         emotionStateRepository.saveRelation(relation);
+        relationService.enforceSharedAffinity(relation);
         if (oldAffinity != relation.affinity) {
             emotionStateRepository.insertEvent(groupID,userID,0L,"command-set-affinity",
                     0,0,0,relation.affinity - oldAffinity,0,0,
@@ -636,6 +640,7 @@ public class RoleplayEmotionService {
                     relation.emotionLabel = labelForReason(relation.emotionReason);
                 }
                 emotionStateRepository.saveRelation(relation);
+                relationService.enforceSharedAffinity(relation);
             }
         }
 
@@ -716,6 +721,7 @@ public class RoleplayEmotionService {
             emotionStateRepository.saveRelation(state);
         }
         relationService.decayRelation(state);
+        relationService.enforceSharedAffinity(state);
         return state;
     }
 

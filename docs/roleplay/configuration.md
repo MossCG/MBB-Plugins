@@ -57,6 +57,14 @@ relationDailyMaxDelta: 2.0
 intimacyCloseAffinity: 75
 intimacyVeryCloseAffinity: 90
 emotionEnable: true
+friendMemoryEnable: true
+friendMemoryProfile: ""
+friendMemoryMinNewMessages: 6
+friendMemoryIntervalHours: 12
+friendMemoryContextMessages: 120
+friendMemoryMaxTokens: 1200
+friendMemoryTimeoutSecond: 120
+friendMemoryInjectMaxChars: 1800
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 300
 emotionAnalyzeEnable: true
@@ -412,6 +420,14 @@ quietReplyEnable: true
 会把发送时间刷新为“最后一次输入状态后 3 秒”；持续输入会继续顺延，但
 `privateChatInputStatusMaxWaitSecond` 限制从第一条消息开始的绝对等待上限。
 typing 状态不会取消已经开始的 AI，只有真实消息到达才会清空 typing 等待并合并重生成。
+
+`friendMemoryEnable` 默认 `true`。好友累计至少 `friendMemoryMinNewMessages` 条新私聊后，
+插件会在后台单独整理一次长期记忆；同一好友两次整理至少间隔
+`friendMemoryIntervalHours` 小时。整理会读取最近 `friendMemoryContextMessages` 条私聊，
+合并已有群员档案、私聊记忆和好友档案，输出关系摘要、稳定喜好、不喜欢、相处方式、边界和重要长期信息。
+档案只按 QQ 保存，并只在和本人私聊或其本人发言的群聊中注入；`friendMemoryProfile`
+留空时依次回退到 `memoryProfile` 和 `aiProfile`。`/role member friendclear <QQ|@群友>`
+可以删除对应好友档案。
 
 `directReplyBypassCooldown` 默认 `true`。消息明确艾特、引用或点名角色时，直接回复概率固定为
 `1.0`，并绕过普通 `replyCooldownSecond` 冷却，但仍然受 `maxRepliesPerHour` 小时上限约束。

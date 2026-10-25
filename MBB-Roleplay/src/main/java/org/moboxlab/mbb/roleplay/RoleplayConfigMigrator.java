@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "51";
+    private static final String CURRENT_VERSION = "52";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -55,6 +55,14 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("emotionEnable","true","是否启用角色情绪与用户关系机制"),
             new ConfigEntry("memberMemoryEnable","true","是否启用群员个人记忆：记录角色对每个群员的称呼、喜好与相处方式"),
             new ConfigEntry("memberFieldMaxChars","120","群员个人记忆单项的最大字符数"),
+            new ConfigEntry("friendMemoryEnable","true","是否启用好友长期记忆：按 QQ 记录关系摘要、稳定偏好和相处边界"),
+            new ConfigEntry("friendMemoryProfile","","好友记忆整理使用的模型配置名，留空则使用 aiProfile"),
+            new ConfigEntry("friendMemoryMinNewMessages","6","好友记忆至少累计多少条新私聊消息后才整理一次"),
+            new ConfigEntry("friendMemoryIntervalHours","12","同一好友两次自动记忆整理的最小间隔小时"),
+            new ConfigEntry("friendMemoryContextMessages","120","好友记忆整理最多读取最近多少条私聊消息"),
+            new ConfigEntry("friendMemoryMaxTokens","1200","好友记忆整理输出 Token 上限"),
+            new ConfigEntry("friendMemoryTimeoutSecond","120","好友记忆整理请求超时秒数"),
+            new ConfigEntry("friendMemoryInjectMaxChars","1800","好友长期记忆注入提示词的最大字符数"),
             new ConfigEntry("emotionDecayMinute","30","情绪回落间隔，每隔多少分钟向角色人格基线靠近一次"),
             new ConfigEntry("emotionEventCooldownSecond","300","同一用户同一类情绪事件的规则更新冷却秒数"),
             new ConfigEntry("emotionAnalyzeEnable","true","是否异步调用 AI 分析语义情绪原因"),
@@ -533,7 +541,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 51) {
+        if (version < 52) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -743,7 +751,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 51 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 52 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort

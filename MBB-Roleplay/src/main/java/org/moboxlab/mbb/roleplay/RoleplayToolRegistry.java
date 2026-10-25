@@ -753,7 +753,7 @@ public class RoleplayToolRegistry {
         public String name() { return "memory_search"; }
 
         @Override
-        public String description() { return "按需检索跨群短期、长期、永久和个人记忆；个人记忆默认查当前发言人"; }
+        public String description() { return "按需检索跨群短期、长期、永久、好友和个人记忆；个人记忆默认查当前发言人"; }
 
         @Override
         public String category() { return "retrieval"; }
@@ -789,18 +789,23 @@ public class RoleplayToolRegistry {
                 profile = service.memberService().promptText(context.groupID,targetUserID);
                 if (profile.isEmpty()) profile = "暂无该群员的个人记忆。";
             }
-            RoleplayToolResult result = RoleplayToolResult.ok("已按需检索短期、长期、永久和个人记忆");
+            String friendMemory = targetUserID == context.userID || service.isOwner(context.userID)
+                    ? service.friendMemoryService().promptText(targetUserID) : "";
+            RoleplayToolResult result = RoleplayToolResult.ok("已按需检索短期、长期、永久、好友和个人记忆");
             result.data.put("query",query);
             result.data.put("userID",targetUserID);
             result.data.put("shortTerm",service.shortText(service.shortSummary(0L),budget * 10 / 100));
-            result.data.put("profile",service.shortText(profile,budget * 15 / 100));
+            result.data.put("profile",service.shortText(profile,budget * 12 / 100));
+            if (!friendMemory.isEmpty()) {
+                result.data.put("friendMemory",service.shortText(friendMemory,budget * 18 / 100));
+            }
             result.data.put("longTerm",service.shortText(
                     service.longMemoryText(context.groupID,targetUserID,query),
-                    budget * 28 / 100));
+                    budget * 24 / 100));
             result.data.put("global",service.shortText(
                     service.globalMemoryService().promptText(query,targetUserID,
-                            Math.max(1000,budget * 28 / 100)),
-                    budget * 28 / 100));
+                            Math.max(1000,budget * 24 / 100)),
+                    budget * 24 / 100));
             return result;
         }
     }

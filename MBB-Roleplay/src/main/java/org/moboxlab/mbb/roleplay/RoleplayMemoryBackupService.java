@@ -17,7 +17,7 @@ import java.util.Locale;
 /**
  * 记忆备份与恢复
  *
- * 负责短期、长期、永久记忆、情绪、黑名单和群员印象的快照导出与恢复。
+ * 负责短期、长期、永久、好友记忆、情绪、黑名单和群员印象的快照导出与恢复。
  */
 public class RoleplayMemoryBackupService {
     private final RoleplayService service;
@@ -30,7 +30,7 @@ public class RoleplayMemoryBackupService {
         try {
             File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
-            root.put("version",5);
+            root.put("version",6);
             root.put("type","mbb-roleplay-memory-backup");
             root.put("createTime",System.currentTimeMillis());
             root.put("reason",service.safe(reason));
@@ -41,6 +41,7 @@ public class RoleplayMemoryBackupService {
             root.put("emotion",service.emotionService().exportState());
             root.put("blacklist",service.blacklistService().exportAll());
             root.put("member",service.memberService().exportAll());
+            root.put("friendMemory",service.friendMemoryService().exportAll());
             String name = "memory-backup-"
                     +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
                     +".json";
@@ -104,6 +105,7 @@ public class RoleplayMemoryBackupService {
             JSONObject emotion = root.getJSONObject("emotion");
             JSONArray blacklist = root.getJSONArray("blacklist");
             JSONArray member = root.getJSONArray("member");
+            JSONArray friendMemory = root.getJSONArray("friendMemory");
             backupAllMemories("before-restore-"+name);
             service.storage().update("DELETE FROM `"+RoleplayService.MEMORY_TABLE+"`");
             service.storage().update("DELETE FROM `"+RoleplayService.STATE_TABLE+"`");
@@ -112,6 +114,9 @@ public class RoleplayMemoryBackupService {
             service.emotionService().restoreState(emotion);
             service.blacklistService().restoreAll(blacklist);
             service.memberService().restoreAll(member);
+            if (root.containsKey("friendMemory")) {
+                service.friendMemoryService().restoreAll(friendMemory);
+            }
             int shortSaved = restoreShortTerm(shortTerm);
             int contextSaved = service.contextCompactor().restoreAll(structuredContext);
             if (contextSaved == 0) contextSaved = service.contextCompactor().recoverLegacySummaries();
@@ -126,9 +131,11 @@ public class RoleplayMemoryBackupService {
             result.put("emotion",emotion != null);
             result.put("blacklist",blacklist == null ? 0 : blacklist.size());
             result.put("member",member == null ? 0 : member.size());
+            result.put("friendMemory",friendMemory == null ? 0 : friendMemory.size());
             service.plugin().getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
                     +" 条，结构化上下文 "+contextSaved+" 条，长期 "+longSaved+" 条，永久 "
-                    +(globalMemory == null ? 0 : globalMemory.size())+" 条");
+                    +(globalMemory == null ? 0 : globalMemory.size())+" 条，好友 "
+                    +(friendMemory == null ? 0 : friendMemory.size())+" 条");
             return result;
         } catch (Exception e) {
             service.plugin().getLogger().sendException(e);

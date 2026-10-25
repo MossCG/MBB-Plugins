@@ -262,7 +262,10 @@ public class RoleplayPrivateChatService {
             if (text.length() > config.privateChatMaxReplyChars) {
                 text = text.substring(0,config.privateChatMaxReplyChars).trim();
             }
-            if (sendText(userID,text)) savePrivateMemory(userID,reply.memory);
+            if (sendText(userID,text)) {
+                savePrivateMemory(userID,reply.memory);
+                service.friendMemoryService().maybeSchedule(userID);
+            }
         } catch (Exception e) {
             plugin.getLogger().sendException(e);
         } finally {
@@ -443,6 +446,8 @@ public class RoleplayPrivateChatService {
                 .append("QQ：").append(userID).append("\n")
                 .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n")
                 .append("【个人印象】\n").append(service.memberService().promptText(0L,userID)).append("\n\n")
+                .append("【好友长期记忆】\n")
+                .append(service.friendMemoryService().promptText(userID)).append("\n\n")
                 .append("【跨群短期记忆】\n").append(service.shortSummary(0L)).append("\n\n")
                 .append("【跨群长期记忆】\n").append(service.longMemoryText(0L,userID,current)).append("\n\n")
                 .append("【私聊长期记忆】\n")

@@ -63,6 +63,7 @@ public class RoleplayService {
     private final RoleplayActionService actionService;
     private final RoleplayEmotionService emotionService;
     private final RoleplayMemberService memberService;
+    private final RoleplayFriendMemoryService friendMemoryService;
     private final RoleplayBlacklistService blacklistService;
     private final RoleplayQuietService quietService;
     private final RoleplayReplyFeedbackService replyFeedbackService;
@@ -294,6 +295,7 @@ public class RoleplayService {
         this.knowledgeService = new RoleplayKnowledgeService(plugin,config);
         this.actionService = new RoleplayActionService(plugin);
         this.memberService = new RoleplayMemberService(plugin,config);
+        this.friendMemoryService = new RoleplayFriendMemoryService(plugin,config,this);
         this.emotionService = new RoleplayEmotionService(plugin,config,persona,this,memberService);
         this.blacklistService = new RoleplayBlacklistService(plugin);
         this.quietService = new RoleplayQuietService(plugin,config);
@@ -360,6 +362,7 @@ public class RoleplayService {
         knowledgeService.init();
         emotionService.init();
         memberService.init();
+        friendMemoryService.init();
         blacklistService.init();
         quietService.init();
         replyFeedbackService.init();
@@ -370,6 +373,7 @@ public class RoleplayService {
         toolTurnService.init();
         threadService.init();
         privateChatService.init();
+        friendMemoryService.scheduleBackfill();
         randomTickService.init();
         attentionService.reload(config);
         executorService.ensureTurnExecutor();
@@ -394,7 +398,9 @@ public class RoleplayService {
         knowledgeService.reload(config);
         emotionService.reload(config,persona);
         memberService.reload(config);
+        friendMemoryService.reload(config);
         privateChatService.reload(config);
+        friendMemoryService.scheduleBackfill();
         randomTickService.reload(config);
         quietService.reload(config);
         replyFeedbackService.reload(config);
@@ -757,6 +763,10 @@ public class RoleplayService {
         return memberService;
     }
 
+    RoleplayFriendMemoryService friendMemoryService() {
+        return friendMemoryService;
+    }
+
     RoleplayGlobalMemoryService globalMemoryService() {
         return globalMemoryService;
     }
@@ -812,6 +822,10 @@ public class RoleplayService {
 
     public RoleplayMemberService getMemberService() {
         return memberService;
+    }
+
+    public RoleplayFriendMemoryService getFriendMemoryService() {
+        return friendMemoryService;
     }
 
     RoleplayTodoService todoService() {

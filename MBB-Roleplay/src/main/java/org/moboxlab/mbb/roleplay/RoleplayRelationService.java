@@ -1,5 +1,7 @@
 package org.moboxlab.mbb.roleplay;
 
+import com.alibaba.fastjson.JSONObject;
+
 import java.util.List;
 
 /**
@@ -23,6 +25,56 @@ public class RoleplayRelationService {
         relation.affinity = service.clampDouble(relation.dayBaseAffinity
                 + service.clampDouble(relation.dayDeltaAffinity,-cap,cap),0,100);
         return relation.affinity - old;
+    }
+
+    /**
+     * 好感度按用户跨群共享，已有多个群时统一取最高值。
+     */
+    void normalizeSharedAffinity() {
+        List<JSONObject> rows = service.storage().query(
+                "SELECT `userID`,MAX(`affinity`) AS `maxAffinity` FROM `"
+                        +RoleplayEmotionService.RELATION_TABLE+"` WHERE `groupID`>0 "
+                        +"GROUP BY `userID` HAVING COUNT(*)>1");
+        if (rows == null || rows.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        for (JSONObject row : rows) {
+            double highest = row.getDoubleValue("maxAffinity");
+            service.storage().update("UPDATE `"+RoleplayEmotionService.RELATION_TABLE+"` "
+                            +"SET `affinity`=?,`dayBaseAffinity`=?,`dayDeltaAffinity`=0,`updateTime`=? "
+                            +"WHERE `userID`=? AND `affinity`<?",
+                    highest,highest,now,row.getLongValue("userID"),highest);
+        }
+    }
+
+    void enforceSharedAffinity(RoleplayEmotionService.RelationState relation) {
+        if (relation == null || relation.userID <= 0 || relation.groupID <= 0) return;
+        if (isFullRelationUser(relation.userID)) return;
+        JSONObject row = service.storage().queryOne(
+                "SELECT MAX(`affinity`) AS `maxAffinity` FROM `"
+                        +RoleplayEmotionService.RELATION_TABLE+"` WHERE `userID`=?",
+                relation.userID);
+        double highest = highestAffinity(relation.affinity,
+                row == null ? 0.0 : row.getDoubleValue("maxAffinity"));
+        long now = System.currentTimeMillis();
+        if (highest > relation.affinity) {
+            normalizeDay(relation,now);
+            relation.affinity = highest;
+            relation.dayBaseAffinity = highest;
+            relation.dayDeltaAffinity = 0;
+            relation.emotionLabel = service.relationLabel(relation);
+            relation.updateTime = now;
+            service.emotionStateRepository().saveRelation(relation);
+        }
+        service.storage().update("UPDATE `"+RoleplayEmotionService.RELATION_TABLE+"` "
+                        +"SET `affinity`=?,`dayBaseAffinity`=?,`dayDeltaAffinity`=0,`updateTime`=? "
+                        +"WHERE `userID`=? AND `affinity`<?",
+                relation.affinity,relation.affinity,now,relation.userID,relation.affinity);
+    }
+
+    static double highestAffinity(double current,double candidate) {
+        double safeCurrent = Double.isNaN(current) ? 0.0 : Math.max(0,Math.min(100,current));
+        double safeCandidate = Double.isNaN(candidate) ? 0.0 : Math.max(0,Math.min(100,candidate));
+        return Math.max(safeCurrent,safeCandidate);
     }
 
     double applyDailyTrust(RoleplayEmotionService.RelationState relation,double delta,long now) {

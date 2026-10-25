@@ -54,6 +54,7 @@
 
 | `/role member [QQ\|@群友]` | `BOT_ADMIN` | 查看角色对某个群员的个人印象，不填参数则看自己 |
 | `/role member clear <QQ\|@群友>` | `BOT_ADMIN` | 清空对某个群员的个人印象 |
+| `/role member friendclear <QQ\|@群友>` | `BOT_ADMIN` | 清空指定用户的好友长期记忆 |
 | `/role mood [页码]` | `BOT_ADMIN` | 以图片查看当前群情绪和情绪事件 |
 | `/role mood reset` | `OWNER` | 将当前群情绪重置到角色基线 |
 | `/role emotion [QQ\|@群友] [页码]` | `BOT_ADMIN` | 以图片查看指定用户的关系、情绪原因和变化记录 |

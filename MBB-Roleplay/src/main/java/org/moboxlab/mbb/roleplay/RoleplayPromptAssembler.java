@@ -322,6 +322,9 @@ public class RoleplayPromptAssembler {
         List<String> requested = decision == null ? new ArrayList<>() : decision.materials;
         String memoryQuery = memoryQuery(messageText,decision);
         List<RoleplayMaterial> materials = new ArrayList<>();
+        materials.add(new RoleplayMaterial("friend.memory",true,92,
+                config.friendMemoryInjectMaxChars,
+                () -> service.friendMemoryService().promptText(userID)));
         materials.add(new RoleplayMaterial("member.profile",true,91,600,
                 () -> service.memberService().promptText(groupID,userID)));
         materials.add(new RoleplayMaterial("context.recent",true,89,2500,

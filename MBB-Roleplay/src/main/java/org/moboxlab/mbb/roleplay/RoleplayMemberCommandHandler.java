@@ -43,6 +43,21 @@ public class RoleplayMemberCommandHandler {
                     : "没有找到 "+targetID+" 的个人印象。");
             return;
         }
+        if ("friendclear".equals(action)) {
+            if (args.length < 4) {
+                sender.sendMessage("用法：/role member friendclear <QQ|@群友>");
+                return;
+            }
+            long targetID = command.parseUserID(args[3]);
+            if (targetID <= 0) {
+                sender.sendMessage("QQ 格式不正确。");
+                return;
+            }
+            sender.sendMessage(command.service().getFriendMemoryService().remove(targetID)
+                    ? "已清空对 "+targetID+" 的好友长期记忆。"
+                    : "没有找到 "+targetID+" 的好友长期记忆。");
+            return;
+        }
         long userID = sender.getUserID();
         if (args.length > 2 && !action.isEmpty()) {
             userID = command.parseUserID(args[2]);
@@ -52,15 +67,25 @@ public class RoleplayMemberCommandHandler {
             }
         }
         JSONObject profile = command.service().getMemberService().profile(groupID,userID);
-        if (profile == null) {
+        String friendMemory = command.service().getFriendMemoryService().promptText(userID);
+        if (profile == null && friendMemory.isEmpty()) {
             sender.sendMessage("还没有对 "+userID+" 的个人印象。");
             return;
         }
-        sender.sendMessage("对 "+userID+"（"+profile.getString("userName")+"）的个人印象："
-                +"\n称呼："+command.orDash(profile.getString("alias"))
-                +"\n喜欢："+command.orDash(profile.getString("likes"))
-                +"\n不喜欢："+command.orDash(profile.getString("dislikes"))
-                +"\n相处方式："+command.orDash(profile.getString("notes")));
+        StringBuilder builder = new StringBuilder();
+        builder.append("对 ").append(userID);
+        if (profile != null) {
+            builder.append("（").append(profile.getString("userName")).append("）");
+        }
+        builder.append(" 的个人印象：");
+        if (profile != null) {
+            builder.append("\n称呼：").append(command.orDash(profile.getString("alias")))
+                    .append("\n喜欢：").append(command.orDash(profile.getString("likes")))
+                    .append("\n不喜欢：").append(command.orDash(profile.getString("dislikes")))
+                    .append("\n相处方式：").append(command.orDash(profile.getString("notes")));
+        }
+        if (!friendMemory.isEmpty()) builder.append("\n\n").append(friendMemory);
+        sender.sendMessage(builder.toString());
     }
 
     void handleHelp(CommandSender sender,String[] args) {
@@ -111,6 +136,8 @@ public class RoleplayMemberCommandHandler {
                     +"\n/role memory [页码|merge|backup|backups|restore <文件名>]"
                     +"\n/role memory timeline [页码]"
                     +"\n/role memory conflicts [条数]"
+                    +"\n/role member [QQ|@群友]"
+                    +"\n/role member friendclear <QQ|@群友>"
                     +"\n/role gmemory [页码|backup|merge|group ...]"
                     +"\n/role forget"
                     +"\n/role review [now]");
