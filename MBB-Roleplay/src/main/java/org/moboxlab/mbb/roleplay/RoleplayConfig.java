@@ -151,6 +151,8 @@ public class RoleplayConfig {
     public boolean trainIncludeBotMessages = false;
     public boolean trainAutoStart = true;
     public int messageBatchWindowSecond = 2;
+    public String messageBatchDebounceMode = "natural";
+    public int messageBatchMaxWaitSecond = 8;
     public int messageBatchMaxMessages = 10;
     public int messageBatchMaxAgeSecond = 20;
     public int batchMaxSegments = 4;
@@ -569,6 +571,10 @@ public class RoleplayConfig {
         config.trainIncludeBotMessages = plugin.getConfig().getBoolean("trainIncludeBotMessages",false);
         config.trainAutoStart = plugin.getConfig().getBoolean("trainAutoStart",true);
         config.messageBatchWindowSecond = plugin.getConfig().getInt("messageBatchWindowSecond",2);
+        config.messageBatchDebounceMode =
+                plugin.getConfig().getString("messageBatchDebounceMode","natural");
+        config.messageBatchMaxWaitSecond =
+                plugin.getConfig().getInt("messageBatchMaxWaitSecond",8);
         config.messageBatchMaxMessages = plugin.getConfig().getInt("messageBatchMaxMessages",10);
         config.messageBatchMaxAgeSecond = plugin.getConfig().getInt("messageBatchMaxAgeSecond",20);
         config.batchMaxSegments = plugin.getConfig().getInt("batchMaxSegments",4);
@@ -971,6 +977,16 @@ public class RoleplayConfig {
         if (config.stickerSendChance > 1) config.stickerSendChance = 1;
         if (config.messageBatchWindowSecond < 1) config.messageBatchWindowSecond = 1;
         if (config.messageBatchWindowSecond > 10) config.messageBatchWindowSecond = 10;
+        if (config.messageBatchDebounceMode == null) config.messageBatchDebounceMode = "natural";
+        config.messageBatchDebounceMode = config.messageBatchDebounceMode.trim().toLowerCase();
+        if (!"off".equals(config.messageBatchDebounceMode)
+                && !"fast".equals(config.messageBatchDebounceMode)
+                && !"natural".equals(config.messageBatchDebounceMode)
+                && !"steady".equals(config.messageBatchDebounceMode)) {
+            config.messageBatchDebounceMode = "natural";
+        }
+        if (config.messageBatchMaxWaitSecond < 1) config.messageBatchMaxWaitSecond = 1;
+        if (config.messageBatchMaxWaitSecond > 30) config.messageBatchMaxWaitSecond = 30;
         if (config.messageBatchMaxMessages < 2) config.messageBatchMaxMessages = 2;
         if (config.messageBatchMaxMessages > 50) config.messageBatchMaxMessages = 50;
         if (config.learnDirectory == null || config.learnDirectory.trim().isEmpty()) {

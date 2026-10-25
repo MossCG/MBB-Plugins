@@ -211,6 +211,10 @@ stickerSendChance: 0.35
 messageBatchEnable: true
 #合批窗口秒数，窗口内到达的新消息会并入同一批
 messageBatchWindowSecond: 2
+#自适应防抖档位：off / fast / natural / steady
+messageBatchDebounceMode: natural
+#单批从第一条消息开始的绝对等待上限秒数，防止连续发言无限延长
+messageBatchMaxWaitSecond: 8
 #单个批次最多合并多少条消息，超出时丢弃最旧的非直接点名消息
 messageBatchMaxMessages: 10
 #合批消息最多等待多少秒，超过且没有点名时直接丢弃，0 表示不丢弃

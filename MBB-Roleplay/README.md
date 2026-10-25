@@ -39,7 +39,7 @@ flowchart TD
 
     T0 --> GATE{"插件开关 + 群级开关"}
     GATE -->|关闭| END0["本轮结束"]
-    GATE -->|开启| BATCH["按群合批窗口（默认 2 秒）"]
+    GATE -->|开启| BATCH["按群自适应消息防抖（默认 natural）"]
 
     BATCH --> SERIAL["同群串行：同一时刻只有一个回合"]
     SERIAL --> PREP["准备阶段 prepareMessage()"]

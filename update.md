@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.10.0.2213 | 2026-10-25 | `MBB-Roleplay` 新增自适应消息防抖：`messageBatchDebounceMode` 支持 `off / fast / natural / steady`，按群活跃度、同一用户续发或换人、直接点名/引用、纯图片或纯表情包首包动态计算等待；后续纯媒体只并入批次，不再继续延长窗口。新增 `messageBatchMaxWaitSecond`（默认 8 秒）作为从第一条消息开始的绝对等待上限，`messageBatchWindowSecond` 继续作为单次等待上限。发送新消息时会通过批次 generation 让旧定时任务失效并重新计时，原有同群串行、处理期间消息进入下一批、点名优先保留和过期过滤保持不变。新增防抖档位、活跃度、续发、点名、媒体首包和窗口上限测试。 |
 | V0.13.9.0.2210 | 2026-10-25 | `MBB-Roleplay` 新增群级结构化上下文压缩：记忆整理和每日复盘会把当前会话增量压缩为 `topics / background / progress / pending / agreements` 五段，写入独立表 `plugin_mbb_roleplay_context_state`，并在回复提示词中作为 `context.structured` 动态资料注入。跨群短期摘要继续保留，负责跨群背景；结构化状态只描述当前群，避免再次串群。旧数据和旧模型输出没有 `context` 字段时，会把短期摘要回退成背景，不删除或覆盖原短期记忆。新增 `structuredContextEnable`、`structuredContextMaxChars`、`structuredContextItemMaxChars`，备份格式升级到 v5 并兼容旧备份；`/role forget` 会同步清理结构化上下文。新增清洗、去重、限长、JSON 往返和旧摘要回退测试。 |
 | V0.13.8.0.2205 | 2026-10-25 | `MBB-AI` 新增按调用点拆分的模型用量统计表 `plugin_mbb_ai_usage_task`，维度为日期、profile、模型、任务名和 Prompt 版本指纹，记录请求/成功/失败、输入/输出/总 Token、耗时、服务端缓存 Token，并在 `/ai usage` 图片中展示调用点、版本、请求、Token、缓存率和成功率；旧 `plugin_mbb_ai_usage` 总表保留并继续双写，兼容既有历史数据。`chat` / `complete` 新增可选 `taskName`、`promptVersion`，本地缓存键同步包含这两个字段。`MBB-Roleplay` 为主回复、路由、复核、私聊、随机刻、记忆、情绪、提醒、生图和评测等全部 AI 调用点补齐任务标签；主回复使用稳定提示词段生成版本指纹，辅助任务使用提示词构建类字节指纹，避免时间、情绪、记忆等动态系统内容让版本每轮变化。新增 SQLite 真实聚合、统计图尺寸和模板指纹回归测试。 |
 | V0.13.7.0.2143 | 2026-10-25 | `MBB-Roleplay` 随机刻的 `group_topic` 目标群改为按角色群活跃度加权：统计最近 24 小时角色在每个活跃群的发言量，最活跃群权重 `1.0`，其他群按比例缩放，并统一保留 `0.25` 基础权重后再抽样，兼顾主要活跃群与冷门群机会。群上下文隔离、按群独立会话和正常心情句号规则保持不变。 |

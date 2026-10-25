@@ -150,6 +150,8 @@ stickerAttachWaitUntilNextMessage: true
 stickerSendChance: 0.35
 messageBatchEnable: true
 messageBatchWindowSecond: 2
+messageBatchDebounceMode: natural
+messageBatchMaxWaitSecond: 8
 messageBatchMaxMessages: 10
 messageBatchMaxAgeSecond: 20
 batchMaxSegments: 4
@@ -414,6 +416,9 @@ quietReplyEnable: true
 `topics / background / progress / pending / agreements` 五段，回复时作为独立的当前群动态资料注入。
 `structuredContextMaxChars` 控制整段上限，默认 `1800`；`structuredContextItemMaxChars`
 控制单条上限，默认 `160`。跨群短期摘要仍然独立保留，结构化上下文不会读取其他群的待办或话题。
+`messageBatchDebounceMode` 默认 `natural`，可选 `off / fast / natural / steady`；活跃群、
+同一用户续发、换人、直接点名和纯媒体首包会得到不同等待时间。`messageBatchWindowSecond`
+限制单次等待，`messageBatchMaxWaitSecond` 限制整批从第一条消息开始的总等待，默认 8 秒。
 学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，
 所以扩大窗口不会把整份图鉴重复带进每条请求。
 

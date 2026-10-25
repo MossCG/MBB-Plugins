@@ -139,6 +139,7 @@ public class RoleplayService {
     final Map<Long,List<GroupMessageEvent>> batchBufferMap = new HashMap<>();
     final Map<Long,Integer> batchGenerationMap = new HashMap<>();
     final Map<Long,Long> batchBufferStartMap = new HashMap<>();
+    final Map<Long,Boolean> batchCollectingMap = new HashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(

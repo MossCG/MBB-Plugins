@@ -26,22 +26,30 @@ public class RoleplayBatchScheduler {
             return;
         }
         if (service.toolLoopService().captureLiveMessage(event)) return;
-        boolean scheduled = false;
+        boolean scheduled;
+        boolean meaningfulText = service.hasMeaningfulText(event.getMessage());
+        boolean pureMedia = !meaningfulText
+                && (service.hasImageContent(event.getMessage())
+                || service.hasStickerContent(event.getMessage()));
         synchronized (service.groupQueueLock) {
             List<GroupMessageEvent> buffer = service.batchBufferMap.get(groupID);
             if (buffer == null) {
                 buffer = new ArrayList<>();
                 service.batchBufferMap.put(groupID,buffer);
                 service.batchBufferStartMap.put(groupID,System.currentTimeMillis());
+                boolean busy = Boolean.TRUE.equals(service.groupBusyMap.get(groupID));
+                service.batchCollectingMap.put(groupID,!busy);
+                if (!busy) service.groupBusyMap.put(groupID,true);
+                scheduled = !busy;
+            } else {
+                //后续纯表情包或裸图只并入已攒批次，不再把等待窗口继续往后推
+                scheduled = Boolean.TRUE.equals(service.batchCollectingMap.get(groupID))
+                        && (!pureMedia || buffer.isEmpty());
             }
             if (buffer.size() >= service.config().messageBatchMaxMessages) {
                 dropOldestBatchMessage(buffer);
             }
             buffer.add(event);
-            if (!Boolean.TRUE.equals(service.groupBusyMap.get(groupID))) {
-                service.groupBusyMap.put(groupID,true);
-                scheduled = true;
-            }
         }
         if (!service.hasImageContent(event.getMessage()) && !service.hasStickerContent(event.getMessage())) {
             service.wakePendingTurnForUser(groupID,event);
@@ -98,19 +106,37 @@ public class RoleplayBatchScheduler {
         int generation;
         long delaySeconds;
         synchronized (service.groupQueueLock) {
+            List<GroupMessageEvent> buffer = service.batchBufferMap.get(groupID);
+            if (buffer == null || buffer.isEmpty()) return;
+            service.batchCollectingMap.put(groupID,true);
             Integer current = service.batchGenerationMap.get(groupID);
             generation = current == null ? 1 : current + 1;
             service.batchGenerationMap.put(groupID,generation);
-            long window = service.config().messageBatchEnable
-                    ? service.config().messageBatchWindowSecond * 1000L : 0L;
             Long start = service.batchBufferStartMap.get(groupID);
-            if (window <= 0) {
+            if (!service.config().messageBatchEnable) {
                 delaySeconds = 0;
-            } else if (start == null) {
-                delaySeconds = (window + 999) / 1000;
             } else {
-                long remain = window - (System.currentTimeMillis() - start);
-                delaySeconds = remain <= 0 ? 0 : (remain + 999) / 1000;
+                long now = System.currentTimeMillis();
+                GroupMessageEvent latest = buffer.get(buffer.size() - 1);
+                int size = buffer.size();
+                boolean sameUser = size > 1
+                        && buffer.get(size - 2).getUserID() == latest.getUserID();
+                boolean direct = isBatchMessageImportant(latest);
+                boolean initialMediaOnly = size == 1
+                        && (service.hasImageContent(latest.getMessage())
+                        || service.hasStickerContent(latest.getMessage()))
+                        && !service.hasMeaningfulText(latest.getMessage());
+                long delayMs = RoleplayMessageDebounce.delayMillis(
+                        service.config().messageBatchDebounceMode,size,
+                        service.isGroupActive(groupID),sameUser,direct,initialMediaOnly,
+                        service.config().messageBatchWindowSecond);
+                if (service.config().messageBatchMaxWaitSecond > 0 && start != null) {
+                    long maxRemain = service.config().messageBatchMaxWaitSecond * 1000L
+                            - (now - start);
+                    if (maxRemain <= 0) delayMs = 0;
+                    else delayMs = Math.min(delayMs,maxRemain);
+                }
+                delaySeconds = delayMs <= 0 ? 0 : (delayMs + 999) / 1000;
             }
         }
         final int expected = generation;
@@ -124,6 +150,7 @@ public class RoleplayBatchScheduler {
             Integer current = service.batchGenerationMap.get(groupID);
             if (current == null || current != generation) return;
             batch = service.batchBufferMap.remove(groupID);
+            service.batchCollectingMap.remove(groupID);
         }
         final List<GroupMessageEvent> taken = batch;
         service.submitTurn(() -> runBatchTurn(groupID,taken));
@@ -158,6 +185,7 @@ public class RoleplayBatchScheduler {
                 service.batchBufferMap.remove(groupID);
                 service.batchGenerationMap.remove(groupID);
                 service.batchBufferStartMap.remove(groupID);
+                service.batchCollectingMap.remove(groupID);
                 service.groupBusyMap.remove(groupID);
             }
         }
