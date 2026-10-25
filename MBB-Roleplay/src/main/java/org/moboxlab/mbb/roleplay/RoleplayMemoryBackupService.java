@@ -30,11 +30,12 @@ public class RoleplayMemoryBackupService {
         try {
             File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
-            root.put("version",4);
+            root.put("version",5);
             root.put("type","mbb-roleplay-memory-backup");
             root.put("createTime",System.currentTimeMillis());
             root.put("reason",service.safe(reason));
             root.put("shortTerm",exportShortTerm());
+            root.put("structuredContext",service.contextCompactor().exportAll());
             root.put("longTerm",exportLongTerm());
             root.put("globalMemory",service.globalMemoryService().exportAll());
             root.put("emotion",service.emotionService().exportState());
@@ -97,6 +98,7 @@ public class RoleplayMemoryBackupService {
                 return result;
             }
             JSONArray shortTerm = root.getJSONArray("shortTerm");
+            JSONArray structuredContext = root.getJSONArray("structuredContext");
             JSONArray longTerm = root.getJSONArray("longTerm");
             JSONArray globalMemory = root.getJSONArray("globalMemory");
             JSONObject emotion = root.getJSONObject("emotion");
@@ -105,23 +107,27 @@ public class RoleplayMemoryBackupService {
             backupAllMemories("before-restore-"+name);
             service.storage().update("DELETE FROM `"+RoleplayService.MEMORY_TABLE+"`");
             service.storage().update("DELETE FROM `"+RoleplayService.STATE_TABLE+"`");
+            service.contextCompactor().clearAll();
             service.globalMemoryService().replaceAll(globalMemory);
             service.emotionService().restoreState(emotion);
             service.blacklistService().restoreAll(blacklist);
             service.memberService().restoreAll(member);
             int shortSaved = restoreShortTerm(shortTerm);
+            int contextSaved = service.contextCompactor().restoreAll(structuredContext);
+            if (contextSaved == 0) contextSaved = service.contextCompactor().recoverLegacySummaries();
             int longSaved = restoreLongTerm(longTerm);
             service.clearRuntimeMemoryState();
             result.put("status",true);
             result.put("message","记忆已恢复。");
             result.put("shortTerm",shortSaved);
+            result.put("structuredContext",contextSaved);
             result.put("longTerm",longSaved);
             result.put("globalMemory",globalMemory == null ? 0 : globalMemory.size());
             result.put("emotion",emotion != null);
             result.put("blacklist",blacklist == null ? 0 : blacklist.size());
             result.put("member",member == null ? 0 : member.size());
             service.plugin().getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
-                    +" 条，长期 "+longSaved+" 条，永久 "
+                    +" 条，结构化上下文 "+contextSaved+" 条，长期 "+longSaved+" 条，永久 "
                     +(globalMemory == null ? 0 : globalMemory.size())+" 条");
             return result;
         } catch (Exception e) {

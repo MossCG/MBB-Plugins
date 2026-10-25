@@ -89,8 +89,13 @@ public class RoleplayDailyReviewService {
             messages.add(service.message("system","你是角色扮演插件的每日复盘器。角色："+service.getRoleName()
                     +"。把下面一天内的群聊整理成一条短期记忆，保留主要话题、群内氛围、角色自己做过的事、"
                     +"群友之间的重要互动和有长期价值的信息；忽略零碎寒暄、重复内容、广告、图片和表情。"
-                    +"只输出 JSON，不要 Markdown：{\"shortTerm\":\"整理后的短期记忆\"}。"
-                    +"已有短期记忆如下：\n"+service.shortSummary(groupID)));
+                    +"同时更新当前群的结构化上下文：topics 是仍在进行的话题，background 是接续对话必须知道的前提，"
+                    +"progress 是已确认的进展或结论，pending 是还没完成的请求或待办，agreements 是明确同意过的做法。"
+                    +"已解决的事项要从 pending 移除；没有内容的字段返回空数组。"
+                    +"只输出 JSON，不要 Markdown：{\"shortTerm\":\"整理后的短期记忆\","
+                    +"\"context\":{\"topics\":[],\"background\":[],\"progress\":[],\"pending\":[],\"agreements\":[]}}。"
+                    +"已有短期记忆如下：\n"+service.shortSummary(groupID)
+                    +"\n\n已有结构化上下文如下：\n"+service.contextCompactor().modelText(groupID)));
             messages.add(service.message("user",transcript.toString()));
             JSONObject params = new JSONObject(true);
             String profile = config.memoryProfile == null || config.memoryProfile.trim().isEmpty()
@@ -118,6 +123,7 @@ public class RoleplayDailyReviewService {
                 return;
             }
             service.saveMemoryState(groupID,summary,lastTime,lastID);
+            service.contextCompactor().saveFromModel(groupID,parsed,lastID);
             plugin.getLogger().sendInfo("[复盘] 群"+groupID+" 每日复盘完成，短期记忆"
                     +summary.length()+"字");
         } catch (Exception e) {

@@ -163,7 +163,9 @@ public class RoleplayMemoryUpdateService {
                 +"“别人对角色做过/说过”和“角色对别人的印象”，不要把群友视角当成角色自己的经历。"
                 +(retry ? "上一次输出无法解析。现在必须只输出一个合法 JSON 对象，"
                 +"不要输出任何解释、标题、Markdown、代码块或思考过程。" : "只输出 JSON，不要 Markdown。")
-                +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\",\"longTerm\":["
+                +"格式：{\"shortTerm\":\"近几天事件、群友日常、角色正在做的事\","
+                +"\"context\":{\"topics\":[],\"background\":[],\"progress\":[],\"pending\":[],\"agreements\":[]},"
+                +"\"longTerm\":["
                 +"{\"type\":\"user_event|group_atmosphere|meme|self_action|topic\","
                 +"\"subjectID\":0,\"content\":\"记忆内容\",\"importance\":1}]}。"
                 +"群员的称呼、喜好、性格这类人物属性由单独的群员印象维护，不要写进 longTerm；"
@@ -174,6 +176,11 @@ public class RoleplayMemoryUpdateService {
                 +"longTerm 最多输出 20 条。只记录有长期价值的信息，忽略普通寒暄、重复聊天和表情。"
                 +"如果一条记忆对应明确发生的事件，content 里必须带上发生时间，例如“2026-10-05 22:28 老师提到...”；"
                 +"shortTerm 也按时间顺序概括近几天发生的事，不要写成没有时间线索的流水账。"
+                +"context 只描述当前群这段会话本身，每项用短句：topics 是仍在进行的话题，"
+                +"background 是接续对话必须知道的前提，progress 是已经确认的进展或结论，"
+                +"pending 是还没完成的请求或待办，agreements 是双方明确同意过的做法。"
+                +"必须在已有结构化上下文上增量更新：已解决的事项从 pending 移除，"
+                +"已经确定的内容写入 progress，不要把普通寒暄写进去；没有内容的字段返回空数组。"
                 +"不要把“角色正在写第几幕、改第几张画稿、赶稿进度”这类临时工作状态写成 longTerm；"
                 +"这类内容最多作为 shortTerm 的临时背景，并说明只在相关话题出现时提及，不要写成角色每轮都处于该状态。"
                 +"如果输入中包含“角色主动标记的记忆内容”，必须优先把其中的长期价值整理进 longTerm。"
@@ -188,7 +195,8 @@ public class RoleplayMemoryUpdateService {
                 +"只记录角色学到的说话方式、语气、生活习惯、群梗、注意事项和经验教训；"
                 +"游戏设定、专有名词、剧情事实由知识库负责，不要写进 globalMemory；"
                 +"不要记录个人隐私或用户专属信息；没有可学内容时返回空数组。" : "")
-                +"不要重复已有记忆；已有短期记忆如下：\n"+service.shortSummary(groupID);
+                +"不要重复已有记忆；已有短期记忆如下：\n"+service.shortSummary(groupID)
+                +"\n\n已有结构化上下文如下：\n"+service.contextCompactor().modelText(groupID);
     }
 
     /**
@@ -263,10 +271,13 @@ public class RoleplayMemoryUpdateService {
                 }
             }
         }
+        long lastMessageID = 0L;
         if (!rows.isEmpty()) {
             JSONObject lastRow = rows.get(rows.size() - 1);
-            service.saveMemoryState(groupID,shortTerm,lastRow.getLongValue("messageTime"),lastRow.getLongValue("ID"));
+            lastMessageID = lastRow.getLongValue("ID");
+            service.saveMemoryState(groupID,shortTerm,lastRow.getLongValue("messageTime"),lastMessageID);
         }
+        service.contextCompactor().saveFromModel(groupID,parsed,lastMessageID);
         service.plugin().getLogger().sendInfo("[记忆] 群"+groupID+" 整理完成：消息"+rows.size()
                 +"条，长期记忆"+saved+"条，永久记忆"+globalSaved+"条，短期记忆"+shortTerm.length()+"字");
         return true;

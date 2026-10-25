@@ -71,6 +71,9 @@ public class RoleplayConfig {
     public int splitMessageSuppressMaxChars = 20;
     public int shortContextMessages = 200;
     public int shortContextMaxChars = 12000;
+    public boolean structuredContextEnable = true;
+    public int structuredContextMaxChars = 1800;
+    public int structuredContextItemMaxChars = 160;
     public int shortTermDays = 3;
     public int memoryUpdateMessages = 50;
     public int memoryExtractMessages = 300;
@@ -457,6 +460,12 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("splitMessageSuppressMaxChars",20);
         config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",200);
         config.shortContextMaxChars = plugin.getConfig().getInt("shortContextMaxChars",12000);
+        config.structuredContextEnable =
+                plugin.getConfig().getBoolean("structuredContextEnable",true);
+        config.structuredContextMaxChars =
+                plugin.getConfig().getInt("structuredContextMaxChars",1800);
+        config.structuredContextItemMaxChars =
+                plugin.getConfig().getInt("structuredContextItemMaxChars",160);
         config.shortTermDays = plugin.getConfig().getInt("shortTermDays",3);
         config.memoryUpdateMessages = plugin.getConfig().getInt("memoryUpdateMessages",50);
         config.memoryExtractMessages = plugin.getConfig().getInt("memoryExtractMessages",300);
@@ -865,6 +874,10 @@ public class RoleplayConfig {
         if (config.shortContextMessages > 500) config.shortContextMessages = 500;
         if (config.shortContextMaxChars < 2000) config.shortContextMaxChars = 2000;
         if (config.shortContextMaxChars > 100000) config.shortContextMaxChars = 100000;
+        if (config.structuredContextMaxChars < 300) config.structuredContextMaxChars = 300;
+        if (config.structuredContextMaxChars > 8000) config.structuredContextMaxChars = 8000;
+        if (config.structuredContextItemMaxChars < 40) config.structuredContextItemMaxChars = 40;
+        if (config.structuredContextItemMaxChars > 500) config.structuredContextItemMaxChars = 500;
         if (config.shortTermDays < 1) config.shortTermDays = 1;
         if (config.memoryUpdateMessages < 5) config.memoryUpdateMessages = 5;
         if (config.memoryExtractMessages < 50) config.memoryExtractMessages = 50;

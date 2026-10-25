@@ -57,6 +57,7 @@ public class RoleplayMemoryCommandHandler {
             }
             sender.sendMessage(result.getString("message")
                     +" 短期 "+result.getIntValue("shortTerm")
+                    +" 条，结构化上下文 "+result.getIntValue("structuredContext")
                     +" 条，长期 "+result.getIntValue("longTerm")
                     +" 条，永久 "+result.getIntValue("globalMemory")+" 条"
                     +(result.getBooleanValue("emotion") ? "，情绪关系已恢复。" : "，备份不含情绪关系。"));

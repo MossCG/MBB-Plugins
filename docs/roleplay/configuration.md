@@ -86,6 +86,9 @@ otherRoleBotReplyChance: 0.50
 maxConsecutiveOtherRoleMessages: 2
 shortContextMessages: 200
 shortContextMaxChars: 12000
+structuredContextEnable: true
+structuredContextMaxChars: 1800
+structuredContextItemMaxChars: 160
 memoryUpdateMessages: 50
 memoryExtractMessages: 300
 memoryExtractMaxChars: 16000
@@ -381,7 +384,7 @@ quietReplyEnable: true
 `topicFatigueEnable` 默认 `true`。插件会按群记录话题疲劳：同一话题在 `topicFatigueWindowMinute` 分钟内出现次数达到 `topicFatigueMinCount`，且角色自己参与达到 `topicFatigueSelfCount` 时，路由层会降权或跳过主动回复；直接点名、引用回复或明确提问仍可打破疲劳。记录保留 `topicFatigueKeepHours` 小时。
 
 `attentionDriftEnable` 默认 `true`，注意力以 0.5 为基线，按 `attentionDecayMinute` 向基线衰减。直接点名和连续参与会提高注意力，低注意力会降低非直接消息的接话概率，高注意力会小幅提高。
-`dailyReviewEnable` 默认 `true`，每天 `dailyReviewHour`（默认 4 点，本地时区）对当天群聊做一次复盘，把主要话题、氛围和角色行为压成一条短期记忆；`/role review now` 可以手动触发。
+`dailyReviewEnable` 默认 `true`，每天 `dailyReviewHour`（默认 4 点，本地时区）对当天群聊做一次复盘，把主要话题、氛围和角色行为压成一条短期记忆，同时更新当前群的结构化上下文；`/role review now` 可以手动触发。
 
 `replyFeedbackEnable` 默认 `true`，角色主动发言后在 `replyFeedbackWindowSecond` 秒内出现真人发言就算被接话。累计样本达到 `replyFeedbackMinSamples` 后，反馈会修正非直接消息的回复概率；连续没人接时最多降低 `replyFeedbackMaxPenalty`，经常被接话时最多提高 `replyFeedbackBonus`。
 
@@ -407,6 +410,10 @@ quietReplyEnable: true
 
 `shortContextMessages` 控制即时群聊候选条数，默认 `200`，上限 `500`；
 `shortContextMaxChars` 再按字符预算从新到旧保留，默认 `12000`。
+`structuredContextEnable` 默认 `true`。开启后，记忆整理和每日复盘会把当前群会话增量压缩为
+`topics / background / progress / pending / agreements` 五段，回复时作为独立的当前群动态资料注入。
+`structuredContextMaxChars` 控制整段上限，默认 `1800`；`structuredContextItemMaxChars`
+控制单条上限，默认 `160`。跨群短期摘要仍然独立保留，结构化上下文不会读取其他群的待办或话题。
 学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，
 所以扩大窗口不会把整份图鉴重复带进每条请求。
 

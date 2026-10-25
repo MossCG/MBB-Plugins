@@ -92,6 +92,7 @@ public class RoleplayGroupStatusService {
     public JSONObject memoryStats(long groupID) {
         JSONObject result = status(groupID);
         result.put("shortSummary",service.shortSummary(groupID));
+        result.put("structuredContext",service.contextCompactor().load(groupID).toJson());
         result.put("memories",service.longMemories(groupID,false));
         return result;
     }
@@ -99,6 +100,7 @@ public class RoleplayGroupStatusService {
     public void clearMemory(long groupID) {
         service.storage().update("DELETE FROM `"+RoleplayService.MEMORY_TABLE+"` WHERE `groupID`=?",groupID);
         service.storage().update("DELETE FROM `"+RoleplayService.STATE_TABLE+"` WHERE `groupID`=?",groupID);
+        service.contextCompactor().delete(groupID);
         service.storage().update("DELETE FROM `"+RoleplayService.MSG_TABLE+"` WHERE `groupID`=?",groupID);
         rotateContextToken(groupID);
         service.memoryUpdatingMap.remove(groupID);

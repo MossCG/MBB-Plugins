@@ -97,6 +97,12 @@ splitMessageSuppressMaxChars: 20
 shortContextMessages: 200
 #即时上下文最多注入多少字符，按新到旧保留，避免 200 条长消息把请求撑爆
 shortContextMaxChars: 12000
+#是否把当前群的话题、背景、进展、待办和约定压成结构化上下文
+structuredContextEnable: true
+#结构化上下文最多注入字符数
+structuredContextMaxChars: 1800
+#结构化上下文单条最多字符数
+structuredContextItemMaxChars: 160
 #短期记忆覆盖天数
 shortTermDays: 3
 #每累计多少条消息更新一次记忆

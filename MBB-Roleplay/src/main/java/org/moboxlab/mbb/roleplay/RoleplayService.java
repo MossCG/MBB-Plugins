@@ -47,7 +47,9 @@ public class RoleplayService {
     static final String MEMORY_TABLE = "plugin_mbb_roleplay_memory";
     static final String STATE_TABLE = "plugin_mbb_roleplay_state";
     static final String GROUP_TABLE = "plugin_mbb_roleplay_group";
-    static final String TOPIC_TABLE = "plugin_mbb_roleplay_topic";    /** 引用回复里被引用内容的截断长度 */
+    static final String TOPIC_TABLE = "plugin_mbb_roleplay_topic";
+    static final String CONTEXT_TABLE = "plugin_mbb_roleplay_context_state";
+    /** 引用回复里被引用内容的截断长度 */
 
     /** 分句时优先保留的句末标点 */
 
@@ -69,6 +71,7 @@ public class RoleplayService {
     private final RoleplayDailyReviewService dailyReviewService;
     private final RoleplayMessageSender messageSender;
     private final RoleplayContextService contextService;
+    private final RoleplayContextCompactor contextCompactor;
     private final RoleplayPromptAssembler promptAssembler;
     private final RoleplayMemoryBackupService memoryBackupService;
     private final RoleplayMemoryUpdateService memoryUpdateService;
@@ -296,6 +299,7 @@ public class RoleplayService {
         this.dailyReviewService = new RoleplayDailyReviewService(plugin,config,this);
         this.messageSender = new RoleplayMessageSender(this);
         this.contextService = new RoleplayContextService(this);
+        this.contextCompactor = new RoleplayContextCompactor(this);
         this.promptAssembler = new RoleplayPromptAssembler(this);
         this.memoryBackupService = new RoleplayMemoryBackupService(this);
         this.memoryUpdateService = new RoleplayMemoryUpdateService(this);
@@ -341,6 +345,7 @@ public class RoleplayService {
 
     public void init() {
         schemaService.initSchema();
+        contextCompactor.recoverLegacySummaries();
         reminderService.init();
         todoService.init();
         globalMemoryService.init();
@@ -634,6 +639,10 @@ public class RoleplayService {
 
     RoleplayContextService contextService() {
         return contextService;
+    }
+
+    RoleplayContextCompactor contextCompactor() {
+        return contextCompactor;
     }
 
     RoleplayReplyExecutor replyExecutor() {

@@ -295,6 +295,9 @@ public class RoleplayPromptAssembler {
         materials.add(new RoleplayMaterial("context.otherRoleRecent",true,87,1400,
                 () -> "另一个角色机器人最近说过的话（这不是你自己，不要把对方的话当成自己说过）：\n"
                         +otherRoleReplies));
+        materials.add(new RoleplayMaterial("context.structured",true,86,
+                config.structuredContextMaxChars,
+                () -> service.contextCompactor().promptText(groupID)));
         materials.add(new RoleplayMaterial("memory.short",true,85,3000,
                 () -> shortMemoryPromptText(groupID)));
         materials.add(new RoleplayMaterial("tool.memory",true,83,
@@ -327,7 +330,7 @@ public class RoleplayPromptAssembler {
     }
 
     private String shortMemoryPromptText(long groupID) {
-        return "短期记忆（只是背景；除非当前话题明确相关，否则不要主动提角色正在进行的项目）：\n"
+        return "跨群短期记忆（只是背景；除非当前话题明确相关，否则不要主动提角色正在进行的项目）：\n"
                 +service.shortSummary(groupID);
     }
 

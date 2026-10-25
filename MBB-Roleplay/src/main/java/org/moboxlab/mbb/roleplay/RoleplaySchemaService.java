@@ -74,6 +74,13 @@ public class RoleplaySchemaService {
                 + "`contextToken` TEXT NOT NULL DEFAULT '',"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0"
                 + ")");
+        service.storage().update("CREATE TABLE IF NOT EXISTS `"+RoleplayService.CONTEXT_TABLE+"` ("
+                + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
+                + "`stateJson` TEXT NOT NULL DEFAULT '',"
+                + "`lastMessageID` INTEGER NOT NULL DEFAULT 0,"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0"
+                + ")");
         service.storage().update("CREATE TABLE IF NOT EXISTS `"+RoleplayService.TOPIC_TABLE+"` ("
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "`groupID` INTEGER NOT NULL DEFAULT 0,"
@@ -91,6 +98,8 @@ public class RoleplaySchemaService {
         service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_msg_group` ON `"+RoleplayService.MSG_TABLE+"` (`groupID`,`messageTime`)");
         service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_memory_scope` "
                 + "ON `"+RoleplayService.MEMORY_TABLE+"` (`scopeType`,`memoryStatus`,`updateTime`)");
+        service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_context_update` "
+                + "ON `"+RoleplayService.CONTEXT_TABLE+"` (`updateTime`)");
     }
 
     void ensureColumn(String table,String column,String definition) {
