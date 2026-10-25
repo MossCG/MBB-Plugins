@@ -34,6 +34,12 @@ public class RoleplayListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL,ignoreCancelled = false)
     public void onNotice(NoticeEvent event) {
         if (!plugin.getRoleplayConfig().enable) return;
+        if ("notify".equals(event.getNoticeType())
+                && "input_status".equals(event.getSubType())) {
+            plugin.getServer().getPluginManager().runTask(plugin,
+                    () -> service.handlePrivateInputStatus(event));
+            return;
+        }
         if (!"notify".equals(event.getNoticeType()) && !"poke".equals(event.getNoticeType())) return;
         if (!"poke".equals(event.getSubType())) return;
         if (isPokePluginEnabled()) return;

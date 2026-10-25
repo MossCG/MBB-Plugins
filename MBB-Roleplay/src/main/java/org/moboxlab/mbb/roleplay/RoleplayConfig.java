@@ -336,6 +336,9 @@ public class RoleplayConfig {
     public int privateChatImageDebounceSecond = 4;
     public int privateChatLiveMergeMaxRounds = 2;
     public int privateChatPendingMaxMessages = 10;
+    public boolean privateChatInputStatusEnable = true;
+    public int privateChatInputStatusGraceSecond = 3;
+    public int privateChatInputStatusMaxWaitSecond = 10;
     public boolean randomTickEnable = true;
     public int randomTickMinMinute = 10;
     public int randomTickMaxMinute = 30;
@@ -838,6 +841,12 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("privateChatLiveMergeMaxRounds",2);
         config.privateChatPendingMaxMessages =
                 plugin.getConfig().getInt("privateChatPendingMaxMessages",10);
+        config.privateChatInputStatusEnable =
+                plugin.getConfig().getBoolean("privateChatInputStatusEnable",true);
+        config.privateChatInputStatusGraceSecond =
+                plugin.getConfig().getInt("privateChatInputStatusGraceSecond",3);
+        config.privateChatInputStatusMaxWaitSecond =
+                plugin.getConfig().getInt("privateChatInputStatusMaxWaitSecond",10);
         config.randomTickEnable = plugin.getConfig().getBoolean("randomTickEnable",true);
         config.randomTickMinMinute = plugin.getConfig().getInt("randomTickMinMinute",10);
         config.randomTickMaxMinute = plugin.getConfig().getInt("randomTickMaxMinute",30);
@@ -1374,6 +1383,18 @@ public class RoleplayConfig {
         }
         if (config.privateChatPendingMaxMessages > 50) {
             config.privateChatPendingMaxMessages = 50;
+        }
+        if (config.privateChatInputStatusGraceSecond < 1) {
+            config.privateChatInputStatusGraceSecond = 1;
+        }
+        if (config.privateChatInputStatusGraceSecond > 10) {
+            config.privateChatInputStatusGraceSecond = 10;
+        }
+        if (config.privateChatInputStatusMaxWaitSecond < config.privateChatInputStatusGraceSecond) {
+            config.privateChatInputStatusMaxWaitSecond = config.privateChatInputStatusGraceSecond;
+        }
+        if (config.privateChatInputStatusMaxWaitSecond > 60) {
+            config.privateChatInputStatusMaxWaitSecond = 60;
         }
         if (config.randomTickMinMinute < 1) config.randomTickMinMinute = 1;
         if (config.randomTickMinMinute > 1440) config.randomTickMinMinute = 1440;

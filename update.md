@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.16.0.2242 | 2026-10-25 | `MBB-Roleplay` 私聊接入 QQ `input_status`：当该用户已有待回复消息时，每次输入状态都会把发送时间刷新为“最后一次输入状态后 3 秒”，持续输入会继续顺延，但从第一条待回复消息起最多只延后 10 秒，避免客户端不发送停止状态时无限等待。typing 只影响等待，不会取消已经开始的 AI；真实消息到达后仍会立即清空 typing 状态、合并 pending，并在生成期间按已有规则重生成。新增 `privateChatInputStatusEnable`、`privateChatInputStatusGraceSecond`、`privateChatInputStatusMaxWaitSecond`，并补充三秒等待和绝对上限测试。 |
 | V0.13.15.0.2236 | 2026-10-25 | `MBB-Roleplay` 修复私聊补充消息被吞：私聊改为按用户排队，收到纯图片或表情包后先等待 `privateChatImageDebounceSecond`（默认 4 秒），期间补发的文字会立即结束图片等待并合并为同一轮；生成期间到达的新消息进入 pending，不再被 `running` 直接丢弃。若预算允许，会丢弃未发送的旧候选并把新消息合并进当前上下文重生成，默认最多 `privateChatLiveMergeMaxRounds=2` 次；达到上限或发送阶段才到达的消息会在当前回合结束后自动进入下一轮。新增 `privateChatPendingMaxMessages`，并将本轮批次消息从近期私聊上下文中排除，避免重复注入。新增图片防抖策略和队列默认配置测试。 |
 | V0.13.14.0.2230 | 2026-10-25 | `MBB-Roleplay` 在通用稳定提示词中增加低频谐音梗规则：轻松闲聊、接梗和吐槽时略优先尝试“前句成立、末两到四个字突然错位成常见名称或词义”的短收尾，但一轮最多一个、不解释笑点、不复用最近谐音，连续两次没被接住就停止；求助、争执、安慰、隐私、身份和严肃话题禁用。规则只描述结构，不写死具体网络梗，并新增提示词边界回归测试。 |
 | V0.13.13.0.2224 | 2026-10-25 | `MBB-Sticker` 新增 `candidates` 与 `pick` 服务动作：前者按标签、最近使用规避和权重随机返回最多 9 个候选及可用 `file://` 地址，后者按 ID 确认选择并记录使用次数，供视觉选择链路复用。`MBB-Roleplay` 表情包发送新增视觉选择：实际调用表情包工具时先取 2 到 9 个候选，生成带编号、标签和描述的拼图，再让支持图片输入的 AI 结合当前聊天语境选出最合适的一张；候选不足、拼图失败、模型失败或返回非法索引时自动回退原有标签随机发送。新增 `stickerVisionEnable`、`stickerVisionCandidates`、`stickerVisionProfile`、`stickerVisionMaxTokens`、`stickerVisionTimeoutSecond`。新增拼图生成、编号解析、空候选和配置默认值测试。 |

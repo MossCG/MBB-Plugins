@@ -603,6 +603,12 @@ privateChatImageDebounceSecond: 4
 privateChatLiveMergeMaxRounds: 2
 #单个用户等待处理的私聊消息上限
 privateChatPendingMaxMessages: 10
+#是否用 QQ input_status 作为私聊等待参考
+privateChatInputStatusEnable: true
+#最后一次 input_status 后继续等待的秒数
+privateChatInputStatusGraceSecond: 3
+#input_status 最多让一条待回复私聊延后多少秒，防止无限等待
+privateChatInputStatusMaxWaitSecond: 10
 #是否启用随机刻主动互动
 randomTickEnable: true
 #随机刻最短间隔分钟数

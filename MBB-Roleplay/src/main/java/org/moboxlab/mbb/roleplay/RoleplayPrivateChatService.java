@@ -2,6 +2,7 @@ package org.moboxlab.mbb.roleplay;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import org.moboxlab.moboxbot.API.Event.NoticeEvent;
 import org.moboxlab.moboxbot.API.Event.PrivateMessageEvent;
 import org.moboxlab.moboxbot.API.OneBot.MessageUtil;
 import org.moboxlab.moboxbot.API.OneBot.OneBotClient;
@@ -39,6 +40,8 @@ public class RoleplayPrivateChatService {
     private final Object queueLock = new Object();
     private final Map<Long,List<PrivateIncoming>> pendingMap = new HashMap<>();
     private final Map<Long,Integer> generationMap = new HashMap<>();
+    private final Map<Long,Long> pendingStartMap = new HashMap<>();
+    private final Map<Long,Long> typingLastMap = new HashMap<>();
 
     private static class ReplyResult {
         private String text = "";
@@ -112,6 +115,34 @@ public class RoleplayPrivateChatService {
         enqueue(incoming);
     }
 
+    public void handleInputStatus(NoticeEvent event) {
+        if (event == null || !config.enable || !config.privateChatEnable
+                || !config.privateChatInputStatusEnable || event.getGroupID() > 0) return;
+        long userID = event.getUserID();
+        if (userID <= 0 || !allowed(userID)) return;
+        int generation;
+        int delaySeconds;
+        boolean schedule = false;
+        boolean log = false;
+        synchronized (queueLock) {
+            List<PrivateIncoming> pending = pendingMap.get(userID);
+            if (pending == null || pending.isEmpty()) return;
+            long now = System.currentTimeMillis();
+            pendingStartMap.putIfAbsent(userID,now);
+            Long previous = typingLastMap.put(userID,now);
+            log = previous == null || now - previous >= 2000L;
+            if (running.contains(userID)) return;
+            generation = nextGenerationLocked(userID);
+            delaySeconds = typingDelayLocked(userID,now);
+            schedule = true;
+        }
+        if (log) {
+            plugin.getLogger().sendInfo("[私聊] 用户"+userID+" 正在输入，等待最后输入状态后 "
+                    +config.privateChatInputStatusGraceSecond+" 秒再回复");
+        }
+        if (schedule) scheduleFlush(userID,generation,delaySeconds);
+    }
+
     public boolean allowed(long userID) {
         if (userID <= 0) return false;
         if (service.isOwner(userID)) return true;
@@ -160,14 +191,17 @@ public class RoleplayPrivateChatService {
             if (pending == null) {
                 pending = new ArrayList<>();
                 pendingMap.put(userID,pending);
+                pendingStartMap.put(userID,System.currentTimeMillis());
             }
+            if (pending.isEmpty()) pendingStartMap.putIfAbsent(userID,System.currentTimeMillis());
             int max = Math.max(1,config.privateChatPendingMaxMessages);
             while (pending.size() >= max) pending.remove(0);
             pending.add(incoming);
+            typingLastMap.remove(userID);
             pendingCount = pending.size();
             if (!running.contains(userID)) {
                 generation = nextGenerationLocked(userID);
-                delaySeconds = delayForPending(pending);
+                delaySeconds = effectiveDelayLocked(userID,System.currentTimeMillis());
                 schedule = true;
             }
         }
@@ -192,6 +226,8 @@ public class RoleplayPrivateChatService {
             if (current == null || current != generation || running.contains(userID)) return;
             batch = pendingMap.remove(userID);
             if (batch == null || batch.isEmpty()) return;
+            pendingStartMap.remove(userID);
+            typingLastMap.remove(userID);
             running.add(userID);
         }
         service.submitBackground(() -> runBatch(userID,batch));
@@ -245,13 +281,15 @@ public class RoleplayPrivateChatService {
             List<PrivateIncoming> pending = pendingMap.get(userID);
             if (pending == null || pending.isEmpty()) {
                 generationMap.remove(userID);
+                pendingStartMap.remove(userID);
+                typingLastMap.remove(userID);
                 return;
             }
             generation = nextGenerationLocked(userID);
-            delaySeconds = delayForPending(pending);
+            delaySeconds = effectiveDelayLocked(userID,System.currentTimeMillis());
         }
         if (delaySeconds > 0) {
-            plugin.getLogger().sendInfo("[私聊] 用户"+userID+" 图片防抖中，"
+            plugin.getLogger().sendInfo("[私聊] 用户"+userID+" 等待补充输入中，"
                     +delaySeconds+" 秒后处理待回复消息");
         }
         scheduleFlush(userID,generation,delaySeconds);
@@ -269,6 +307,30 @@ public class RoleplayPrivateChatService {
         PrivateIncoming last = pending.get(pending.size() - 1);
         return RoleplayPrivateChatDebounce.delaySeconds(last.hasImage || last.hasSticker,
                 last.hasMeaningfulText,config.privateChatImageDebounceSecond);
+    }
+
+    private int effectiveDelayLocked(long userID,long now) {
+        List<PrivateIncoming> pending = pendingMap.get(userID);
+        if (pending == null || pending.isEmpty()) return 0;
+        int base = delayForPending(pending);
+        Long typing = typingLastMap.get(userID);
+        if (typing == null || typing <= 0) return base;
+        long first = pendingStartMap.containsKey(userID)
+                ? pendingStartMap.get(userID) : typing;
+        int typingDelay = RoleplayPrivateChatDebounce.typingDelaySeconds(typing,first,now,
+                config.privateChatInputStatusGraceSecond,
+                config.privateChatInputStatusMaxWaitSecond);
+        return typingDelay;
+    }
+
+    private int typingDelayLocked(long userID,long now) {
+        Long typing = typingLastMap.get(userID);
+        if (typing == null) return 0;
+        Long first = pendingStartMap.get(userID);
+        return RoleplayPrivateChatDebounce.typingDelaySeconds(typing,
+                first == null ? typing : first,now,
+                config.privateChatInputStatusGraceSecond,
+                config.privateChatInputStatusMaxWaitSecond);
     }
 
     private String buildBatchContent(List<PrivateIncoming> batch) {

@@ -499,6 +499,10 @@ public class RoleplayService {
         privateChatService.handle(event);
     }
 
+    public void handlePrivateInputStatus(org.moboxlab.moboxbot.API.Event.NoticeEvent event) {
+        privateChatService.handleInputStatus(event);
+    }
+
     String enrichPrivateImageContent(org.moboxlab.moboxbot.API.Event.PrivateMessageEvent event,
                                      String content) {
         return imageContextService.enrichPrivateImageContent(event,content);

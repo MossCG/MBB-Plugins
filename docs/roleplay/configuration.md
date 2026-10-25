@@ -117,6 +117,9 @@ privateChatMaxReplyChars: 160
 privateChatImageDebounceSecond: 4
 privateChatLiveMergeMaxRounds: 2
 privateChatPendingMaxMessages: 10
+privateChatInputStatusEnable: true
+privateChatInputStatusGraceSecond: 3
+privateChatInputStatusMaxWaitSecond: 10
 randomTickEnable: true
 randomTickMinMinute: 10
 randomTickMaxMinute: 30
@@ -363,6 +366,11 @@ quietReplyEnable: true
 不会因为同一用户已有任务而直接丢弃。默认允许 `privateChatLiveMergeMaxRounds=2` 次“丢弃旧候选、
 合并新消息后重生成”，发送阶段才到达的内容则在当前回合结束后进入下一轮。
 `privateChatPendingMaxMessages` 控制单个用户最多积压多少条待处理消息。
+
+`privateChatInputStatusEnable` 默认 `true`。当私聊已有待回复消息时，QQ `input_status`
+会把发送时间刷新为“最后一次输入状态后 3 秒”；持续输入会继续顺延，但
+`privateChatInputStatusMaxWaitSecond` 限制从第一条消息开始的绝对等待上限。
+typing 状态不会取消已经开始的 AI，只有真实消息到达才会清空 typing 等待并合并重生成。
 
 `toolEnable` 默认 `true`，通过 `MBB-AI` 的 OpenAI `tools/tool_calls` 执行有限工具循环。
 首轮只开放 `toolCoreTools`，其他工具由 `tool_search` 按需加载，最多同时加载
