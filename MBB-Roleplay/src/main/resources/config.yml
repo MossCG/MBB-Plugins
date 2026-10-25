@@ -629,6 +629,18 @@ randomTickMaxMinute: 30
 randomTickQuietStartHour: 0
 #随机刻静默结束小时
 randomTickQuietEndHour: 8
+#是否向昨日活跃群发主动早安
+randomTickMorningGreetingEnable: true
+#主动早安窗口开始小时
+randomTickMorningStartHour: 8
+#主动早安窗口结束小时
+randomTickMorningEndHour: 10
+#当天是否启用主动早安的概率
+randomTickMorningChance: 0.80
+#每个早晨最多向多少个群发早安
+randomTickMorningMaxGroups: 3
+#昨日至少多少条真人消息才算活跃群
+randomTickMorningMinMessages: 3
 #群主动话题统计窗口分钟数
 randomTickGroupWindowMinute: 360
 #窗口内最多执行多少次群主动话题，0 表示关闭

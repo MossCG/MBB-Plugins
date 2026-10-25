@@ -124,7 +124,7 @@ flowchart TD
 以提高服务端提示词缓存命中率。
 私聊图片会先经过 `MBB-Vision`，私聊长期结论以 `visibility=private` 写入记忆表，只在同一用户的私聊中读取。
 
-`RoleplayRandomTickService` 每隔 10 到 30 分钟检查一次随机刻，`00:00-08:00` 只调度不执行。随机刻先做夜间、去重、群主动频率和 Qzone 日限额判断，再让模型选择 `none / private_owner / group_topic / qzone_post`；`none` 是正常结果。主动群话题由程序从最近 24 小时活跃群中按角色发言量加权选择：最活跃群权重 `1.0`，其他群按比例缩放并保留 `0.25` 基础权重。正文只使用该群自己的近期上下文和群短期摘要，并使用群独立的 AI 会话，禁止把 A 群内容带到 B 群。每天第一次满足条件的随机刻会保底发布一条 Qzone。最近 `randomTickOwnerRecentWindowMinute` 内互动过的 owner 会提高主动私聊优先级，并作为 `private_owner`/Qzone 的优先目标。主动私聊 owner 不做频率限制，主动群话题全局每 6 小时最多 2 次，Qzone 每天最多 2 次。
+`RoleplayRandomTickService` 每隔 10 到 30 分钟检查一次随机刻，`00:00-08:00` 只调度不执行。随机刻先做夜间、去重、群主动频率和 Qzone 日限额判断，再让模型选择 `none / private_owner / group_topic / qzone_post`；`none` 是正常结果。主动群话题由程序从最近 24 小时活跃群中按角色发言量加权选择：最活跃群权重 `1.0`，其他群按比例缩放并保留 `0.25` 基础权重。正文只使用该群自己的近期上下文和群短期摘要，并使用群独立的 AI 会话，禁止把 A 群内容带到 B 群。每天第一次满足条件的随机刻会保底发布一条 Qzone。最近 `randomTickOwnerRecentWindowMinute` 内互动过的 owner 会提高主动私聊优先级，并作为 `private_owner`/Qzone 的优先目标。主动私聊 owner 不做频率限制，主动群话题全局每 6 小时最多 2 次，Qzone 每天最多 2 次。8:00 到 10:00 还会检查主动早安：昨天至少有 3 条真人消息的群按活跃度加权，默认当天有 80% 概率启用，每个早晨最多 3 个群、每个群每天一次，并且每个随机刻只处理一个群。
 
 ## 分层回复
 

@@ -33,5 +33,23 @@ public class RoleplayRandomTickServiceTestMain {
                 || Math.abs(config.randomTickOwnerRecentBoostChance - 0.30) > 0.0001) {
             throw new AssertionError("随机刻 owner 加权默认值不正确");
         }
+        if (!config.randomTickMorningGreetingEnable
+                || config.randomTickMorningStartHour != 8
+                || config.randomTickMorningEndHour != 10
+                || Math.abs(config.randomTickMorningChance - 0.80) > 0.0001
+                || config.randomTickMorningMaxGroups != 3
+                || config.randomTickMorningMinMessages != 3) {
+            throw new AssertionError("主动早安默认配置不正确");
+        }
+        if (!RoleplayRandomTickService.morningInWindow(8,8,10)
+                || !RoleplayRandomTickService.morningInWindow(9,8,10)
+                || RoleplayRandomTickService.morningInWindow(10,8,10)
+                || RoleplayRandomTickService.morningInWindow(7,8,10)) {
+            throw new AssertionError("主动早安时间窗口判断不正确");
+        }
+        if (!RoleplayRandomTickService.contentSessionId("morning_greeting",10001L)
+                .contains("10001")) {
+            throw new AssertionError("主动早安正文会话没有按群隔离");
+        }
     }
 }

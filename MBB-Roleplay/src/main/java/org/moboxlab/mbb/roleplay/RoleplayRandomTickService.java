@@ -11,8 +11,10 @@ import org.moboxlab.moboxbot.API.Storage.StorageService;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -27,8 +29,13 @@ public class RoleplayRandomTickService {
     private static final String ACTION_PRIVATE_OWNER = "private_owner";
     private static final String ACTION_GROUP_TOPIC = "group_topic";
     private static final String ACTION_QZONE = "qzone_post";
+    private static final String ACTION_MORNING_GREETING = "morning_greeting";
     private static final String STATUS_SENT = "sent";
     private static final String STATUS_NO_OP = "no_op";
+    private static final String STATUS_SKIPPED = "skipped";
+    private static final String STATUS_FAILED = "failed";
+    private static final String MORNING_ACTIVE = "早安窗口已激活";
+    private static final String MORNING_SKIPPED = "早安窗口概率跳过";
 
     private final Plugin plugin;
     private final RoleplayService service;
@@ -119,6 +126,7 @@ public class RoleplayRandomTickService {
     private void runOnce() {
         long now = System.currentTimeMillis();
         try {
+            if (runMorningGreeting(now)) return;
             List<String> candidates = candidates();
             if (candidates.isEmpty()) {
                 record("none",STATUS_NO_OP,"system",0,"没有可用主动行为",now);
@@ -198,6 +206,149 @@ public class RoleplayRandomTickService {
         }
     }
 
+    /**
+     * 早安窗口独立于普通随机刻动作。每天激活一次，每个随机刻最多选一个昨日活跃群，
+     * 每个群当天最多发送或跳过一次。
+     */
+    private boolean runMorningGreeting(long now) {
+        if (!config.randomTickMorningGreetingEnable
+                || !morningInWindow(hour(),
+                config.randomTickMorningStartHour,config.randomTickMorningEndHour)) {
+            return false;
+        }
+        if (morningDoneCount(now) >= config.randomTickMorningMaxGroups) return false;
+        String state = morningState(now);
+        if (MORNING_SKIPPED.equals(state)) return false;
+        if (state.isEmpty()) {
+            if (Math.random() >= config.randomTickMorningChance) {
+                insertMorningMarker(MORNING_SKIPPED,now);
+                plugin.getLogger().sendInfo("[随机刻] 今日主动早安概率跳过");
+                return false;
+            }
+            insertMorningMarker(MORNING_ACTIVE,now);
+        }
+        List<GroupCandidate> candidates = morningGroupCandidates(now);
+        if (candidates.isEmpty()) return false;
+        long groupID = chooseWeightedCandidate(candidates);
+        if (groupID <= 0) return false;
+        String reason = "昨日活跃群主动早安";
+        String content = clean(generateContent(ACTION_MORNING_GREETING,reason,groupID));
+        if (content.isEmpty() || "<SKIP>".equalsIgnoreCase(content)) {
+            record(ACTION_MORNING_GREETING,STATUS_SKIPPED,"group",groupID,
+                    "本次没有生成自然早安",now);
+            return true;
+        }
+        String fingerprint = fingerprint(ACTION_MORNING_GREETING,groupID,content);
+        if (recentDuplicate(fingerprint,now)) {
+            record(ACTION_MORNING_GREETING,STATUS_SKIPPED,"group",groupID,
+                    "近期已生成过相似早安",now);
+            return true;
+        }
+        boolean sent = sendGroup(groupID,content);
+        record(ACTION_MORNING_GREETING,sent ? STATUS_SENT : STATUS_FAILED,
+                "group",groupID,fingerprint,reason,now);
+        plugin.getLogger().sendInfo("[随机刻] "+(sent ? "已发送" : "发送失败")
+                +"主动早安 群"+groupID+" 内容="+service.shortText(content,60));
+        return true;
+    }
+
+    static boolean morningInWindow(int hour,int startHour,int endHour) {
+        if (endHour <= startHour) return hour >= startHour && hour < endHour;
+        return hour >= startHour && hour < endHour;
+    }
+
+    private int morningDoneCount(long now) {
+        JSONObject row = storage().queryOne(
+                "SELECT COUNT(*) AS `count` FROM `"+TABLE+"` "
+                        + "WHERE `profile`=? AND `action`=? AND `status` IN (?,?) "
+                        + "AND `createTime`>=?",
+                service.getRoleName(),ACTION_MORNING_GREETING,STATUS_SENT,STATUS_SKIPPED,
+                startOfToday(now));
+        return row == null ? 0 : row.getIntValue("count");
+    }
+
+    private Set<Long> morningDoneGroups(long now) {
+        Set<Long> result = new HashSet<>();
+        List<JSONObject> rows = storage().query(
+                "SELECT `targetID` FROM `"+TABLE+"` "
+                        + "WHERE `profile`=? AND `action`=? AND `status` IN (?,?) "
+                        + "AND `createTime`>=?",
+                service.getRoleName(),ACTION_MORNING_GREETING,STATUS_SENT,STATUS_SKIPPED,
+                startOfToday(now));
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            long groupID = row.getLongValue("targetID");
+            if (groupID > 0) result.add(groupID);
+        }
+        return result;
+    }
+
+    private String morningState(long now) {
+        List<JSONObject> rows = storage().query(
+                "SELECT `reason` FROM `"+TABLE+"` WHERE `profile`=? AND `action`=? "
+                        + "AND `targetID`=0 AND `createTime`>=? "
+                        + "AND `reason` IN (?,?) ORDER BY `ID` DESC LIMIT 1",
+                service.getRoleName(),ACTION_MORNING_GREETING,startOfToday(now),
+                MORNING_ACTIVE,MORNING_SKIPPED);
+        return rows == null || rows.isEmpty() ? "" : service.safe(rows.get(0).getString("reason"));
+    }
+
+    private void insertMorningMarker(String reason,long now) {
+        storage().insert("INSERT INTO `"+TABLE+"` "
+                        + "(`profile`,`dueTime`,`lastRunTime`,`action`,`status`,`targetType`,"
+                        + "`targetID`,`fingerprint`,`reason`,`createTime`) "
+                        + "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                service.getRoleName(),0L,now,ACTION_MORNING_GREETING,STATUS_NO_OP,
+                "system",0L,"",reason,now);
+    }
+
+    /**
+     * 只统计昨天本地自然日的真人消息。至少达到阈值才纳入早安候选。
+     */
+    private List<GroupCandidate> morningGroupCandidates(long now) {
+        List<GroupCandidate> result = new ArrayList<>();
+        JSONArray enabled = service.listGroups();
+        if (enabled == null || enabled.isEmpty()) return result;
+        Set<Long> done = morningDoneGroups(now);
+        long today = startOfToday(now);
+        long yesterday = today - 86400000L;
+        for (Object object : enabled) {
+            long groupID = object == null ? 0L : Long.parseLong(String.valueOf(object));
+            if (groupID <= 0 || done.contains(groupID)) continue;
+            JSONObject row = storage().queryOne(
+                    "SELECT COUNT(*) AS `humanCount` FROM `"+RoleplayService.MSG_TABLE+"` "
+                            + "WHERE `groupID`=? AND `isBot`=0 AND `messageTime`>=? "
+                            + "AND `messageTime`<?",
+                    groupID,yesterday,today);
+            int humanCount = row == null ? 0 : row.getIntValue("humanCount");
+            if (humanCount < config.randomTickMorningMinMessages) continue;
+            GroupCandidate candidate = new GroupCandidate();
+            candidate.groupID = groupID;
+            candidate.botMessages = humanCount;
+            result.add(candidate);
+        }
+        int maxHumanMessages = 1;
+        for (GroupCandidate candidate : result) {
+            maxHumanMessages = Math.max(maxHumanMessages,candidate.botMessages);
+        }
+        for (GroupCandidate candidate : result) {
+            candidate.weight = 0.25
+                    + 0.75 * candidate.botMessages / maxHumanMessages;
+        }
+        return result;
+    }
+
+    private long chooseWeightedCandidate(List<GroupCandidate> candidates) {
+        if (candidates == null || candidates.isEmpty()) return 0L;
+        long[] groupIDs = new long[candidates.size()];
+        double[] weights = new double[candidates.size()];
+        for (int i = 0; i < candidates.size(); i++) {
+            groupIDs[i] = candidates.get(i).groupID;
+            weights[i] = candidates.get(i).weight;
+        }
+        return weightedGroup(groupIDs,weights,Math.random());
+    }
+
     private JSONObject decide(List<String> candidates,long now,OwnerInteraction recentOwner) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
@@ -275,6 +426,16 @@ public class RoleplayRandomTickService {
                     .append("本群近期消息：\n").append(service.contextService().recentContext(targetID))
                     .append("\n只写一句能在该群自然发起的话题，最多 50 字。")
                     .append("不要使用其他群的聊天内容、称呼、事件或关系。");
+        } else if (ACTION_MORNING_GREETING.equals(action)) {
+            system.append("\n【主动早安】\n")
+                    .append("目标群：").append(targetID).append("\n")
+                    .append("本群短期记忆：\n").append(service.groupShortSummary(targetID)).append("\n")
+                    .append("本群近期消息：\n").append(service.contextService().recentContext(targetID)).append("\n")
+                    .append("只写一句自然早安，最多 35 字。")
+                    .append("可以简单问候，也可以最多提一个昨晚或近期的具体细节。")
+                    .append("不要每天催起床、提醒吃饭、安排任务或复述多个旧梗。")
+                    .append("不要写成客服祝福、励志文案或每日总结。")
+                    .append("使用本群自己的内容，不要引用其他群的聊天、称呼或事件。");
         } else {
             system.append("\n【Qzone 资料】\n")
                     .append("与 owner 的长期记忆：\n")
@@ -348,7 +509,7 @@ public class RoleplayRandomTickService {
     }
 
     static String contentSessionId(String action,long targetID) {
-        return ACTION_GROUP_TOPIC.equals(action)
+        return ACTION_GROUP_TOPIC.equals(action) || ACTION_MORNING_GREETING.equals(action)
                 ? "roleplay-random-content-group-"+targetID
                 : "roleplay-random-content-qzone-"+targetID;
     }
@@ -562,8 +723,12 @@ public class RoleplayRandomTickService {
 
     private long nextMorning() {
         java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of(config.timeZone));
+        int wakeHour = config.randomTickQuietEndHour;
+        if (config.randomTickMorningGreetingEnable) {
+            wakeHour = Math.max(wakeHour,config.randomTickMorningStartHour);
+        }
         java.time.ZonedDateTime morning = now.toLocalDate().atStartOfDay(now.getZone())
-                .plusHours(config.randomTickQuietEndHour);
+                .plusHours(wakeHour);
         if (!morning.isAfter(now)) morning = morning.plusDays(1);
         return morning.toInstant().toEpochMilli() + 60000L + (long)(Math.random() * 240000L);
     }

@@ -130,6 +130,12 @@ randomTickMinMinute: 10
 randomTickMaxMinute: 30
 randomTickQuietStartHour: 0
 randomTickQuietEndHour: 8
+randomTickMorningGreetingEnable: true
+randomTickMorningStartHour: 8
+randomTickMorningEndHour: 10
+randomTickMorningChance: 0.80
+randomTickMorningMaxGroups: 3
+randomTickMorningMinMessages: 3
 randomTickGroupWindowMinute: 360
 randomTickGroupMaxActions: 2
 randomTickQzoneDailyMax: 2
@@ -147,6 +153,12 @@ randomTickReasoningEffort: "low"
 `randomTickQzoneDailyMax > 0` 时，每天第一次满足条件的随机刻会优先保底发布一条 Qzone。
 `randomTickOwnerRecentWindowMinute` 内的最近互动 owner 会提高 `private_owner` 优先级；
 `randomTickOwnerRecentBoostChance` 控制直接触发主动私聊的基础概率，范围 `0` 到 `1`。
+
+`randomTickMorningGreetingEnable` 默认 `true`。在 `randomTickMorningStartHour` 到
+`randomTickMorningEndHour` 窗口内，昨天至少有 `randomTickMorningMinMessages` 条真人消息的群
+会进入早安候选，并按昨日真人活跃度加权。`randomTickMorningChance` 决定当天是否启用早安，
+`randomTickMorningMaxGroups` 限制每个早晨最多向几个群发；每个群每天最多一次，
+每个随机刻只处理一个群，避免集中群发。发送失败会在窗口内重试，内容跳过后该群当天不再尝试。
 
 activeMemory: true
 imageUnderstandingEnable: true

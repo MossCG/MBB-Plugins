@@ -349,6 +349,12 @@ public class RoleplayConfig {
     public int randomTickMaxMinute = 30;
     public int randomTickQuietStartHour = 0;
     public int randomTickQuietEndHour = 8;
+    public boolean randomTickMorningGreetingEnable = true;
+    public int randomTickMorningStartHour = 8;
+    public int randomTickMorningEndHour = 10;
+    public double randomTickMorningChance = 0.80;
+    public int randomTickMorningMaxGroups = 3;
+    public int randomTickMorningMinMessages = 3;
     public int randomTickGroupWindowMinute = 360;
     public int randomTickGroupMaxActions = 2;
     public int randomTickQzoneDailyMax = 2;
@@ -867,6 +873,18 @@ public class RoleplayConfig {
         config.randomTickMaxMinute = plugin.getConfig().getInt("randomTickMaxMinute",30);
         config.randomTickQuietStartHour = plugin.getConfig().getInt("randomTickQuietStartHour",0);
         config.randomTickQuietEndHour = plugin.getConfig().getInt("randomTickQuietEndHour",8);
+        config.randomTickMorningGreetingEnable =
+                plugin.getConfig().getBoolean("randomTickMorningGreetingEnable",true);
+        config.randomTickMorningStartHour =
+                plugin.getConfig().getInt("randomTickMorningStartHour",8);
+        config.randomTickMorningEndHour =
+                plugin.getConfig().getInt("randomTickMorningEndHour",10);
+        config.randomTickMorningChance = parseDouble(
+                plugin.getConfig().getString("randomTickMorningChance","0.80"),0.80);
+        config.randomTickMorningMaxGroups =
+                plugin.getConfig().getInt("randomTickMorningMaxGroups",3);
+        config.randomTickMorningMinMessages =
+                plugin.getConfig().getInt("randomTickMorningMinMessages",3);
         config.randomTickGroupWindowMinute = plugin.getConfig().getInt("randomTickGroupWindowMinute",360);
         config.randomTickGroupMaxActions = plugin.getConfig().getInt("randomTickGroupMaxActions",2);
         config.randomTickQzoneDailyMax = plugin.getConfig().getInt("randomTickQzoneDailyMax",2);
@@ -1442,6 +1460,18 @@ public class RoleplayConfig {
         if (config.randomTickQuietStartHour > 23) config.randomTickQuietStartHour = 23;
         if (config.randomTickQuietEndHour < 0) config.randomTickQuietEndHour = 0;
         if (config.randomTickQuietEndHour > 24) config.randomTickQuietEndHour = 24;
+        if (config.randomTickMorningStartHour < 0) config.randomTickMorningStartHour = 0;
+        if (config.randomTickMorningStartHour > 23) config.randomTickMorningStartHour = 23;
+        if (config.randomTickMorningEndHour < config.randomTickMorningStartHour) {
+            config.randomTickMorningEndHour = config.randomTickMorningStartHour;
+        }
+        if (config.randomTickMorningEndHour > 24) config.randomTickMorningEndHour = 24;
+        if (config.randomTickMorningChance < 0) config.randomTickMorningChance = 0;
+        if (config.randomTickMorningChance > 1) config.randomTickMorningChance = 1;
+        if (config.randomTickMorningMaxGroups < 1) config.randomTickMorningMaxGroups = 1;
+        if (config.randomTickMorningMaxGroups > 10) config.randomTickMorningMaxGroups = 10;
+        if (config.randomTickMorningMinMessages < 1) config.randomTickMorningMinMessages = 1;
+        if (config.randomTickMorningMinMessages > 100) config.randomTickMorningMinMessages = 100;
         if (config.randomTickGroupWindowMinute < 1) config.randomTickGroupWindowMinute = 1;
         if (config.randomTickGroupWindowMinute > 10080) config.randomTickGroupWindowMinute = 10080;
         if (config.randomTickGroupMaxActions < 0) config.randomTickGroupMaxActions = 0;
