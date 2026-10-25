@@ -58,6 +58,7 @@ public class RoleplayReplyReviewService {
             input.put("maxLines",Math.max(1,maxLines));
             input.put("mood",moodLabel);
             input.put("allowSentencePeriod",allowSentencePeriod);
+            input.put("closingMode",RoleplayPromptAssembler.isClosingMessage(content));
             messages.add(service.message("user",input.toJSONString()));
             JSONObject params = new JSONObject(true);
             String profile = service.safe(service.config().replyReviewProfile).isEmpty()
@@ -127,6 +128,7 @@ public class RoleplayReplyReviewService {
                 .append("【检查项】\n")
                 .append("检查回复是否像该角色、是否有明显 AI 味、是否总结或说教、是否有客服腔、是否重复啰嗦。\n")
                 .append("检查是否与当前消息有关、是否像剧情台词、舞台动作或旁白。\n")
+                .append(reviewNaturalnessRulesText())
                 .append("如正文包含模型凭空生成的网址、域名或短链接，应删除链接并保持句子通顺。\n")
                 .append("任一单句超过 ").append(service.config().replySegmentMaxChars)
                 .append(" 字时，应压缩简写、换行或分成短句，最多保留 ")
@@ -148,5 +150,15 @@ public class RoleplayReplyReviewService {
                 .append("可以删除重复、填充词、书面连接词和空泛铺陈，做不丢信息的压缩简写。\n")
                 .append("不要角色名前缀、括号动作、心理旁白、镜头描写或 Markdown。\n");
         return builder.toString();
+    }
+
+    static String reviewNaturalnessRulesText() {
+        return "重点检查过度配合和过度完整：一条回复是否同时回收多个旧名词、旧梗或记忆细节；"
+                +"是否把普通闲聊变成任务确认、验货、拍照检查或下一步安排；"
+                +"是否为了显得俏皮而连续反问或重复上一句关键词。出现这些情况应降低 score 并改写。\n"
+                +"如果原文缺词或指代不清，回复却自行补成具体名词，应判为脑补并改写为更保守的问法。\n"
+                +"如果 closingMode=true，回复必须只做简短收尾，不能新增任务、要求验证、追问或继续展开旧梗；"
+                +"必要时直接压成“晚安”“明天说”这类一句收尾。\n"
+                +"真人聊天可以少接一个点。改写时优先删除多余回收、问句和安排，不要补新的俏皮话。\n";
     }
 }

@@ -162,6 +162,7 @@ public class RoleplayPromptAssembler {
                 .append("不要固定使用同一句式或同一开头；最近回复已经出现过的开头，这一轮换一种直接说法。\n\n");
 
         builder.append(humorRulesText()).append("\n");
+        builder.append(naturalChatRulesText()).append("\n");
 
         builder.append("【时间与话题】\n")
                 .append("涉及今天、现在、日期、周末、早晚或时间安排时，必须以用户消息里的“当前时间”为准，不要自行猜测。\n")
@@ -192,6 +193,25 @@ public class RoleplayPromptAssembler {
                 +"笑点说完就停，不解释谐音，也不加“谐音梗、哈哈、听懂没”之类提示。\n"
                 +"不要为了抖机灵硬凑，不在求助、争执、安慰、隐私、身份和严肃话题里玩；"
                 +"一轮最多一个，最近用过的谐音不要重复，连续两次没被接住就先停。\n";
+    }
+
+    static String naturalChatRulesText() {
+        return "【自然聊天边界】\n"
+                +"一条回复只接当前消息里的一个重点。不要同时回收多个旧名词、旧梗或记忆细节来展示自己记得。\n"
+                +"原文缺词、指代不清或没有明确对象时，不要自行补成具体名词；确实影响理解时只问“哪个”或“什么”。\n"
+                +"对方说晚安、拜拜、明天见、睡了、下线时，只做短收尾，不新增任务、验证、追问或下一步安排；能只回一句就不回两句。\n"
+                +"不要把闲聊变成任务确认。少用“记住了、记着了、验货、拍齐了、交作业、检查一下”这类说法。\n"
+                +"连续回复里已经问过问题时，这一轮尽量改成陈述、半句或直接结束，不要每句都反问。\n"
+                +"跨群记忆只作背景，不能因为别处出现过某个词，就把它当成当前群的内部梗反复使用。\n";
+    }
+
+    static boolean isClosingMessage(String text) {
+        String value = text == null ? "" : text.trim();
+        if (value.isEmpty() || value.length() > 120) return false;
+        return value.contains("晚安") || value.contains("拜拜") || value.contains("再见")
+                || value.contains("明天见") || value.contains("明天聊") || value.contains("回头聊")
+                || value.contains("先睡了") || value.contains("去睡了") || value.contains("下线了")
+                || value.contains("不聊了");
     }
 
     private String toolPolicyText() {
@@ -253,6 +273,10 @@ public class RoleplayPromptAssembler {
                                           List<String> actionIds,int batchCount) {
         RoleplayConfig config = service.config();
         StringBuilder builder = new StringBuilder();
+        if (isClosingMessage(messageText)) {
+            builder.append("【收尾】\n")
+                    .append("当前消息包含明确的结束信号。只回一句简短收尾，不新增任务、不要求验证、不追问，也不要继续展开旧梗。\n");
+        }
         if ("妈妈".equals(relationship)) {
             builder.append("【当前发言者】\n")
                     .append("当前发言者是 botOwner，也就是角色的妈妈。对他亲近、依赖、听话，可以撒娇和撒娇式抱怨，不要用客服口吻或冷淡疏远。\n");

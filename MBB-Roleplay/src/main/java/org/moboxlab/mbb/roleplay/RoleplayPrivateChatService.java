@@ -410,6 +410,8 @@ public class RoleplayPrivateChatService {
                 .append("不要用客服口吻，不要总结、列点、说教或强行升华。\n")
                 .append("允许自然停顿、反问、半句、撒娇式嫌弃和一点点犹豫。\n")
                 .append("消息没有最低字数，短句、半句或单个语气词都可以自然使用；只在符合语境时用，不要为了凑长度硬加内容。\n")
+                .append("一条只接一个重点，不要同时回收多个旧细节；原文缺词时不要自行补成具体对象。\n")
+                .append("不要把闲聊变成任务确认、验货、拍照检查或下一步安排；也不要每句都反问。\n")
                 .append("默认不要在句尾使用句号。需要断句时直接换行，把句中的“。”也改成新的私聊消息节拍。\n")
                 .append("不要在正文中输出 markdown、旁白、括号动作或链接。\n\n");
         builder.append("【关系设定】\n")
@@ -435,7 +437,9 @@ public class RoleplayPrivateChatService {
                 .append(proactive
                         ? "这次是主动发起私聊，不要假装对方刚刚说了什么。"
                         : "这是对方刚发来的私聊，只回应这一条和必要的近期上下文。")
-                .append("\n\n【对方】\n")
+                .append(RoleplayPromptAssembler.isClosingMessage(current)
+                        ? "\n当前包含结束信号，只做一句简短收尾，不新增任务、验证或追问。\n" : "\n")
+                .append("\n【对方】\n")
                 .append("QQ：").append(userID).append("\n")
                 .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n")
                 .append("【个人印象】\n").append(service.memberService().promptText(0L,userID)).append("\n\n")

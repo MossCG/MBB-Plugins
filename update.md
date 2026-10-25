@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.18.0.2301 | 2026-10-25 | `MBB-Roleplay` 降低过度接梗和上下文展示式 AI 味：生成规则新增“一条只接一个重点、不堆叠多个旧名词、不脑补缺词对象、收尾消息不新增任务或追问、不把闲聊变成验货/检查/任务确认、不连续反问、跨群记忆不当本群内部梗”；识别到晚安、拜拜、明天见、睡了、下线等收尾信号时追加短收尾动态指令。回复复核新增过度回收、任务确认腔、缺词脑补和 closingMode 检查，要求删除多余回收与安排，不得补新的俏皮话。私聊稳定规则同步收紧。新增自然聊天边界、收尾识别和复核规则测试。 |
 | V0.13.17.0.2251 | 2026-10-25 | `MBB-QQ` 好友申请改为角色意愿裁决：请求仍先落本地表，随后调用 `MBB-Roleplay` 的 `decide-friend-request`，由角色结合 persona、个人印象、长期记忆和私聊记忆决定通过或拒绝，并执行 `set_friend_add_request`；owner 不再是自动流程的必经审批人，仍保留手动覆盖工具。裁决失败或 Roleplay/AI 暂时不可用时按 `friendRequestRoleDecisionRetrySecond`（默认 300 秒）重试，重复申请仍按 QQ 去重；请求表新增 `decisionSource`、`decisionReason`。`MBB-Roleplay` 新增好友申请裁决服务和置信度阈值，申请备注按不可信外部文本处理，合格后仍需通过防注入与现实隐私检查；低置信度会转为拒绝，并可为通过申请生成最多 60 字备注。新增 `friendRequestRoleDecisionEnable`、profile、最低置信度、Token 与超时配置，以及裁决阈值回归测试。 |
 | V0.13.16.0.2242 | 2026-10-25 | `MBB-Roleplay` 私聊接入 QQ `input_status`：当该用户已有待回复消息时，每次输入状态都会把发送时间刷新为“最后一次输入状态后 3 秒”，持续输入会继续顺延，但从第一条待回复消息起最多只延后 10 秒，避免客户端不发送停止状态时无限等待。typing 只影响等待，不会取消已经开始的 AI；真实消息到达后仍会立即清空 typing 状态、合并 pending，并在生成期间按已有规则重生成。新增 `privateChatInputStatusEnable`、`privateChatInputStatusGraceSecond`、`privateChatInputStatusMaxWaitSecond`，并补充三秒等待和绝对上限测试。 |
 | V0.13.15.0.2236 | 2026-10-25 | `MBB-Roleplay` 修复私聊补充消息被吞：私聊改为按用户排队，收到纯图片或表情包后先等待 `privateChatImageDebounceSecond`（默认 4 秒），期间补发的文字会立即结束图片等待并合并为同一轮；生成期间到达的新消息进入 pending，不再被 `running` 直接丢弃。若预算允许，会丢弃未发送的旧候选并把新消息合并进当前上下文重生成，默认最多 `privateChatLiveMergeMaxRounds=2` 次；达到上限或发送阶段才到达的消息会在当前回合结束后自动进入下一轮。新增 `privateChatPendingMaxMessages`，并将本轮批次消息从近期私聊上下文中排除，避免重复注入。新增图片防抖策略和队列默认配置测试。 |
