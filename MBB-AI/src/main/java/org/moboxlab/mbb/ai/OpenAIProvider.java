@@ -74,6 +74,29 @@ public class OpenAIProvider {
         return result;
     }
 
+    public static JSONObject embed(AIProfile profile,Object input,JSONObject params,
+                                   boolean logRequestContent,PluginLogger logger) {
+        if (profile == null) return error("没有找到 AI 模型配置！","profile");
+        if (profile.baseUrl == null || profile.baseUrl.trim().isEmpty()) {
+            return error("模型配置缺少 baseUrl！","config");
+        }
+        if (profile.model == null || profile.model.trim().isEmpty()) {
+            return error("模型配置缺少 model！","config");
+        }
+        if (input == null || (input instanceof String && String.valueOf(input).trim().isEmpty())) {
+            return error("embedding 输入不能为空！","params");
+        }
+        JSONObject request = new JSONObject(true);
+        request.put("model",profile.model);
+        request.put("input",input);
+        copyParam(params,request,"encoding_format");
+        copyParam(params,request,"dimensions");
+        JSONObject raw = post(profile,request,params,logRequestContent,logger,
+                buildEndpoint(profile.baseUrl,"embeddings"));
+        if (!raw.getBooleanValue("status")) return raw;
+        return embeddingSuccess(raw.getJSONObject("_response"),profile);
+    }
+
     private static JSONObject buildRequest(AIProfile profile,JSONArray messages,JSONObject params,
                                            String reasoningEffort) {
         JSONObject request = new JSONObject(true);
@@ -99,17 +122,25 @@ public class OpenAIProvider {
 
     private static JSONObject send(AIProfile profile,JSONObject request,JSONObject params,
                                    boolean logRequestContent,PluginLogger logger) {
+        JSONObject raw = post(profile,request,params,logRequestContent,logger,
+                buildEndpoint(profile.baseUrl,"chat/completions"));
+        if (!raw.getBooleanValue("status")) return raw;
+        return success(raw.getJSONObject("_response"),profile);
+    }
+
+    private static JSONObject post(AIProfile profile,JSONObject request,JSONObject params,
+                                   boolean logRequestContent,PluginLogger logger,String endpoint) {
         String apiKey = profile.resolveApiKey();
         if (apiKey.isEmpty()) return error("模型配置缺少 apiKey！","config");
 
         if (logRequestContent && logger != null) {
             logger.sendInfo("AI 请求：profile="+profile.name+" model="+profile.model
-                    +" messages="+request.getJSONArray("messages").toJSONString());
+                    +" endpoint="+endpoint+" body="+request.toJSONString());
         }
 
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(buildEndpoint(profile.baseUrl));
+            URL url = new URL(endpoint);
             connection = (HttpURLConnection) url.openConnection();
             if (profile.insecureTls && connection instanceof HttpsURLConnection) {
                 HttpsURLConnection https = (HttpsURLConnection) connection;
@@ -151,7 +182,10 @@ public class OpenAIProvider {
                 return httpError(code,json,response);
             }
             if (json == null) return error("AI 返回内容不是合法 JSON！","response",true);
-            return success(json,profile);
+            JSONObject result = new JSONObject(true);
+            result.put("status",true);
+            result.put("_response",json);
+            return result;
         } catch (java.net.SocketTimeoutException e) {
             return error("AI 服务请求超时（"+host(profile.baseUrl)+"，"
                     +timeoutSeconds(profile,params)+" 秒）！","timeout",true);
@@ -245,6 +279,31 @@ public class OpenAIProvider {
         return result;
     }
 
+    static JSONObject embeddingSuccess(JSONObject json,AIProfile profile) {
+        JSONArray data = json == null ? null : json.getJSONArray("data");
+        if (data == null || data.isEmpty()) {
+            return error("AI 返回内容缺少 data！","response",false);
+        }
+        JSONArray embeddings = new JSONArray();
+        for (Object object : data) {
+            if (!(object instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject)object;
+            JSONArray embedding = item.getJSONArray("embedding");
+            if (embedding == null || embedding.isEmpty()) continue;
+            JSONObject entry = new JSONObject(true);
+            entry.put("index",item.getIntValue("index"));
+            entry.put("embedding",embedding);
+            embeddings.add(entry);
+        }
+        if (embeddings.isEmpty()) return error("AI 返回内容没有有效 embedding！","response",false);
+        JSONObject result = new JSONObject(true);
+        result.put("status",true);
+        result.put("model",json.getString("model") == null ? profile.model : json.getString("model"));
+        result.put("embeddings",embeddings);
+        result.put("usage",readUsage(json.getJSONObject("usage")));
+        return result;
+    }
+
     private static JSONObject httpError(int code,JSONObject json,String response) {
         String message = "AI 服务返回 HTTP "+code;
         if (response != null && response.contains("error code: 1010")) {
@@ -334,11 +393,15 @@ public class OpenAIProvider {
         return builder.toString();
     }
 
-    private static String buildEndpoint(String baseUrl) {
+    static String buildEndpoint(String baseUrl,String endpoint) {
         String base = baseUrl.trim();
         while (base.endsWith("/")) base = base.substring(0,base.length() - 1);
-        if (base.endsWith("/chat/completions")) return base;
-        return base+"/chat/completions";
+        if (base.endsWith("/chat/completions")) {
+            base = base.substring(0,base.length() - "/chat/completions".length());
+        } else if (base.endsWith("/embeddings")) {
+            base = base.substring(0,base.length() - "/embeddings".length());
+        }
+        return base+"/"+endpoint;
     }
 
     private static JSONObject error(String message,String type) {

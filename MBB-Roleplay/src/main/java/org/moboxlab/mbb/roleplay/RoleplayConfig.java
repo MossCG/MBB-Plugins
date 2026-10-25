@@ -260,6 +260,20 @@ public class RoleplayConfig {
     public int expressionMinUsers = 2;
     public int expressionMaxCandidates = 200;
     public int expressionInjectMaxChars = 800;
+    public boolean expressionVectorEnable = true;
+    public String expressionEmbeddingProfile = "";
+    public int expressionEmbeddingTimeoutSecond = 60;
+    public int expressionVectorTopK = 6;
+    public double expressionVectorMinScore = 0.25;
+    public int expressionVectorQueryCacheMinute = 10;
+    public boolean expressionReviewEnable = true;
+    public String expressionReviewMode = "suggest";
+    public String expressionReviewProfile = "";
+    public int expressionReviewIntervalHours = 24;
+    public int expressionReviewMaxCandidates = 50;
+    public int expressionReviewMaxTokens = 3000;
+    public int expressionReviewTimeoutSecond = 120;
+    public double expressionAutoApproveMinQuality = 0.70;
     public boolean attentionDriftEnable = true;
     public int attentionDecayMinute = 30;
     public double attentionLowThreshold = 0.25;
@@ -710,6 +724,33 @@ public class RoleplayConfig {
         config.expressionMinUsers = plugin.getConfig().getInt("expressionMinUsers",2);
         config.expressionMaxCandidates = plugin.getConfig().getInt("expressionMaxCandidates",200);
         config.expressionInjectMaxChars = plugin.getConfig().getInt("expressionInjectMaxChars",800);
+        config.expressionVectorEnable =
+                plugin.getConfig().getBoolean("expressionVectorEnable",true);
+        config.expressionEmbeddingProfile =
+                plugin.getConfig().getString("expressionEmbeddingProfile","");
+        config.expressionEmbeddingTimeoutSecond =
+                plugin.getConfig().getInt("expressionEmbeddingTimeoutSecond",60);
+        config.expressionVectorTopK = plugin.getConfig().getInt("expressionVectorTopK",6);
+        config.expressionVectorMinScore = parseDouble(
+                plugin.getConfig().getString("expressionVectorMinScore","0.25"),0.25);
+        config.expressionVectorQueryCacheMinute =
+                plugin.getConfig().getInt("expressionVectorQueryCacheMinute",10);
+        config.expressionReviewEnable =
+                plugin.getConfig().getBoolean("expressionReviewEnable",true);
+        config.expressionReviewMode =
+                plugin.getConfig().getString("expressionReviewMode","suggest");
+        config.expressionReviewProfile =
+                plugin.getConfig().getString("expressionReviewProfile","");
+        config.expressionReviewIntervalHours =
+                plugin.getConfig().getInt("expressionReviewIntervalHours",24);
+        config.expressionReviewMaxCandidates =
+                plugin.getConfig().getInt("expressionReviewMaxCandidates",50);
+        config.expressionReviewMaxTokens =
+                plugin.getConfig().getInt("expressionReviewMaxTokens",3000);
+        config.expressionReviewTimeoutSecond =
+                plugin.getConfig().getInt("expressionReviewTimeoutSecond",120);
+        config.expressionAutoApproveMinQuality = parseDouble(
+                plugin.getConfig().getString("expressionAutoApproveMinQuality","0.70"),0.70);
         config.attentionDriftEnable = plugin.getConfig().getBoolean("attentionDriftEnable",true);
         config.attentionDecayMinute = plugin.getConfig().getInt("attentionDecayMinute",30);
         config.attentionLowThreshold = parseDouble(plugin.getConfig().getString("attentionLowThreshold","0.25"),0.25);
@@ -1177,6 +1218,37 @@ public class RoleplayConfig {
         if (config.expressionMaxCandidates > 1000) config.expressionMaxCandidates = 1000;
         if (config.expressionInjectMaxChars < 100) config.expressionInjectMaxChars = 100;
         if (config.expressionInjectMaxChars > 4000) config.expressionInjectMaxChars = 4000;
+        if (config.expressionEmbeddingProfile == null) config.expressionEmbeddingProfile = "";
+        if (config.expressionEmbeddingTimeoutSecond < 10) {
+            config.expressionEmbeddingTimeoutSecond = 10;
+        }
+        if (config.expressionEmbeddingTimeoutSecond > 300) {
+            config.expressionEmbeddingTimeoutSecond = 300;
+        }
+        if (config.expressionVectorTopK < 1) config.expressionVectorTopK = 1;
+        if (config.expressionVectorTopK > 20) config.expressionVectorTopK = 20;
+        if (config.expressionVectorMinScore < -1) config.expressionVectorMinScore = -1;
+        if (config.expressionVectorMinScore > 1) config.expressionVectorMinScore = 1;
+        if (config.expressionVectorQueryCacheMinute < 1) {
+            config.expressionVectorQueryCacheMinute = 1;
+        }
+        if (config.expressionVectorQueryCacheMinute > 1440) {
+            config.expressionVectorQueryCacheMinute = 1440;
+        }
+        if (config.expressionReviewMode == null) config.expressionReviewMode = "suggest";
+        config.expressionReviewMode = config.expressionReviewMode.trim().toLowerCase();
+        if (!"auto".equals(config.expressionReviewMode)) config.expressionReviewMode = "suggest";
+        if (config.expressionReviewProfile == null) config.expressionReviewProfile = "";
+        if (config.expressionReviewIntervalHours < 1) config.expressionReviewIntervalHours = 1;
+        if (config.expressionReviewIntervalHours > 168) config.expressionReviewIntervalHours = 168;
+        if (config.expressionReviewMaxCandidates < 1) config.expressionReviewMaxCandidates = 1;
+        if (config.expressionReviewMaxCandidates > 100) config.expressionReviewMaxCandidates = 100;
+        if (config.expressionReviewMaxTokens < 800) config.expressionReviewMaxTokens = 800;
+        if (config.expressionReviewMaxTokens > 16000) config.expressionReviewMaxTokens = 16000;
+        if (config.expressionReviewTimeoutSecond < 30) config.expressionReviewTimeoutSecond = 30;
+        if (config.expressionReviewTimeoutSecond > 600) config.expressionReviewTimeoutSecond = 600;
+        if (config.expressionAutoApproveMinQuality < 0) config.expressionAutoApproveMinQuality = 0;
+        if (config.expressionAutoApproveMinQuality > 1) config.expressionAutoApproveMinQuality = 1;
         if (config.attentionDecayMinute < 1) config.attentionDecayMinute = 1;
         if (config.attentionDecayMinute > 1440) config.attentionDecayMinute = 1440;
         if (config.attentionLowThreshold < 0.05) config.attentionLowThreshold = 0.05;

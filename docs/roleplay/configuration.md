@@ -291,6 +291,20 @@ expressionMinCount: 3
 expressionMinUsers: 2
 expressionMaxCandidates: 200
 expressionInjectMaxChars: 800
+expressionVectorEnable: true
+expressionEmbeddingProfile: ""
+expressionEmbeddingTimeoutSecond: 60
+expressionVectorTopK: 6
+expressionVectorMinScore: 0.25
+expressionVectorQueryCacheMinute: 10
+expressionReviewEnable: true
+expressionReviewMode: suggest
+expressionReviewProfile: ""
+expressionReviewIntervalHours: 24
+expressionReviewMaxCandidates: 50
+expressionReviewMaxTokens: 3000
+expressionReviewTimeoutSecond: 120
+expressionAutoApproveMinQuality: 0.70
 attentionDriftEnable: true
 attentionDecayMinute: 30
 attentionLowThreshold: 0.25
@@ -392,6 +406,17 @@ quietReplyEnable: true
 `dailyReviewEnable` 默认 `true`，每天 `dailyReviewHour`（默认 4 点，本地时区）对当天群聊做一次复盘，把主要话题、氛围和角色行为压成一条短期记忆，同时更新当前群的结构化上下文；`/role review now` 可以手动触发。
 
 `replyFeedbackEnable` 默认 `true`，角色主动发言后在 `replyFeedbackWindowSecond` 秒内出现真人发言就算被接话。累计样本达到 `replyFeedbackMinSamples` 后，反馈会修正非直接消息的回复概率；连续没人接时最多降低 `replyFeedbackMaxPenalty`，经常被接话时最多提高 `replyFeedbackBonus`。
+
+`expressionVectorEnable` 默认 `true`。已通过表达会用 `expressionEmbeddingProfile`
+（留空时使用 `aiProfile`）生成 embedding，回复时按当前消息做余弦相似度 + 字符 bigram
+混合排序，最多注入 `expressionVectorTopK` 条；低于 `expressionVectorMinScore` 的候选不返回。
+查询向量缓存 `expressionVectorQueryCacheMinute` 分钟。模型不支持 `/embeddings` 时自动回退
+原有文本顺序，并进入 5 分钟失败冷却，避免每条消息重复打失败请求。
+
+`expressionReviewEnable` 默认 `true`，每 `expressionReviewIntervalHours` 小时审核一次待审表达。
+`suggest` 模式只保存 AI 理解、含义和质量分，仍由管理员决定是否通过；`auto` 模式在安全审查
+通过且质量达到 `expressionAutoApproveMinQuality` 时自动 `approved`，否则标记 `rejected`。
+`/role expression review` 可以立即触发当前群审核。
 
 `quietReplyEnable` 默认 `true`，只作为新群的默认值：每个群的免打扰名单开关用 `/role quiet on|off` 单独保存，不受该配置影响。名单内的群员只有在主动叫到角色时才得到回复，其他消息不进入上下文、不触发记忆整理和识图，也不会更新情绪；其他群员不受影响。名单按群存在 `plugin_mbb_roleplay_quiet` 表里，插件启动时自动建表，不需要手动迁移；被免打扰的消息不会记入消息流水，因此角色不会记住这些内容。该功能只影响群消息，戳一戳仍按 `pokeReplyEnable` 处理。
 

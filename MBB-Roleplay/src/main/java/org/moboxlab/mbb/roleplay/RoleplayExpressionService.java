@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  * 这样可以学习群内梗和表达方式，又不会把广告词、骂人话直接学进角色。
  */
 public class RoleplayExpressionService {
-    private static final String TABLE = "plugin_mbb_roleplay_expression";
+    static final String TABLE = "plugin_mbb_roleplay_expression";
     private static final Pattern TOKEN = Pattern.compile("[\\p{IsHan}a-zA-Z0-9_]{2,16}");
     private static final Pattern CQ_AT = Pattern.compile("\\[CQ:at,[^]]*]");
     private static final Pattern AT_NUMBER = Pattern.compile("@\\s*\\d{4,}");
@@ -41,12 +41,14 @@ public class RoleplayExpressionService {
 
     private final Plugin plugin;
     private volatile RoleplayConfig config;
+    private final RoleplayExpressionVectorService vectorService;
     private final Map<String,Candidate> candidates = new ConcurrentHashMap<>();
     private final Map<Long,List<JSONObject>> approved = new ConcurrentHashMap<>();
 
     public RoleplayExpressionService(Plugin plugin,RoleplayConfig config) {
         this.plugin = plugin;
         this.config = config;
+        this.vectorService = new RoleplayExpressionVectorService(plugin,config);
     }
 
     public void init() {
@@ -58,18 +60,35 @@ public class RoleplayExpressionService {
                 + "`userCount` INTEGER NOT NULL DEFAULT 0,"
                 + "`sample` TEXT NOT NULL DEFAULT '',"
                 + "`status` TEXT NOT NULL DEFAULT 'pending',"
+                + "`meaning` TEXT NOT NULL DEFAULT '',"
+                + "`quality` REAL NOT NULL DEFAULT 0,"
+                + "`reviewReason` TEXT NOT NULL DEFAULT '',"
+                + "`reviewTime` INTEGER NOT NULL DEFAULT 0,"
+                + "`embedding` TEXT NOT NULL DEFAULT '',"
+                + "`embeddingModel` TEXT NOT NULL DEFAULT '',"
+                + "`embeddingTime` INTEGER NOT NULL DEFAULT 0,"
                 + "`createTime` INTEGER NOT NULL DEFAULT 0,"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0,"
                 + "UNIQUE(`groupID`,`content`)"
                 + ")");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_expression_status` "
                 + "ON `"+TABLE+"` (`groupID`,`status`)");
+        ensureColumn("meaning","TEXT NOT NULL DEFAULT ''");
+        ensureColumn("quality","REAL NOT NULL DEFAULT 0");
+        ensureColumn("reviewReason","TEXT NOT NULL DEFAULT ''");
+        ensureColumn("reviewTime","INTEGER NOT NULL DEFAULT 0");
+        ensureColumn("embedding","TEXT NOT NULL DEFAULT ''");
+        ensureColumn("embeddingModel","TEXT NOT NULL DEFAULT ''");
+        ensureColumn("embeddingTime","INTEGER NOT NULL DEFAULT 0");
         cleanupNumericCandidates();
         reloadApproved();
+        scheduleMissingEmbeddings();
     }
 
     public void reload(RoleplayConfig config) {
         this.config = config;
+        vectorService.reload(config);
+        scheduleMissingEmbeddings();
     }
 
     public void observe(long groupID,long userID,String content) {
@@ -116,6 +135,10 @@ public class RoleplayExpressionService {
             item.put("userCount",row.getIntValue("userCount"));
             item.put("sample",row.getString("sample"));
             item.put("status",row.getString("status"));
+            item.put("meaning",row.getString("meaning"));
+            item.put("quality",row.getDoubleValue("quality"));
+            item.put("reviewReason",row.getString("reviewReason"));
+            item.put("reviewTime",row.getLongValue("reviewTime"));
             item.put("updateTime",row.getLongValue("updateTime"));
             result.add(item);
         }
@@ -128,7 +151,10 @@ public class RoleplayExpressionService {
         if (!"pending".equals(value) && !"approved".equals(value) && !"rejected".equals(value)) return false;
         int changed = storage().update("UPDATE `"+TABLE+"` SET `status`=?,`updateTime`=? WHERE `ID`=?",
                 value,System.currentTimeMillis(),id);
-        if (changed > 0) reloadApproved();
+        if (changed > 0) {
+            reloadApproved();
+            if ("approved".equals(value)) scheduleMissingEmbeddings();
+        }
         return changed > 0;
     }
 
@@ -140,9 +166,14 @@ public class RoleplayExpressionService {
     }
 
     public String promptText(long groupID) {
+        return promptText(groupID,"");
+    }
+
+    public String promptText(long groupID,String query) {
         if (!config.expressionLearnEnable || groupID <= 0) return "";
         List<JSONObject> list = approved.get(groupID);
         if (list == null || list.isEmpty()) return "";
+        list = vectorService.rank(list,query);
         StringBuilder builder = new StringBuilder("群内最近常用表达（可以自然使用，不要刻意堆砌）：\n");
         int used = 0;
         for (JSONObject item : list) {
@@ -159,9 +190,70 @@ public class RoleplayExpressionService {
         return list == null ? 0 : list.size();
     }
 
-    private void reloadApproved() {
+    public JSONArray pendingForReview(long groupID,int limit) {
+        JSONArray result = new JSONArray();
+        if (groupID <= 0) return result;
+        if (limit < 1) limit = 1;
+        if (limit > 100) limit = 100;
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID`,`content`,`count`,`userCount`,`sample`,`meaning`,`quality` "
+                        + "FROM `"+TABLE+"` WHERE `groupID`=? AND `status`='pending' "
+                        + "ORDER BY `count` DESC,`ID` DESC LIMIT "+limit,groupID);
+        if (rows == null) return result;
+        for (JSONObject row : rows) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
+            item.put("content",row.getString("content"));
+            item.put("count",row.getIntValue("count"));
+            item.put("userCount",row.getIntValue("userCount"));
+            item.put("sample",row.getString("sample"));
+            item.put("meaning",row.getString("meaning"));
+            item.put("quality",row.getDoubleValue("quality"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    public boolean saveReview(long id,String meaning,double quality,String reason,String status) {
+        String value = status == null ? "" : status.trim().toLowerCase();
+        if (!"pending".equals(value) && !"approved".equals(value) && !"rejected".equals(value)) {
+            return false;
+        }
+        double score = Math.max(0,Math.min(1,quality));
+        int changed = storage().update("UPDATE `"+TABLE+"` SET "
+                        + "`meaning`=?,`quality`=?,`reviewReason`=?,`reviewTime`=?,`status`=?,"
+                        + "`updateTime`=? WHERE `ID`=?",
+                safe(meaning).trim(),score,safe(reason).trim(),System.currentTimeMillis(),
+                value,System.currentTimeMillis(),id);
+        if (changed > 0) {
+            reloadApproved();
+            if ("approved".equals(value)) scheduleMissingEmbeddings();
+        }
+        return changed > 0;
+    }
+
+    public boolean ensureEmbedding(long id) {
+        if (id <= 0 || !config.expressionVectorEnable) return false;
+        JSONObject row = storage().queryOne(
+                "SELECT `content` FROM `"+TABLE+"` WHERE `ID`=? AND `status`='approved'",id);
+        if (row == null) return false;
+        RoleplayExpressionVectorService.EmbeddingResult embedding =
+                vectorService.embed(row.getString("content"));
+        if (!embedding.success) {
+            plugin.getLogger().sendWarn("[表达] #"+id+" 向量生成失败："+embedding.message);
+            return false;
+        }
+        storage().update("UPDATE `"+TABLE+"` SET `embedding`=?,`embeddingModel`=?,"
+                        + "`embeddingTime`=?,`updateTime`=? WHERE `ID`=?",
+                embedding.embedding.toJSONString(),embedding.model,System.currentTimeMillis(),
+                System.currentTimeMillis(),id);
+        return true;
+    }
+
+    void reloadApproved() {
         approved.clear();
-        List<JSONObject> rows = storage().query("SELECT `groupID`,`content` FROM `"+TABLE
+        List<JSONObject> rows = storage().query("SELECT `ID`,`groupID`,`content`,`meaning`,"
+                + "`count`,`embedding`,`embeddingModel` FROM `"+TABLE
                 +"` WHERE `status`='approved' ORDER BY `count` DESC,`ID` DESC");
         if (rows == null) return;
         for (JSONObject row : rows) {
@@ -174,8 +266,38 @@ public class RoleplayExpressionService {
             }
             if (list.size() >= config.expressionMaxCandidates) continue;
             JSONObject item = new JSONObject(true);
+            item.put("id",row.getLongValue("ID"));
             item.put("content",row.getString("content"));
+            item.put("meaning",row.getString("meaning"));
+            item.put("count",row.getIntValue("count"));
+            item.put("embeddingModel",row.getString("embeddingModel"));
+            item.put("embedding",vectorService.parseVector(row.getString("embedding")));
             list.add(item);
+        }
+    }
+
+    private void scheduleMissingEmbeddings() {
+        if (!config.expressionVectorEnable) return;
+        plugin.getServer().getPluginManager().runTaskLater(plugin,this::ensureMissingEmbeddings,5);
+    }
+
+    private void ensureMissingEmbeddings() {
+        if (!config.expressionVectorEnable) return;
+        List<JSONObject> rows = storage().query(
+                "SELECT `ID` FROM `"+TABLE+"` WHERE `status`='approved' "
+                        + "AND (`embedding`='' OR `embeddingModel`='') ORDER BY `ID` ASC LIMIT 30");
+        if (rows == null || rows.isEmpty()) return;
+        int saved = 0;
+        for (JSONObject row : rows) {
+            if (ensureEmbedding(row.getLongValue("ID"))) {
+                saved++;
+            } else {
+                break;
+            }
+        }
+        if (saved > 0) {
+            reloadApproved();
+            plugin.getLogger().sendInfo("[表达] 已生成 "+saved+" 条表达候选向量");
         }
     }
 
@@ -241,6 +363,16 @@ public class RoleplayExpressionService {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private void ensureColumn(String column,String definition) {
+        List<JSONObject> columns = storage().query("PRAGMA table_info(`"+TABLE+"`)");
+        if (columns != null) {
+            for (JSONObject row : columns) {
+                if (column.equalsIgnoreCase(row.getString("name"))) return;
+            }
+        }
+        storage().update("ALTER TABLE `"+TABLE+"` ADD COLUMN `"+column+"` "+definition);
     }
 
     private StorageService storage() {

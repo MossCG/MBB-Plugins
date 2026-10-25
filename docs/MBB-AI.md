@@ -29,6 +29,7 @@ JSONObject result = service.call("chat",params);
 |---|---|
 | `chat` | 对话，传入 `messages` |
 | `complete` | 单轮补全，传入 `prompt` |
+| `embed` | 生成文本向量，传入 `input`，调用 `/embeddings` |
 | `status` | 查看配置和服务状态 |
 | `usage` | 查看请求、Token、耗时和趋势统计 |
 | `reload` | 重载 AI 配置 |
@@ -176,6 +177,40 @@ logRequestContent: false
 `taskName` 是调用点标签，未填写时回退为 `action`；`promptVersion` 是提示词模板指纹，
 调用方可以把稳定模板内容、配置指纹或构建类指纹写进来。两者都会进入调用点统计表和本地缓存键；
 同名调用点修改提示词后会自然分成两行，便于比较缓存率与耗时。
+
+`embed` 请求：
+
+```json
+{
+  "profile": "default",
+  "taskName": "roleplay.expression.embed",
+  "promptVersion": "expression-vector-v1",
+  "input": ["箱子风道", "今晚吃咖喱"],
+  "dimensions": 1024,
+  "encoding_format": "float",
+  "timeoutSeconds": 60,
+  "retryCount": 0
+}
+```
+
+成功返回会保留每个输入的顺序索引：
+
+```json
+{
+  "status": true,
+  "action": "embed",
+  "profile": "default",
+  "model": "text-embedding-3-small",
+  "embeddings": [
+    {"index": 0, "embedding": [0.1, -0.2, 0.3]},
+    {"index": 1, "embedding": [0.4, 0.5, -0.6]}
+  ],
+  "usage": {"promptTokens": 8, "completionTokens": 0, "totalTokens": 8}
+}
+```
+
+`input` 支持单个字符串或字符串数组。`dimensions` 和 `encoding_format` 只在调用方需要时透传。
+`embed` 不使用 MBB-AI 的本地对话缓存；调用方可自行按查询文本缓存向量。
 
 成功返回：
 

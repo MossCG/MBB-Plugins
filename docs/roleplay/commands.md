@@ -26,6 +26,7 @@
 | `/role help [分类]` | `EVERYONE` | 按分类查看完整命令，分类：basic / quiet / blacklist / emotion / memory / role / content / feedback / tool / learn / train |
 | `/role feedback [reset]` | `BOT_ADMIN` | 查看主动发言被接话统计，reset 重置当前群统计 |
 | `/role expression list [状态]` | `BOT_ADMIN` | 查看表达候选，状态：pending / approved / rejected |
+| `/role expression review` | `BOT_ADMIN` | 立即用 AI 审核当前群待审表达，保存含义、质量与安全结论 |
 | `/role expression promote <ID>` | `BOT_ADMIN` | 通过表达候选并允许注入提示词 |
 | `/role expression reject <ID>` | `BOT_ADMIN` | 拒绝表达候选 |
 | `/role expression clear` | `BOT_ADMIN` | 清空当前群表达候选 |

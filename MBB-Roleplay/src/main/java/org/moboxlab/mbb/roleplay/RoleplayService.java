@@ -67,6 +67,7 @@ public class RoleplayService {
     private final RoleplayQuietService quietService;
     private final RoleplayReplyFeedbackService replyFeedbackService;
     private final RoleplayExpressionService expressionService;
+    private final RoleplayExpressionReviewService expressionReviewService;
     private final RoleplayAttentionService attentionService;
     private final RoleplayReplyWillingnessService replyWillingnessService;
     private final RoleplayDailyReviewService dailyReviewService;
@@ -297,6 +298,7 @@ public class RoleplayService {
         this.quietService = new RoleplayQuietService(plugin,config);
         this.replyFeedbackService = new RoleplayReplyFeedbackService(plugin,config);
         this.expressionService = new RoleplayExpressionService(plugin,config);
+        this.expressionReviewService = new RoleplayExpressionReviewService(this);
         this.attentionService = new RoleplayAttentionService(plugin,config);
         this.replyWillingnessService = new RoleplayReplyWillingnessService(this);
         this.dailyReviewService = new RoleplayDailyReviewService(plugin,config,this);
@@ -360,6 +362,7 @@ public class RoleplayService {
         quietService.init();
         replyFeedbackService.init();
         expressionService.init();
+        expressionReviewService.start();
         traceService.init();
         toolMemoryService.init();
         toolTurnService.init();
@@ -630,6 +633,10 @@ public class RoleplayService {
 
     public RoleplayExpressionService getExpressionService() {
         return expressionService;
+    }
+
+    RoleplayExpressionReviewService expressionReviewService() {
+        return expressionReviewService;
     }
 
     public RoleplayAttentionService getAttentionService() {

@@ -29,9 +29,13 @@ JSONObject result = service.call("chat",params);
 |---|---|
 | `chat` | 对话，传入 `messages` |
 | `complete` | 单轮补全，传入 `prompt` |
+| `embed` | 生成文本向量，传入 `input`，调用 `/embeddings` |
 | `status` | 查看配置和服务状态 |
 | `usage` | 查看请求、Token、耗时和趋势统计 |
 | `reload` | 重载 AI 配置 |
+
+`embed` 兼容 OpenAI `/embeddings`，支持字符串或字符串数组输入，返回按 `index`
+排序的向量数组和 usage；不参与对话本地缓存，调用方可自行缓存查询向量。
 
 ## 配置
 

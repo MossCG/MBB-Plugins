@@ -310,7 +310,7 @@ public class RoleplayPromptAssembler {
                 () -> "全局永久记忆：\n"+service.globalMemoryService().promptText(
                         memoryQuery,userID,config.globalMemoryRelevanceMaxChars)));
         materials.add(new RoleplayMaterial("expression.approved",true,76,config.expressionInjectMaxChars,
-                () -> service.expressionService().promptText(groupID)));
+                () -> service.expressionService().promptText(groupID,messageText)));
         materials.add(new RoleplayMaterial("speech.corpus",true,60,1300,
                 () -> speechPrompt == null ? "" : speechPrompt));
         if (!service.knowledgeService().isStudentsLibraryEnabled()) {

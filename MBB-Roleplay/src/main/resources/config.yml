@@ -443,6 +443,34 @@ expressionMinUsers: 2
 expressionMaxCandidates: 200
 #已通过表达注入提示词的最大字符数
 expressionInjectMaxChars: 800
+#是否使用 embedding 做表达候选向量检索
+expressionVectorEnable: true
+#表达 embedding 使用的 AI profile，留空时使用 aiProfile
+expressionEmbeddingProfile: ""
+#表达 embedding 请求超时秒数
+expressionEmbeddingTimeoutSecond: 60
+#向量检索每次最多返回多少条表达候选
+expressionVectorTopK: 6
+#向量检索最低混合相似度
+expressionVectorMinScore: 0.25
+#查询 embedding 的本地缓存分钟数
+expressionVectorQueryCacheMinute: 10
+#是否定期用 AI 审核表达候选
+expressionReviewEnable: true
+#表达审核模式：suggest 只保存理解，auto 同时自动通过或拒绝
+expressionReviewMode: suggest
+#表达审核使用的 AI profile，留空时使用 aiProfile
+expressionReviewProfile: ""
+#表达审核定时任务间隔小时
+expressionReviewIntervalHours: 24
+#单群单次最多审核多少条表达候选
+expressionReviewMaxCandidates: 50
+#表达审核输出 Token 上限
+expressionReviewMaxTokens: 3000
+#表达审核请求超时秒数
+expressionReviewTimeoutSecond: 120
+#auto 模式自动通过的最低质量
+expressionAutoApproveMinQuality: 0.70
 #是否启用注意力漂移
 attentionDriftEnable: true
 #注意力向基线衰减的半衰期分钟数

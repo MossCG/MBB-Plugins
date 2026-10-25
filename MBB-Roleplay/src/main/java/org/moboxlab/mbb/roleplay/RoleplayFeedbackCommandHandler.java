@@ -65,9 +65,24 @@ public class RoleplayFeedbackCommandHandler {
                 builder.append("\n#").append(item.getLongValue("id"))
                         .append(" ").append(item.getString("content"))
                         .append("（"+item.getIntValue("count")+" 次 / "
-                        +item.getIntValue("userCount")+" 人）");
+                        +item.getIntValue("userCount")+" 人");
+                if (!command.service().safe(item.getString("meaning")).isEmpty()) {
+                    builder.append("，含义：").append(item.getString("meaning"));
+                }
+                if (item.getDoubleValue("quality") > 0) {
+                    builder.append("，质量：")
+                            .append(String.format(Locale.ROOT,"%.2f",item.getDoubleValue("quality")));
+                }
+                builder.append("）");
             }
             sender.sendMessage(builder.toString());
+            return;
+        }
+        if ("review".equals(action)) {
+            boolean started = command.service().expressionReviewService().trigger(groupID);
+            sender.sendMessage(started
+                    ? "当前群表达候选 AI 审核已开始，完成后会写入理解与质量结果。"
+                    : "当前群没有待审表达候选，或审核任务已经在执行。");
             return;
         }
         if ("promote".equals(action) || "reject".equals(action)) {
@@ -87,7 +102,7 @@ public class RoleplayFeedbackCommandHandler {
             return;
         }
         sender.sendMessage("用法：/role expression list [pending|approved|rejected]"
-                +" | promote <ID> | reject <ID> | clear");
+                +" | review | promote <ID> | reject <ID> | clear");
     }
 
     void handleReview(CommandSender sender,String[] args) {

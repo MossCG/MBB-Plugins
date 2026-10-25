@@ -54,6 +54,7 @@ public class AIService implements PluginService {
         if (!config.enable) return error("AI 服务当前已关闭！","disabled",false);
         if ("chat".equalsIgnoreCase(action)) return chat(params,"chat");
         if ("complete".equalsIgnoreCase(action)) return complete(params);
+        if ("embed".equalsIgnoreCase(action)) return embed(params);
         return error("不支持的 AI 动作："+action,"action",false);
     }
 
@@ -141,6 +142,74 @@ public class AIService implements PluginService {
         messages.add(message("user",prompt));
         chatParams.put("messages",messages);
         return chat(chatParams,"complete");
+    }
+
+    private JSONObject embed(JSONObject params) {
+        if (params == null) return error("embed 参数不能为空！","params",false);
+        Object input = params.get("input");
+        if (input == null) input = params.getString("prompt");
+        if (input == null || (input instanceof String && String.valueOf(input).trim().isEmpty())) {
+            return error("input 不能为空！","params",false);
+        }
+        String profileName = params.getString("profile");
+        AIProfile profile = config.getProfile(profileName);
+        if (profile == null) {
+            return error("没有找到 AI 模型配置："
+                    +(profileName == null ? config.defaultProfile : profileName),"profile",false);
+        }
+        String taskName = params.getString("taskName");
+        String promptVersion = params.getString("promptVersion");
+        long startTime = System.currentTimeMillis();
+        boolean acquired = false;
+        int timeoutSeconds = timeoutSeconds(profile,params);
+        try {
+            acquired = semaphore.tryAcquire(timeoutSeconds,TimeUnit.SECONDS);
+            if (!acquired) {
+                stats.record(profile,"embed",taskName,promptVersion,false,false,
+                        System.currentTimeMillis() - startTime,null);
+                return error("AI 服务当前并发已满，请稍后再试！","busy",true);
+            }
+            JSONObject result = callEmbedWithRetry(profile,input,params);
+            if (result.getBooleanValue("status")) {
+                result.put("action","embed");
+                result.put("profile",profile.name);
+                result.put("taskName",taskName == null ? "embed" : taskName);
+                result.put("promptVersion",promptVersion == null ? "" : promptVersion);
+            }
+            stats.record(profile,"embed",taskName,promptVersion,result.getBooleanValue("status"),
+                    false,System.currentTimeMillis() - startTime,result.getJSONObject("usage"));
+            return result;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            stats.record(profile,"embed",taskName,promptVersion,false,false,
+                    System.currentTimeMillis() - startTime,null);
+            return error("AI 服务等待并发许可时被中断！","interrupted",true);
+        } finally {
+            if (acquired) semaphore.release();
+        }
+    }
+
+    private JSONObject callEmbedWithRetry(AIProfile profile,Object input,JSONObject params) {
+        int attempts = retryCount(params) + 1;
+        JSONObject result = null;
+        for (int i = 0; i < attempts; i++) {
+            if (!"openai".equalsIgnoreCase(profile.provider)) {
+                return error("暂不支持 AI 提供方："+profile.provider,"provider",false);
+            }
+            result = OpenAIProvider.embed(profile,input,params,config.logRequestContent,
+                    plugin.getLogger());
+            if (result.getBooleanValue("status")) return result;
+            if (!result.getBooleanValue("retryable")) return result;
+            if (i + 1 < attempts) {
+                try {
+                    Thread.sleep(300L * (i + 1));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        return result == null ? error("AI 服务没有返回结果！","unknown",true) : result;
     }
 
     private JSONObject callWithRetry(AIProfile profile,JSONArray messages,JSONObject params) {
