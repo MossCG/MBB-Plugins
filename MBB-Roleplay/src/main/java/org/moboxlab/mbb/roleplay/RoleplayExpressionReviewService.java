@@ -7,15 +7,22 @@ import org.moboxlab.moboxbot.API.PluginService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 表达候选定期的 AI 审核、含义整理和安全入库。
+ *
+ * 多个群统一进入单队列顺序审核，避免同时向 AI 服务发起多条审核请求。
  */
 public class RoleplayExpressionReviewService {
     private final RoleplayService service;
-    private final Set<Long> running = ConcurrentHashMap.newKeySet();
+    private final Set<Long> queuedGroups = ConcurrentHashMap.newKeySet();
+    private final Queue<Long> reviewQueue = new ConcurrentLinkedQueue<>();
+    private final AtomicBoolean draining = new AtomicBoolean(false);
 
     public RoleplayExpressionReviewService(RoleplayService service) {
         this.service = service;
@@ -43,9 +50,35 @@ public class RoleplayExpressionReviewService {
         if (!service.config().expressionReviewEnable || groupID <= 0) return false;
         JSONArray pending = service.expressionService().pendingForReview(
                 groupID,service.config().expressionReviewMaxCandidates);
-        if (pending.isEmpty() || !running.add(groupID)) return false;
-        service.submitBackground(() -> runReview(groupID,pending));
+        if (pending.isEmpty() || !queuedGroups.add(groupID)) return false;
+        reviewQueue.offer(groupID);
+        scheduleDrain();
         return true;
+    }
+
+    private void scheduleDrain() {
+        if (!draining.compareAndSet(false,true)) return;
+        service.submitBackground(this::drainReviewQueue);
+    }
+
+    private void drainReviewQueue() {
+        try {
+            Long groupID;
+            while ((groupID = reviewQueue.poll()) != null) {
+                try {
+                    JSONArray pending = service.expressionService().pendingForReview(
+                            groupID,service.config().expressionReviewMaxCandidates);
+                    if (!pending.isEmpty()) runReview(groupID,pending);
+                } catch (Exception e) {
+                    service.plugin().getLogger().sendException(e);
+                } finally {
+                    queuedGroups.remove(groupID);
+                }
+            }
+        } finally {
+            draining.set(false);
+            if (!reviewQueue.isEmpty()) scheduleDrain();
+        }
     }
 
     private void runReview(long groupID,JSONArray pending) {
@@ -123,8 +156,6 @@ public class RoleplayExpressionReviewService {
                     +pending.size()+"条，建议"+suggested+"条，通过"+approved+"条，拒绝"+rejected+"条");
         } catch (Exception e) {
             service.plugin().getLogger().sendException(e);
-        } finally {
-            running.remove(groupID);
         }
     }
 

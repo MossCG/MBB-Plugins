@@ -457,7 +457,7 @@ expressionMaxCandidates: 200
 expressionInjectMaxChars: 800
 #是否使用 embedding 做表达候选向量检索
 expressionVectorEnable: true
-#表达 embedding 使用的 AI profile，留空时使用 aiProfile
+#表达 embedding 使用的 AI profile，留空时不生成向量，避免向聊天模型请求 /embeddings
 expressionEmbeddingProfile: ""
 #表达 embedding 请求超时秒数
 expressionEmbeddingTimeoutSecond: 60

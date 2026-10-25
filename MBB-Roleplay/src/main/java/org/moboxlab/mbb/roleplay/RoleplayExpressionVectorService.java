@@ -46,18 +46,23 @@ public class RoleplayExpressionVectorService {
         public final String model;
         public final JSONArray embedding;
         public final String message;
+        public final boolean unsupported;
 
-        private EmbeddingResult(boolean success,String model,JSONArray embedding,String message) {
+        private EmbeddingResult(boolean success,String model,JSONArray embedding,String message,
+                                boolean unsupported) {
             this.success = success;
             this.model = model == null ? "" : model;
             this.embedding = embedding;
             this.message = message == null ? "" : message;
+            this.unsupported = unsupported;
         }
     }
 
     private final Plugin plugin;
     private volatile RoleplayConfig config;
     private volatile long embedRetryAfter = 0L;
+    private volatile boolean unavailable = false;
+    private volatile String unavailableMessage = "";
     private final Map<String,CacheEntry> queryCache = new ConcurrentHashMap<>();
 
     public RoleplayExpressionVectorService(Plugin plugin,RoleplayConfig config) {
@@ -67,26 +72,45 @@ public class RoleplayExpressionVectorService {
 
     public void reload(RoleplayConfig config) {
         this.config = config;
+        embedRetryAfter = 0L;
+        unavailable = false;
+        unavailableMessage = "";
         queryCache.clear();
+    }
+
+    public boolean isConfigured() {
+        RoleplayConfig current = config;
+        return current != null
+                && current.expressionVectorEnable
+                && current.expressionEmbeddingProfile != null
+                && !current.expressionEmbeddingProfile.trim().isEmpty();
+    }
+
+    public boolean isUnavailable() {
+        return unavailable;
     }
 
     public EmbeddingResult embed(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return new EmbeddingResult(false,"",null,"输入为空");
+            return failure("输入为空");
+        }
+        if (!isConfigured()) {
+            return failure("未配置 expressionEmbeddingProfile");
+        }
+        if (unavailable) {
+            return new EmbeddingResult(false,"",null,unavailableMessage,true);
         }
         long now = System.currentTimeMillis();
         if (embedRetryAfter > now) {
-            return new EmbeddingResult(false,"",null,"embedding 服务失败冷却中");
+            return failure("embedding 服务失败冷却中");
         }
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) {
             markFailure();
-            return new EmbeddingResult(false,"",null,"MBB-AI 未启用");
+            return failure("MBB-AI 未启用");
         }
         JSONObject params = new JSONObject(true);
-        String profile = config.expressionEmbeddingProfile == null
-                || config.expressionEmbeddingProfile.trim().isEmpty()
-                ? config.aiProfile : config.expressionEmbeddingProfile.trim();
+        String profile = config.expressionEmbeddingProfile.trim();
         params.put("profile",profile);
         params.put("input",text.trim());
         params.put("timeoutSeconds",config.expressionEmbeddingTimeoutSecond);
@@ -94,28 +118,36 @@ public class RoleplayExpressionVectorService {
         RoleplayAiMetadata.tag(params,"roleplay.expression.embed","expression-vector-v1");
         JSONObject result = ai.call("embed",params);
         if (result == null || !result.getBooleanValue("status")) {
+            String message = result == null ? "embedding 无返回" : result.getString("message");
+            String errorType = result == null ? "" : result.getString("errorType");
+            if ("http_404".equals(errorType)) {
+                unavailable = true;
+                unavailableMessage = message;
+                markFailure();
+                return new EmbeddingResult(false,"",null,message,true);
+            }
             markFailure();
-            return new EmbeddingResult(false,"",null,
-                    result == null ? "embedding 无返回" : result.getString("message"));
+            return failure(message);
         }
         JSONArray entries = result.getJSONArray("embeddings");
         if (entries == null || entries.isEmpty()) {
             markFailure();
-            return new EmbeddingResult(false,"",null,"embedding 结果为空");
+            return failure("embedding 结果为空");
         }
         JSONObject first = entries.getJSONObject(0);
         JSONArray embedding = first == null ? null : first.getJSONArray("embedding");
         if (embedding == null || embedding.isEmpty()) {
             markFailure();
-            return new EmbeddingResult(false,"",null,"embedding 向量为空");
+            return failure("embedding 向量为空");
         }
         embedRetryAfter = 0L;
-        return new EmbeddingResult(true,result.getString("model"),embedding,"");
+        return new EmbeddingResult(true,result.getString("model"),embedding,"",false);
     }
 
     public List<JSONObject> rank(List<JSONObject> candidates,String query) {
         if (candidates == null || candidates.size() < 2) return candidates;
-        if (!config.expressionVectorEnable || query == null || query.trim().length() < 2) {
+        if (!isConfigured() || unavailable
+                || query == null || query.trim().length() < 2) {
             return candidates;
         }
         boolean hasVector = false;
@@ -171,7 +203,7 @@ public class RoleplayExpressionVectorService {
     private EmbeddingResult queryEmbedding(String query) {
         String key = safe(query).trim().toLowerCase(Locale.ROOT);
         if (key.length() > 500) key = key.substring(0,500);
-        if (key.isEmpty()) return new EmbeddingResult(false,"",null,"查询为空");
+        if (key.isEmpty()) return failure("查询为空");
         long now = System.currentTimeMillis();
         CacheEntry cached = queryCache.get(key);
         if (cached != null && cached.expireTime > now) return cached.result;
@@ -221,6 +253,10 @@ public class RoleplayExpressionVectorService {
 
     private static String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private EmbeddingResult failure(String message) {
+        return new EmbeddingResult(false,"",null,message,false);
     }
 
     private void markFailure() {

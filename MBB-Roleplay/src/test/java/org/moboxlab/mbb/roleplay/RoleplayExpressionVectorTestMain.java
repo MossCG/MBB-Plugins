@@ -32,6 +32,18 @@ public class RoleplayExpressionVectorTestMain {
 
         RoleplayExpressionVectorService service =
                 new RoleplayExpressionVectorService(null,config);
+        if (service.isConfigured()) {
+            throw new AssertionError("未配置 embedding profile 时不应启用向量请求");
+        }
+        RoleplayExpressionVectorService.EmbeddingResult skipped = service.embed("测试");
+        if (skipped.success || skipped.unsupported || service.isUnavailable()) {
+            throw new AssertionError("未配置 embedding profile 时应静默跳过请求");
+        }
+        config.expressionEmbeddingProfile = "embedding";
+        if (!service.isConfigured()) {
+            throw new AssertionError("配置 embedding profile 后应启用向量请求");
+        }
+        config.expressionEmbeddingProfile = "";
         JSONArray parsed = service.parseVector("[0.1,0.2,-0.3]");
         if (parsed == null || parsed.size() != 3
                 || Math.abs(parsed.getDoubleValue(2) + 0.3) > 0.0001) {

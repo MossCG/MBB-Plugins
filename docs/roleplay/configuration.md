@@ -480,13 +480,15 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 
 `replyFeedbackEnable` 默认 `true`，角色主动发言后在 `replyFeedbackWindowSecond` 秒内出现真人发言就算被接话。累计样本达到 `replyFeedbackMinSamples` 后，反馈会修正非直接消息的回复概率；连续没人接时最多降低 `replyFeedbackMaxPenalty`，经常被接话时最多提高 `replyFeedbackBonus`。
 
-`expressionVectorEnable` 默认 `true`。已通过表达会用 `expressionEmbeddingProfile`
-（留空时使用 `aiProfile`）生成 embedding，回复时按当前消息做余弦相似度 + 字符 bigram
+`expressionVectorEnable` 默认 `true`。已通过表达会用显式配置的 `expressionEmbeddingProfile`
+生成 embedding；该配置留空时不发起 embedding 请求，避免把聊天模型误当成向量模型。
+回复时按当前消息做余弦相似度 + 字符 bigram
 混合排序，最多注入 `expressionVectorTopK` 条；低于 `expressionVectorMinScore` 的候选不返回。
 查询向量缓存 `expressionVectorQueryCacheMinute` 分钟。模型不支持 `/embeddings` 时自动回退
-原有文本顺序，并进入 5 分钟失败冷却，避免每条消息重复打失败请求。
+原有文本顺序，并在本次运行内停止自动向量补齐，避免每条消息或每次启动重复请求。
 
 `expressionReviewEnable` 默认 `true`，每 `expressionReviewIntervalHours` 小时审核一次待审表达。
+多个群的待审表达进入单队列顺序审核，同一时间只发起一个审核请求。
 默认 `balanced` 模式采用三段式：`keep=true` 且质量达到 `expressionAutoApproveMinQuality`
 时自动 `approved`；`keep=false` 或质量低于 `expressionBalancedRejectMaxQuality` 时自动
 `rejected`；中间区间保持 `pending`，继续供人工复核。`suggest` 只保存理解与质量，`auto`

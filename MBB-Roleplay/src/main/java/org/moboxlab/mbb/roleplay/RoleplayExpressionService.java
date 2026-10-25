@@ -233,14 +233,19 @@ public class RoleplayExpressionService {
     }
 
     public boolean ensureEmbedding(long id) {
-        if (id <= 0 || !config.expressionVectorEnable) return false;
+        if (id <= 0 || !vectorService.isConfigured() || vectorService.isUnavailable()) return false;
         JSONObject row = storage().queryOne(
                 "SELECT `content` FROM `"+TABLE+"` WHERE `ID`=? AND `status`='approved'",id);
         if (row == null) return false;
         RoleplayExpressionVectorService.EmbeddingResult embedding =
                 vectorService.embed(row.getString("content"));
         if (!embedding.success) {
-            plugin.getLogger().sendWarn("[表达] #"+id+" 向量生成失败："+embedding.message);
+            if (embedding.unsupported) {
+                plugin.getLogger().sendWarn("[表达] embedding profile 不支持 /embeddings，"
+                        +"本次运行已停止自动向量补齐："+embedding.message);
+            } else {
+                plugin.getLogger().sendWarn("[表达] #"+id+" 向量生成失败："+embedding.message);
+            }
             return false;
         }
         storage().update("UPDATE `"+TABLE+"` SET `embedding`=?,`embeddingModel`=?,"
@@ -277,12 +282,12 @@ public class RoleplayExpressionService {
     }
 
     private void scheduleMissingEmbeddings() {
-        if (!config.expressionVectorEnable) return;
+        if (!vectorService.isConfigured() || vectorService.isUnavailable()) return;
         plugin.getServer().getPluginManager().runTaskLater(plugin,this::ensureMissingEmbeddings,5);
     }
 
     private void ensureMissingEmbeddings() {
-        if (!config.expressionVectorEnable) return;
+        if (!vectorService.isConfigured() || vectorService.isUnavailable()) return;
         List<JSONObject> rows = storage().query(
                 "SELECT `ID` FROM `"+TABLE+"` WHERE `status`='approved' "
                         + "AND (`embedding`='' OR `embeddingModel`='') ORDER BY `ID` ASC LIMIT 30");
