@@ -19,14 +19,16 @@ QQ 扩展动作服务。它把 NapCat/OneBot 的常用 QQ 能力封装成稳定�
 | 互动 | `recall_own` | 撤回机器人自己发送的消息 |
 | 媒体 | `send_image` / `send_voice` | 从 Roleplay 私有工作区读取图片或语音后发送 |
 | 名片 | `set_own_group_card` | 修改机器人在当前群的群名片，需要 owner 或群管理员 |
-| 申请 | `pending_requests` / `friend_request` / `group_request` | 查看和处理好友申请、群邀请；只记录，不自动响应 |
+| 申请 | `pending_requests` / `friend_request` / `group_request` | 好友申请默认由角色自动裁决；群邀请仍需 owner，手动好友审批保留为覆盖入口 |
 | 群管理 | `group_ban` / `group_whole_ban` | 禁言、解禁、全员禁言；需要 owner 或当前群管理员 |
 | 群管理 | `group_leave` | 退出当前群；必须由 owner 明确要求，代码层拒绝非 owner 诱导 |
 | 好友 | `delete_friend` / `set_friend_remark` | 删除好友、设置好友备注；仅 owner |
 | 账号 | `set_avatar` / `set_profile` / `set_signature` | 设置头像、资料卡和个性签名；仅 owner |
 | Qzone | `qzone_post` / `qzone_delete` / `qzone_posts` | owner 管理机器人自己的 QQ 空间 |
 
-好友申请和群邀请只写入本地待处理表，不会自动同意或拒绝。好友删除、账号资料和头像属于 owner 操作，
+好友申请写入本地待处理表后，会调用 `MBB-Roleplay` 的角色裁决服务自动通过或拒绝；MBB-Roleplay/AI
+暂不可用时保留 pending 并定期重试，owner 不再参与自动流程。群邀请仍只记录，由 owner 处理。
+好友删除、账号资料和头像属于 owner 操作，
 不会开放给普通群员。MBB-QQ 本身不接管原始私聊消息；角色私聊由 `MBB-Roleplay` 的好友制私聊入口处理。
 
 ## 权限与审计
@@ -35,9 +37,12 @@ QQ 扩展动作服务。它把 NapCat/OneBot 的常用 QQ 能力封装成稳定�
 - 戳一戳默认只能操作当前用户；管理员/owner 才能指定其他目标。
 - 点赞默认只能操作当前用户或 owner。
 - 修改机器人群名片需要 owner 或当前群管理员。
-- 好友申请、群邀请只记录在当前插件的待处理表；处理时必须由 owner 明确指定申请 ID。
+- 好友申请默认由角色按 persona、个人印象和历史记忆裁决；申请备注作为不可信外部文本，先经过防注入与隐私检查。
+- `friendRequestRoleDecisionEnable=true` 时不需要 owner 审批；Roleplay 暂不可用会按 `friendRequestRoleDecisionRetrySecond` 重试。
+- owner 仍可通过 `friend_request` 手动覆盖 pending 申请，用于调试或特殊处理。
 - `friend_request` 支持 `requestIDs` 数组和按 `userID` 批量处理。同一 QQ 的重复申请只调用一次 OneBot，
   成功后会把该 QQ 剩余 pending 记录一起收口，避免后续重复 flag 返回 `No such request`。
+  自动与手动处理都会把决策来源和理由写入请求表。
 - 禁言、全员禁言、删除好友、好友备注、头像、资料卡和个性签名都会写入审计。
 - 退群只接受 owner 的 `operatorID`；普通群员即使通过聊天诱导角色，也会在服务层被拒绝。
 - 机器人被移出群、主动退群或自身被禁言时，会私聊通知服务器配置的 owner；通知受 `notifyOwnerOnGroupEvent` 控制。

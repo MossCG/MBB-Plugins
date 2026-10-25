@@ -15,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * QQ 扩展动作服务。
@@ -27,6 +29,7 @@ public class QQService implements PluginService {
     private static final String REQUEST_TABLE = "plugin_mbb_qq_request";
     private final Plugin plugin;
     private volatile QQConfig config;
+    private final Set<Long> friendDecisionRunning = ConcurrentHashMap.newKeySet();
 
     public QQService(Plugin plugin,QQConfig config) {
         this.plugin = plugin;
@@ -72,6 +75,8 @@ public class QQService implements PluginService {
                 + "`comment` TEXT NOT NULL DEFAULT '',"
                 + "`flag` TEXT NOT NULL DEFAULT '',"
                 + "`status` TEXT NOT NULL DEFAULT 'pending',"
+                + "`decisionSource` TEXT NOT NULL DEFAULT '',"
+                + "`decisionReason` TEXT NOT NULL DEFAULT '',"
                 + "`createTime` INTEGER NOT NULL DEFAULT 0,"
                 + "`updateTime` INTEGER NOT NULL DEFAULT 0"
                 + ")");
@@ -79,6 +84,8 @@ public class QQService implements PluginService {
                 + "ON `"+REQUEST_TABLE+"` (`requestType`,`flag`)");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_mbb_qq_request_status` "
                 + "ON `"+REQUEST_TABLE+"` (`status`,`updateTime`)");
+        ensureRequestColumn("decisionSource","TEXT NOT NULL DEFAULT ''");
+        ensureRequestColumn("decisionReason","TEXT NOT NULL DEFAULT ''");
         cleanupAudit();
         cleanupRequests();
     }
@@ -486,13 +493,15 @@ public class QQService implements PluginService {
     }
 
     /**
-     * 保存好友申请和群邀请。这里只记录，不自动同意或拒绝。
+     * 保存好友申请和群邀请。好友申请可交给角色自动裁决，群邀请仍只记录。
      */
     public void recordRequest(org.moboxlab.moboxbot.API.Event.RequestEvent event) {
-        if (event == null || !config.adminToolsEnable) return;
+        if (event == null) return;
         String type = safe(event.getRequestType()).toLowerCase(Locale.ROOT);
         String flag = safe(event.getFlag()).trim();
         if (type.isEmpty() || flag.isEmpty()) return;
+        boolean friend = "friend".equals(type);
+        if (!config.adminToolsEnable && !(friend && config.friendRequestRoleDecisionEnable)) return;
         long now = System.currentTimeMillis();
         JSONObject exists = storage().queryOne(
                 "SELECT `ID` FROM `"+REQUEST_TABLE+"` WHERE `requestType`=? AND `flag`=?",
@@ -510,6 +519,77 @@ public class QQService implements PluginService {
                     event.getGroupID(),shortText(event.getComment(),500),now,
                     exists.getLongValue("ID"));
         }
+        if (friend && config.friendRequestRoleDecisionEnable) {
+            triggerFriendRoleDecision(event.getUserID());
+        }
+    }
+
+    private void triggerFriendRoleDecision(long userID) {
+        if (userID <= 0 || !config.friendRequestRoleDecisionEnable) return;
+        if (!friendDecisionRunning.add(userID)) return;
+        plugin.getServer().getPluginManager().runTask(plugin,
+                () -> decideFriendRequestByRole(userID));
+    }
+
+    private void decideFriendRequestByRole(long userID) {
+        try {
+            List<JSONObject> pending = pendingFriendRequests(userID);
+            if (pending.isEmpty()) return;
+            PluginService roleplay = plugin.getServer().getPluginManager().getService("MBB-Roleplay");
+            if (roleplay == null) {
+                plugin.getLogger().sendWarn("[QQ] 好友申请 "+userID+" 等待角色裁决，但 MBB-Roleplay 未启用");
+                scheduleFriendDecisionRetry(userID);
+                return;
+            }
+            JSONObject params = new JSONObject(true);
+            params.put("userID",userID);
+            params.put("comment",requestComments(pending));
+            params.put("subType",safe(pending.get(0).getString("subType")));
+            JSONObject decision = roleplay.call("decide-friend-request",params);
+            if (decision == null || !decision.getBooleanValue("status")) {
+                plugin.getLogger().sendWarn("[QQ] 好友申请 "+userID+" 角色裁决失败："
+                        +safe(decision == null ? "无返回" : decision.getString("message")));
+                if (decision == null || !"disabled".equals(decision.getString("errorType"))) {
+                    scheduleFriendDecisionRetry(userID);
+                }
+                return;
+            }
+            boolean approve = decision.getBooleanValue("approve");
+            String reason = safe(decision.getString("reason"));
+            String remark = safe(decision.getString("remark")).trim();
+            plugin.getLogger().sendInfo("[QQ] 好友申请 "+userID+" 由角色决定为"
+                    +(approve ? "通过" : "拒绝")+"："+shortText(reason,160));
+            JSONObject result = processFriendRequestsForUser(userID,approve,remark,
+                    "roleplay",reason);
+            if (!result.getBooleanValue("status") && !pendingFriendRequests(userID).isEmpty()) {
+                scheduleFriendDecisionRetry(userID);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[QQ] 好友申请 "+userID+" 自动裁决异常："
+                    +safe(e.getMessage()));
+            scheduleFriendDecisionRetry(userID);
+        } finally {
+            friendDecisionRunning.remove(userID);
+        }
+    }
+
+    private void scheduleFriendDecisionRetry(long userID) {
+        plugin.getServer().getPluginManager().runTaskLater(plugin,
+                () -> triggerFriendRoleDecision(userID),
+                Math.max(30,config.friendRequestRoleDecisionRetrySecond));
+    }
+
+    private String requestComments(List<JSONObject> rows) {
+        StringBuilder builder = new StringBuilder();
+        int limit = Math.min(5,rows.size());
+        for (int i = 0; i < limit; i++) {
+            String comment = safe(rows.get(i).getString("comment")).trim();
+            if (comment.isEmpty()) continue;
+            if (builder.length() > 0) builder.append("\n");
+            builder.append(comment);
+            if (builder.length() >= 500) break;
+        }
+        return builder.length() <= 500 ? builder.toString() : builder.substring(0,500);
     }
 
     private JSONObject pendingRequests(JSONObject input) {
@@ -546,6 +626,20 @@ public class QQService implements PluginService {
         boolean approve = boolValue(input,"approve",false);
         String remark = safe(input.getString("remark")).trim();
         if (remark.length() > 60) return error("好友备注最多 60 个字符");
+        return processFriendRequests(input,approve,remark,"owner","");
+    }
+
+    private JSONObject processFriendRequestsForUser(long userID,boolean approve,String remark,
+                                                     String source,String reason) {
+        JSONObject input = new JSONObject(true);
+        input.put("userID",userID);
+        input.put("approve",approve);
+        if (remark != null && !remark.trim().isEmpty()) input.put("remark",remark.trim());
+        return processFriendRequests(input,approve,safe(remark).trim(),source,reason);
+    }
+
+    private JSONObject processFriendRequests(JSONObject input,boolean approve,String remark,
+                                              String source,String reason) {
         List<JSONObject> selected = friendRequestRows(input);
         if (selected.isEmpty()) return error("没有找到要处理的好友申请，请先读取 pending_requests");
         Map<Long,List<JSONObject>> grouped = new LinkedHashMap<>();
@@ -598,11 +692,11 @@ public class QQService implements PluginService {
             item.put("flag",flag);
             item.put("message",safe(result.getString("message")));
             if (result.getBooleanValue("status")) {
-                markFriendRequestsForUser(userID,approve ? "approved" : "rejected");
+                markFriendRequestsForUser(userID,approve ? "approved" : "rejected",source,reason);
                 item.put("status",approve ? "approved" : "rejected");
                 success++;
             } else if (isMissingRequest(result.getString("message"))) {
-                markFriendRequestsForUser(userID,"expired");
+                markFriendRequestsForUser(userID,"expired",source,reason);
                 item.put("status","expired");
                 item.put("message","QQ 服务端已不存在该申请，剩余重复申请一并收口");
                 skipped++;
@@ -797,10 +891,11 @@ public class QQService implements PluginService {
         return rows == null ? new ArrayList<>() : rows;
     }
 
-    private void markFriendRequestsForUser(long userID,String status) {
-        storage().update("UPDATE `"+REQUEST_TABLE+"` SET `status`=?,`updateTime`=? "
+    private void markFriendRequestsForUser(long userID,String status,String source,String reason) {
+        storage().update("UPDATE `"+REQUEST_TABLE+"` SET `status`=?,`decisionSource`=?,"
+                        + "`decisionReason`=?,`updateTime`=? "
                         + "WHERE `requestType`='friend' AND `userID`=? AND `status`='pending'",
-                status,System.currentTimeMillis(),userID);
+                status,safe(source),shortText(reason,300),System.currentTimeMillis(),userID);
     }
 
     private boolean isMissingRequest(String message) {
@@ -1019,6 +1114,16 @@ public class QQService implements PluginService {
     private void cleanupRequests() {
         long cutoff = System.currentTimeMillis() - config.requestKeepDays * 86400000L;
         storage().update("DELETE FROM `"+REQUEST_TABLE+"` WHERE `updateTime`<?",cutoff);
+    }
+
+    private void ensureRequestColumn(String column,String definition) {
+        List<JSONObject> columns = storage().query("PRAGMA table_info(`"+REQUEST_TABLE+"`)");
+        if (columns != null) {
+            for (JSONObject row : columns) {
+                if (column.equalsIgnoreCase(row.getString("name"))) return;
+            }
+        }
+        storage().update("ALTER TABLE `"+REQUEST_TABLE+"` ADD COLUMN `"+column+"` "+definition);
     }
 
     private boolean validUgcRight(int right) {

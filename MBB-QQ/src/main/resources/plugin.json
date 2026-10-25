@@ -1,10 +1,10 @@
 {
   "name": "MBB-QQ",
-  "version": "V0.3.1.0.0338",
+  "version": "V0.3.2.0.2251",
   "apiVersion": "0.3",
   "main": "org.moboxlab.mbb.qq.QQPlugin",
   "author": "MoBoxLab",
-  "description": "QQ 扩展动作服务：群信息、历史消息、互动、媒体发送、自己的群名片与 Qzone",
+  "description": "QQ 扩展动作服务：群信息、历史消息、互动、媒体发送、角色好友申请裁决、自己的群名片与 Qzone",
   "website": "",
   "depend": [],
   "softDepend": [],

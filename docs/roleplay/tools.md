@@ -86,14 +86,15 @@ tool_search
 
 | 工具 | 用途 |
 |---|---|
-| `qq_pending_requests` | 查看待处理好友申请和群邀请，仅 owner；不会自动响应 |
-| `qq_friend_request` / `qq_group_request` | 处理好友申请或群邀请，仅 owner |
+| `qq_pending_requests` | 查看待处理好友申请和群邀请；好友申请默认已由角色自动裁决 |
+| `qq_friend_request` / `qq_group_request` | 手动覆盖好友申请或处理群邀请，仅 owner |
 | `qq_group_ban` / `qq_group_whole_ban` | 禁言、解禁、全员禁言，需要 owner 或群管理员 |
 | `qq_group_leave` | 退出当前群，只能由 owner 明确要求；非 owner 请求在 MBB-QQ 服务层拒绝 |
 | `qq_delete_friend` / `qq_set_friend_remark` | 删除好友、设置好友备注，仅 owner |
 | `qq_set_avatar` / `qq_set_profile` / `qq_set_signature` | 设置机器人头像、资料卡和个性签名，仅 owner |
 
 `qq_friend_request` 支持 `requestIDs` 数组一次处理多个申请，也支持传 `userID` 处理同一 QQ 的全部待处理申请。
+自动好友裁决不走模型工具，而由 MBB-QQ 在申请事件中调用 `MBB-Roleplay` 公共服务完成；工具入口仅用于 owner 手动覆盖。
 MBB-QQ 会按 QQ 去重后只调用一次 OneBot，避免同一用户连续申请时后续 flag 返回 `No such request`：
 成功的申请会把该 QQ 剩余 pending 记录一起标记为已处理；服务端明确表示申请不存在时标记为 `expired`。
 

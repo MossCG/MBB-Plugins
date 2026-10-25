@@ -339,6 +339,11 @@ public class RoleplayConfig {
     public boolean privateChatInputStatusEnable = true;
     public int privateChatInputStatusGraceSecond = 3;
     public int privateChatInputStatusMaxWaitSecond = 10;
+    public boolean friendRequestRoleDecisionEnable = true;
+    public String friendRequestRoleDecisionProfile = "";
+    public double friendRequestRoleDecisionMinConfidence = 0.55;
+    public int friendRequestRoleDecisionMaxTokens = 1600;
+    public int friendRequestRoleDecisionTimeoutSecond = 60;
     public boolean randomTickEnable = true;
     public int randomTickMinMinute = 10;
     public int randomTickMaxMinute = 30;
@@ -847,6 +852,16 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("privateChatInputStatusGraceSecond",3);
         config.privateChatInputStatusMaxWaitSecond =
                 plugin.getConfig().getInt("privateChatInputStatusMaxWaitSecond",10);
+        config.friendRequestRoleDecisionEnable =
+                plugin.getConfig().getBoolean("friendRequestRoleDecisionEnable",true);
+        config.friendRequestRoleDecisionProfile =
+                plugin.getConfig().getString("friendRequestRoleDecisionProfile","");
+        config.friendRequestRoleDecisionMinConfidence = parseDouble(
+                plugin.getConfig().getString("friendRequestRoleDecisionMinConfidence","0.55"),0.55);
+        config.friendRequestRoleDecisionMaxTokens =
+                plugin.getConfig().getInt("friendRequestRoleDecisionMaxTokens",1600);
+        config.friendRequestRoleDecisionTimeoutSecond =
+                plugin.getConfig().getInt("friendRequestRoleDecisionTimeoutSecond",60);
         config.randomTickEnable = plugin.getConfig().getBoolean("randomTickEnable",true);
         config.randomTickMinMinute = plugin.getConfig().getInt("randomTickMinMinute",10);
         config.randomTickMaxMinute = plugin.getConfig().getInt("randomTickMaxMinute",30);
@@ -1395,6 +1410,27 @@ public class RoleplayConfig {
         }
         if (config.privateChatInputStatusMaxWaitSecond > 60) {
             config.privateChatInputStatusMaxWaitSecond = 60;
+        }
+        if (config.friendRequestRoleDecisionProfile == null) {
+            config.friendRequestRoleDecisionProfile = "";
+        }
+        if (config.friendRequestRoleDecisionMinConfidence < 0) {
+            config.friendRequestRoleDecisionMinConfidence = 0;
+        }
+        if (config.friendRequestRoleDecisionMinConfidence > 1) {
+            config.friendRequestRoleDecisionMinConfidence = 1;
+        }
+        if (config.friendRequestRoleDecisionMaxTokens < 400) {
+            config.friendRequestRoleDecisionMaxTokens = 400;
+        }
+        if (config.friendRequestRoleDecisionMaxTokens > 8000) {
+            config.friendRequestRoleDecisionMaxTokens = 8000;
+        }
+        if (config.friendRequestRoleDecisionTimeoutSecond < 15) {
+            config.friendRequestRoleDecisionTimeoutSecond = 15;
+        }
+        if (config.friendRequestRoleDecisionTimeoutSecond > 300) {
+            config.friendRequestRoleDecisionTimeoutSecond = 300;
         }
         if (config.randomTickMinMinute < 1) config.randomTickMinMinute = 1;
         if (config.randomTickMinMinute > 1440) config.randomTickMinMinute = 1440;

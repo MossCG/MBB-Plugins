@@ -609,6 +609,16 @@ privateChatInputStatusEnable: true
 privateChatInputStatusGraceSecond: 3
 #input_status 最多让一条待回复私聊延后多少秒，防止无限等待
 privateChatInputStatusMaxWaitSecond: 10
+#是否由角色决定好友申请是否通过
+friendRequestRoleDecisionEnable: true
+#好友申请裁决使用的 AI profile，留空时使用 aiProfile
+friendRequestRoleDecisionProfile: ""
+#角色同意好友申请所需的最低置信度
+friendRequestRoleDecisionMinConfidence: 0.55
+#好友申请裁决输出 Token 上限
+friendRequestRoleDecisionMaxTokens: 1600
+#好友申请裁决请求超时秒数
+friendRequestRoleDecisionTimeoutSecond: 60
 #是否启用随机刻主动互动
 randomTickEnable: true
 #随机刻最短间隔分钟数

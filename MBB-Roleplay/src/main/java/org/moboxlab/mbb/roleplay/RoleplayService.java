@@ -78,6 +78,7 @@ public class RoleplayService {
     private final RoleplayMemoryBackupService memoryBackupService;
     private final RoleplayMemoryUpdateService memoryUpdateService;
     private final RoleplayPrivateChatService privateChatService;
+    private final RoleplayFriendRequestService friendRequestService;
     private final RoleplayRandomTickService randomTickService;
     private final RoleplayBatchScheduler batchScheduler;
     private final RoleplayPokeService pokeService;
@@ -309,6 +310,7 @@ public class RoleplayService {
         this.memoryBackupService = new RoleplayMemoryBackupService(this);
         this.memoryUpdateService = new RoleplayMemoryUpdateService(this);
         this.privateChatService = new RoleplayPrivateChatService(plugin,config,this);
+        this.friendRequestService = new RoleplayFriendRequestService(this);
         this.randomTickService = new RoleplayRandomTickService(plugin,config,this);
         this.batchScheduler = new RoleplayBatchScheduler(this);
         this.pokeService = new RoleplayPokeService(this);
@@ -693,6 +695,10 @@ public class RoleplayService {
 
     RoleplayPrivateChatService privateChatService() {
         return privateChatService;
+    }
+
+    RoleplayFriendRequestService friendRequestService() {
+        return friendRequestService;
     }
 
     RoleplayRandomTickService randomTickService() {

@@ -120,6 +120,11 @@ privateChatPendingMaxMessages: 10
 privateChatInputStatusEnable: true
 privateChatInputStatusGraceSecond: 3
 privateChatInputStatusMaxWaitSecond: 10
+friendRequestRoleDecisionEnable: true
+friendRequestRoleDecisionProfile: ""
+friendRequestRoleDecisionMinConfidence: 0.55
+friendRequestRoleDecisionMaxTokens: 1600
+friendRequestRoleDecisionTimeoutSecond: 60
 randomTickEnable: true
 randomTickMinMinute: 10
 randomTickMaxMinute: 30
@@ -371,6 +376,11 @@ quietReplyEnable: true
 会把发送时间刷新为“最后一次输入状态后 3 秒”；持续输入会继续顺延，但
 `privateChatInputStatusMaxWaitSecond` 限制从第一条消息开始的绝对等待上限。
 typing 状态不会取消已经开始的 AI，只有真实消息到达才会清空 typing 等待并合并重生成。
+
+`friendRequestRoleDecisionEnable` 默认 `true`。MBB-QQ 收到好友申请后会调用角色裁决服务，
+角色结合 persona、个人印象、长期记忆和私聊记忆决定是否愿意通过。申请备注是不可信外部文本，
+会先经过防注入和现实隐私检查；AI 给出同意但低于 `friendRequestRoleDecisionMinConfidence`
+时仍会转为拒绝。`friendRequestRoleDecisionProfile` 留空时使用 `aiProfile`。
 
 `toolEnable` 默认 `true`，通过 `MBB-AI` 的 OpenAI `tools/tool_calls` 执行有限工具循环。
 首轮只开放 `toolCoreTools`，其他工具由 `tool_search` 按需加载，最多同时加载

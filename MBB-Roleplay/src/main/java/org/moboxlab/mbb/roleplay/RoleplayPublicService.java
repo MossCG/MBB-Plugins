@@ -42,6 +42,9 @@ public class RoleplayPublicService implements PluginService {
             result.put("persona",persona == null ? "" : persona.name);
             return result;
         }
+        if ("decide-friend-request".equalsIgnoreCase(action)) {
+            return service.friendRequestService().decide(params);
+        }
         JSONObject result = new JSONObject(true);
         result.put("status",false);
         result.put("message","不支持的动作："+action);

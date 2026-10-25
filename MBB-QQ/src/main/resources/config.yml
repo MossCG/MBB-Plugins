@@ -12,6 +12,10 @@ adminToolsEnable: true
 groupLeaveEnable: true
 #机器人退群、被移出群或被禁言时是否私聊通知 owner
 notifyOwnerOnGroupEvent: true
+#好友申请是否交给角色自动裁决；不需要 owner 审批
+friendRequestRoleDecisionEnable: true
+#角色裁决失败后的重试间隔秒数
+friendRequestRoleDecisionRetrySecond: 300
 #是否允许管理机器人自己的 QQ 空间
 qzoneEnable: true
 #戳同一用户的最小间隔秒数

@@ -13,6 +13,8 @@ public class QQConfig {
     public boolean adminToolsEnable = true;
     public boolean groupLeaveEnable = true;
     public boolean notifyOwnerOnGroupEvent = true;
+    public boolean friendRequestRoleDecisionEnable = true;
+    public int friendRequestRoleDecisionRetrySecond = 300;
     public boolean qzoneEnable = true;
     public int pokeCooldownSecond = 30;
     public int likeCooldownSecond = 86400;
@@ -42,6 +44,10 @@ public class QQConfig {
         config.groupLeaveEnable = plugin.getConfig().getBoolean("groupLeaveEnable",true);
         config.notifyOwnerOnGroupEvent =
                 plugin.getConfig().getBoolean("notifyOwnerOnGroupEvent",true);
+        config.friendRequestRoleDecisionEnable =
+                plugin.getConfig().getBoolean("friendRequestRoleDecisionEnable",true);
+        config.friendRequestRoleDecisionRetrySecond =
+                plugin.getConfig().getInt("friendRequestRoleDecisionRetrySecond",300);
         config.qzoneEnable = plugin.getConfig().getBoolean("qzoneEnable",true);
         config.pokeCooldownSecond = plugin.getConfig().getInt("pokeCooldownSecond",30);
         config.likeCooldownSecond = plugin.getConfig().getInt("likeCooldownSecond",86400);
@@ -72,6 +78,12 @@ public class QQConfig {
         if (config.emojiLikeCooldownSecond < 1) config.emojiLikeCooldownSecond = 1;
         if (config.recallWindowSecond < 10) config.recallWindowSecond = 10;
         if (config.groupCardCooldownSecond < 10) config.groupCardCooldownSecond = 10;
+        if (config.friendRequestRoleDecisionRetrySecond < 30) {
+            config.friendRequestRoleDecisionRetrySecond = 30;
+        }
+        if (config.friendRequestRoleDecisionRetrySecond > 3600) {
+            config.friendRequestRoleDecisionRetrySecond = 3600;
+        }
         if (config.qzoneCooldownSecond < 30) config.qzoneCooldownSecond = 30;
         if (config.qzoneContentMaxChars < 10) config.qzoneContentMaxChars = 10;
         if (config.qzoneContentMaxChars > 2000) config.qzoneContentMaxChars = 2000;
