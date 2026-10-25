@@ -559,6 +559,10 @@ randomTickGroupWindowMinute: 360
 randomTickGroupMaxActions: 2
 #每天最多发布多少条 Qzone 说说，0 表示关闭
 randomTickQzoneDailyMax: 2
+#owner 最近互动窗口分钟数，用于提高主动私聊概率
+randomTickOwnerRecentWindowMinute: 180
+#最近互动 owner 直接触发主动私聊的基础概率，0 到 1
+randomTickOwnerRecentBoostChance: 0.30
 #相同主动行为指纹的去重小时数
 randomTickDedupeHours: 24
 #随机刻决策输出 Token 上限

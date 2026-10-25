@@ -1391,6 +1391,10 @@ public class RoleplayService {
         return memoryQueryService.shortSummary(groupID);
     }
 
+    String groupShortSummary(long groupID) {
+        return memoryQueryService.groupShortSummary(groupID);
+    }
+
     MemoryCursor memoryCursor(long groupID) {
         return memoryQueryService.memoryCursor(groupID);
     }

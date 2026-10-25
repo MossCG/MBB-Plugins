@@ -36,6 +36,11 @@ public class RoleplayRandomTickService {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile boolean scheduled = false;
 
+    private static class OwnerInteraction {
+        private long ownerID;
+        private long lastTime;
+    }
+
     public RoleplayRandomTickService(Plugin plugin,RoleplayConfig config,RoleplayService service) {
         this.plugin = plugin;
         this.config = config;
@@ -113,7 +118,17 @@ public class RoleplayRandomTickService {
                 record("none",STATUS_NO_OP,"system",0,"没有可用主动行为",now);
                 return;
             }
-            JSONObject decision = decide(candidates,now);
+            OwnerInteraction recentOwner = recentOwnerInteraction(now);
+            JSONObject decision;
+            if (candidates.contains(ACTION_QZONE) && qzoneDueToday(now)) {
+                decision = forcedDecision(ACTION_QZONE,"每日 Qzone 保底");
+            } else if (candidates.contains(ACTION_PRIVATE_OWNER)
+                    && shouldBoostRecentOwner(config.randomTickOwnerRecentBoostChance,
+                    recentOwner.ownerID)) {
+                decision = forcedDecision(ACTION_PRIVATE_OWNER,"优先找最近互动过的 owner");
+            } else {
+                decision = decide(candidates,now,recentOwner);
+            }
             if (decision == null) {
                 record("none",STATUS_NO_OP,"system",0,"随机刻决策失败",now);
                 return;
@@ -128,35 +143,27 @@ public class RoleplayRandomTickService {
                 record("none",STATUS_NO_OP,"system",0,"主动行为频率或去重拦截",now);
                 return;
             }
-            String content = service.safe(decision.getString("content")).trim();
             String reason = service.safe(decision.getString("reason")).trim();
-            if (content.isEmpty()) content = generateContent(action,decision,reason);
-            content = clean(content);
-            if (content.isEmpty() || "<SKIP>".equalsIgnoreCase(content)) {
+            long targetID;
+            if (ACTION_PRIVATE_OWNER.equals(action)) {
+                targetID = privateOwnerTarget(recentOwner,now);
+            } else if (ACTION_GROUP_TOPIC.equals(action)) {
+                targetID = chooseGroup();
+            } else if (ACTION_QZONE.equals(action)) {
+                targetID = privateOwnerTarget(recentOwner,now);
+            } else {
+                targetID = 0L;
+            }
+            if (targetID <= 0) {
                 record("none",STATUS_NO_OP,"system",0,
-                        reason.isEmpty() ? "模型判断这次不主动" : reason,now);
+                        ACTION_GROUP_TOPIC.equals(action) ? "没有可用的群" : "owner 列表为空",now);
                 return;
             }
-            long targetID = decision.getLongValue("groupID");
-            if (ACTION_PRIVATE_OWNER.equals(action)) {
-                List<Long> owners = owners();
-                if (owners.isEmpty()) {
-                    record("none",STATUS_NO_OP,"system",0,"owner 列表为空",now);
-                    return;
-                }
-                targetID = owners.get(0);
-            } else if (ACTION_GROUP_TOPIC.equals(action)) {
-                targetID = validGroup(targetID);
-                if (targetID <= 0) {
-                    record("none",STATUS_NO_OP,"system",0,"没有可用的群",now);
-                    return;
-                }
-            } else if (ACTION_QZONE.equals(action)) {
-                targetID = ownerOrZero();
-                if (targetID <= 0) {
-                    record("none",STATUS_NO_OP,"system",0,"owner 列表为空",now);
-                    return;
-                }
+            String content = clean(generateContent(action,reason,targetID));
+            if (content.isEmpty() || "<SKIP>".equalsIgnoreCase(content)) {
+                record("none",STATUS_NO_OP,"system",0,
+                        reason.isEmpty() ? "这次没有生成自然内容" : reason,now);
+                return;
             }
             String fingerprint = fingerprint(action,targetID,content);
             if (recentDuplicate(fingerprint,now)) {
@@ -185,7 +192,7 @@ public class RoleplayRandomTickService {
         }
     }
 
-    private JSONObject decide(List<String> candidates,long now) {
+    private JSONObject decide(List<String> candidates,long now,OwnerInteraction recentOwner) {
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         StringBuilder prompt = new StringBuilder();
@@ -197,24 +204,25 @@ public class RoleplayRandomTickService {
             if (ACTION_PRIVATE_OWNER.equals(candidate)) {
                 prompt.append("- private_owner：给 owner 发私聊；没有频率限制，但不要刷屏。\n");
             } else if (ACTION_GROUP_TOPIC.equals(candidate)) {
-                prompt.append("- group_topic：在某个已启用群主动发起一句自然话题；全局每 6 小时最多 2 次。\n");
+                prompt.append("- group_topic：主动发起一句自然话题；具体群由程序从最近活跃群中选择；全局每 6 小时最多 2 次。\n");
             } else if (ACTION_QZONE.equals(candidate)) {
                 prompt.append("- qzone_post：发一条 QQ 空间说说；每天最多 2 次，默认仅自己可见。\n");
             }
         }
-        prompt.append("可用群号：").append(activeGroups().toJSONString()).append("\n");
-        prompt.append("最近跨群短期记忆：\n").append(service.shortSummary(0L)).append("\n")
-                .append("跨群长期记忆：\n")
-                .append(service.longMemoryText(0L,ownerOrZero(),"主动互动")).append("\n")
-                .append("全局永久记忆：\n")
-                .append(service.globalMemoryService().promptText("主动互动",ownerOrZero(),
-                        config.globalMemoryRelevanceMaxChars)).append("\n")
-                .append("最近已执行的主动行为：\n").append(recentActions(now)).append("\n")
-                .append("如果你选择 group_topic，请给出群号 groupID。\n")
-                .append("如果选择 qzone_post，content 是说说正文，不要带链接或标签。\n")
+        if (recentOwner.ownerID > 0) {
+            prompt.append("最近互动过的 owner：").append(recentOwner.ownerID)
+                    .append("，最近互动时间：").append(service.formatMemoryTime(recentOwner.lastTime))
+                    .append("。选择 private_owner 时优先找这个 owner。\n")
+                    .append("对该 owner 的个人印象：\n")
+                    .append(service.memberService().promptText(0L,recentOwner.ownerID)).append("\n");
+        } else {
+            prompt.append("最近没有互动明显的 owner。\n");
+        }
+        prompt.append("最近已执行的主动行为：\n").append(recentActions(now)).append("\n")
+                .append("你只决定行为类型和原因，不填写群号、正文或链接。\n")
                 .append("只输出 JSON，不要 markdown：")
                 .append("{\"action\":\"none|private_owner|group_topic|qzone_post\",")
-                .append("\"confidence\":0.0,\"groupID\":0,\"content\":\"\",\"reason\":\"\"}");
+                .append("\"confidence\":0.0,\"reason\":\"\"}");
         JSONArray messages = new JSONArray();
         messages.add(service.message("system",prompt.toString()));
         messages.add(service.message("user","请判断这一次随机刻是否行动。"));
@@ -237,13 +245,12 @@ public class RoleplayRandomTickService {
         return parsed;
     }
 
-    private String generateContent(String action,JSONObject decision,String reason) {
+    private String generateContent(String action,String reason,long targetID) {
         if (ACTION_PRIVATE_OWNER.equals(action)) {
-            return service.privateChatService().generateProactive(ownerOrZero(),reason);
+            return service.privateChatService().generateProactive(targetID,reason);
         }
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return "";
-        long groupID = ACTION_GROUP_TOPIC.equals(action) ? decision.getLongValue("groupID") : 0L;
         StringBuilder system = new StringBuilder();
         system.append("你是").append(service.persona().name).append("。现在要根据随机刻写一句主动内容。")
                 .append("不要解释调度、记忆或系统。只输出要发送的正文。")
@@ -252,12 +259,24 @@ public class RoleplayRandomTickService {
                 .append("不要输出 markdown、旁白、括号动作或链接。\n")
                 .append("当前时间：").append(service.currentTimeText()).append("\n")
                 .append("原因：").append(service.safe(reason)).append("\n")
-                .append("跨群短期记忆：\n").append(service.shortSummary(0L)).append("\n");
+                .append("角色设定：\n").append(service.persona().coreText()).append("\n");
         if (ACTION_GROUP_TOPIC.equals(action)) {
-            system.append("\n目标群近期消息：\n").append(service.contextService().recentContext(groupID));
-            system.append("\n只写一句能在群里自然发起的话题，最多 50 字。");
+            system.append("\n【目标群资料】\n")
+                    .append("群号：").append(targetID).append("\n")
+                    .append("本群短期记忆：\n").append(service.groupShortSummary(targetID)).append("\n")
+                    .append("本群近期消息：\n").append(service.contextService().recentContext(targetID))
+                    .append("\n只写一句能在该群自然发起的话题，最多 50 字。")
+                    .append("不要使用其他群的聊天内容、称呼、事件或关系。");
         } else {
-            system.append("\n写一条 Qzone 说说，最多 80 字，像角色随手记录日常，不要营销口吻。");
+            system.append("\n【Qzone 资料】\n")
+                    .append("与 owner 的长期记忆：\n")
+                    .append(service.privateMemoryText(targetID,"QQ空间 日常",
+                            config.memoryRelevanceMaxChars)).append("\n")
+                    .append("全局永久记忆：\n")
+                    .append(service.globalMemoryService().promptText("QQ空间 日常",targetID,
+                            config.globalMemoryRelevanceMaxChars)).append("\n")
+                    .append("写一条 Qzone 说说，最多 80 字，像角色随手记录日常，不要营销口吻。")
+                    .append("不要引用或复述任何群聊原文。");
         }
         JSONArray messages = new JSONArray();
         messages.add(service.message("system",system.toString()));
@@ -269,7 +288,7 @@ public class RoleplayRandomTickService {
         params.put("reasoningEffort",config.replyReasoningEffort);
         params.put("timeoutSeconds",config.randomTickTimeoutSecond);
         params.put("retryCount",0);
-        params.put("sessionId","roleplay-random-content-"+service.getRoleName());
+        params.put("sessionId",contentSessionId(action,targetID));
         params.put("messages",messages);
         JSONObject result = ai.call("chat",params);
         if (result == null || !result.getBooleanValue("status")) return "";
@@ -289,6 +308,72 @@ public class RoleplayRandomTickService {
         if (plugin.getServer().getPluginManager().getService("MBB-QQ") != null
                 && !owners().isEmpty() && config.randomTickQzoneDailyMax > 0) {
             result.add(ACTION_QZONE);
+        }
+        return result;
+    }
+
+    private JSONObject forcedDecision(String action,String reason) {
+        JSONObject decision = new JSONObject(true);
+        decision.put("action",action);
+        decision.put("confidence",1.0);
+        decision.put("reason",reason);
+        return decision;
+    }
+
+    private boolean qzoneDueToday(long now) {
+        if (plugin.getServer().getPluginManager().getService("MBB-QQ") == null
+                || owners().isEmpty() || config.randomTickQzoneDailyMax <= 0) {
+            return false;
+        }
+        return qzoneDue(config.randomTickQzoneDailyMax,
+                countAction(ACTION_QZONE,STATUS_SENT,startOfToday(now)));
+    }
+
+    static boolean qzoneDue(int dailyMax,int sentToday) {
+        return dailyMax > 0 && sentToday == 0;
+    }
+
+    static boolean shouldBoostRecentOwner(double chance,long ownerID) {
+        return ownerID > 0 && Math.random() < Math.max(0,Math.min(1,chance));
+    }
+
+    static String contentSessionId(String action,long targetID) {
+        return ACTION_GROUP_TOPIC.equals(action)
+                ? "roleplay-random-content-group-"+targetID
+                : "roleplay-random-content-qzone-"+targetID;
+    }
+
+    private long chooseGroup() {
+        JSONArray groups = activeGroups();
+        if (groups == null || groups.isEmpty()) return 0L;
+        int index = (int)(Math.random() * groups.size());
+        Object value = groups.get(index);
+        return value == null ? 0L : Long.parseLong(String.valueOf(value));
+    }
+
+    private long privateOwnerTarget(OwnerInteraction recent,long now) {
+        long window = Math.max(1,config.randomTickOwnerRecentWindowMinute) * 60000L;
+        if (recent != null && recent.ownerID > 0 && recent.lastTime >= now - window) {
+            return recent.ownerID;
+        }
+        return ownerOrZero();
+    }
+
+    private OwnerInteraction recentOwnerInteraction(long now) {
+        OwnerInteraction result = new OwnerInteraction();
+        long since = now - Math.max(1,config.randomTickOwnerRecentWindowMinute) * 60000L;
+        for (Long owner : owners()) {
+            long last = 0L;
+            JSONObject groupRow = storage().queryOne(
+                    "SELECT MAX(`messageTime`) AS `lastTime` FROM `"+RoleplayService.MSG_TABLE+"` "
+                            + "WHERE `userID`=? AND `isBot`=0 AND `messageTime`>=?",
+                    owner,since);
+            if (groupRow != null) last = Math.max(last,groupRow.getLongValue("lastTime"));
+            last = Math.max(last,service.privateChatService().lastInteractionTime(owner));
+            if (last >= since && last > result.lastTime) {
+                result.ownerID = owner;
+                result.lastTime = last;
+            }
         }
         return result;
     }
@@ -339,20 +424,6 @@ public class RoleplayRandomTickService {
         return builder.toString();
     }
 
-    private long validGroup(long requested) {
-        JSONArray groups = activeGroups();
-        if (groups == null || groups.isEmpty()) return 0L;
-        for (Object object : groups) {
-            long groupID = object == null ? 0L : Long.parseLong(String.valueOf(object));
-            if (groupID == requested) return groupID;
-        }
-        if (requested > 0) return 0L;
-        for (Object object : groups) {
-            if (object != null) return Long.parseLong(String.valueOf(object));
-        }
-        return 0L;
-    }
-
     /**
      * 只有近期有消息、且角色开启的群才适合主动发起话题。
      */
@@ -376,6 +447,8 @@ public class RoleplayRandomTickService {
     private boolean sendGroup(long groupID,String content) {
         OneBotClient client = plugin.getServer().getOneBotClient();
         if (client == null || !client.isConnected()) return false;
+        content = service.messageSender().normalizeSentencePeriods(groupID,content);
+        if (content.isEmpty()) return false;
         JSONObject response = client.sendGroupMessage(groupID,
                 MessageUtil.message(MessageUtil.text(content)));
         if (response == null || response.getIntValue("retcode") != 0) return false;

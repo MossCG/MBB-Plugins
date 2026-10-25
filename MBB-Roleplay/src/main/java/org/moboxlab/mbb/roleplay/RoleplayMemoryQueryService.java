@@ -260,6 +260,17 @@ public class RoleplayMemoryQueryService {
                 ? "暂无短期记忆。" : row.getString("shortSummary");
     }
 
+    /**
+     * 只读取指定群自己的短期摘要，不读取跨群全局摘要。
+     */
+    String groupShortSummary(long groupID) {
+        if (groupID <= 0) return "暂无短期记忆。";
+        JSONObject row = service.storage().queryOne(
+                "SELECT `shortSummary` FROM `"+RoleplayService.STATE_TABLE+"` WHERE `groupID`=?",groupID);
+        return row == null || row.getString("shortSummary") == null || row.getString("shortSummary").isEmpty()
+                ? "暂无短期记忆。" : row.getString("shortSummary");
+    }
+
     RoleplayService.MemoryCursor memoryCursor(long groupID) {
         JSONObject row = service.storage().queryOne(
                 "SELECT `lastMemoryTime`,`lastMemoryID` FROM `"+RoleplayService.STATE_TABLE+"` WHERE `groupID`=?",groupID);

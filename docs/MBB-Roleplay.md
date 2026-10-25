@@ -122,7 +122,7 @@ flowchart TD
 以提高服务端提示词缓存命中率。
 私聊图片会先经过 `MBB-Vision`，私聊长期结论以 `visibility=private` 写入记忆表，只在同一用户的私聊中读取。
 
-`RoleplayRandomTickService` 每隔 10 到 30 分钟检查一次随机刻，`00:00-08:00` 只调度不执行。随机刻先做夜间、去重、群主动频率和 Qzone 日限额判断，再让模型选择 `none / private_owner / group_topic / qzone_post`；`none` 是正常结果。主动私聊 owner 不做频率限制，主动群话题全局每 6 小时最多 2 次，Qzone 每天最多 2 次。
+`RoleplayRandomTickService` 每隔 10 到 30 分钟检查一次随机刻，`00:00-08:00` 只调度不执行。随机刻先做夜间、去重、群主动频率和 Qzone 日限额判断，再让模型选择 `none / private_owner / group_topic / qzone_post`；`none` 是正常结果。主动群话题由程序从最近 24 小时活跃群中选择目标群，正文只使用该群自己的近期上下文和群短期摘要，并使用群独立的 AI 会话，禁止把 A 群内容带到 B 群。每天第一次满足条件的随机刻会保底发布一条 Qzone。最近 `randomTickOwnerRecentWindowMinute` 内互动过的 owner 会提高主动私聊优先级，并作为 `private_owner`/Qzone 的优先目标。主动私聊 owner 不做频率限制，主动群话题全局每 6 小时最多 2 次，Qzone 每天最多 2 次。
 
 ## 分层回复
 

@@ -256,6 +256,14 @@ public class RoleplayPrivateChatService {
         return builder.toString();
     }
 
+    long lastInteractionTime(long userID) {
+        if (userID <= 0) return 0L;
+        JSONObject row = storage().queryOne(
+                "SELECT MAX(`messageTime`) AS `lastTime` FROM `"+TABLE+"` "
+                        + "WHERE `userID`=? AND `isBot`=0",userID);
+        return row == null ? 0L : row.getLongValue("lastTime");
+    }
+
     /**
      * 私聊模型可以在同一轮回复里附带一条长期结论，不再额外调用一次 AI。
      * 私聊记忆使用独立 visibility，群聊检索和长期记忆合并都不会读取。

@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "49";
+    private static final String CURRENT_VERSION = "50";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -335,6 +335,8 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("randomTickGroupWindowMinute","360","群主动话题统计窗口分钟数"),
             new ConfigEntry("randomTickGroupMaxActions","2","窗口内最多执行多少次群主动话题"),
             new ConfigEntry("randomTickQzoneDailyMax","2","每天最多发布多少条 Qzone 说说"),
+            new ConfigEntry("randomTickOwnerRecentWindowMinute","180","owner 最近互动窗口分钟数"),
+            new ConfigEntry("randomTickOwnerRecentBoostChance","0.30","最近互动 owner 触发主动私聊的概率加成"),
             new ConfigEntry("randomTickDedupeHours","24","相同主动行为指纹的去重小时数"),
             new ConfigEntry("randomTickMaxTokens","1200","随机刻决策输出 Token 上限"),
             new ConfigEntry("randomTickTimeoutSecond","90","随机刻请求超时秒数"),
@@ -467,7 +469,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 49) {
+        if (version < 50) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
