@@ -174,6 +174,8 @@ randomTickReasoningEffort: "low"
 到 `randomTickPrivateFollowUpMaxMinute`（默认 120 分钟）为止。模型可以返回 `<SKIP>`，
 此时不发送；连续无内容会使用单独的退避，避免每两分钟空转。超过
 `randomTickPrivateFollowUpFreshMinute` 没有新私聊后不再追问。
+如果最近一条用户消息或最近一条角色消息含晚安、睡了、去睡、关灯、不聊了、明天见、
+拜拜、再见等收尾语义，会立即取消该 owner 的后续主动追问；用户之后再发正常消息才会重新开启。
 
 随机刻 Qzone 不再做每日首条保底。白天、晚间和深夜分别使用
 `randomTickQzoneDayChance`、`randomTickQzoneEveningChance`、`randomTickQzoneNightChance`

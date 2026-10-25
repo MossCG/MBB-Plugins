@@ -176,8 +176,18 @@ public class RoleplayRandomTickService {
     }
 
     private JSONObject syncPrivateFollowUpState(long userID,long now) {
-        long latest = latestPrivateUserActivity(userID);
-        if (latest <= 0) return null;
+        JSONObject latestUser = latestPrivateMessage(userID,true);
+        if (latestUser == null || latestUser.getLongValue("messageTime") <= 0) return null;
+        JSONObject latestMessage = latestPrivateMessage(userID,false);
+        boolean latestFromBot = latestMessage != null && latestMessage.getIntValue("isBot") == 1;
+        if (RoleplayPrivateChatDebounce.conversationEnded(
+                latestUser.getString("content"),
+                latestMessage == null ? "" : latestMessage.getString("content"),
+                latestFromBot)) {
+            markPrivateFollowUpEnded(userID,now);
+            return null;
+        }
+        long latest = latestUser.getLongValue("messageTime");
         JSONObject state = storage().queryOne(
                 "SELECT * FROM `"+PRIVATE_STATE_TABLE+"` WHERE `profile`=? AND `userID`=?",
                 service.getRoleName(),userID);
@@ -218,11 +228,23 @@ public class RoleplayRandomTickService {
         return state;
     }
 
-    private long latestPrivateUserActivity(long userID) {
-        JSONObject row = storage().queryOne(
-                "SELECT MAX(`messageTime`) AS `lastTime` FROM `"+RoleplayPrivateChatService.TABLE
-                        +"` WHERE `userID`=? AND `isBot`=0",userID);
-        return row == null ? 0L : row.getLongValue("lastTime");
+    private JSONObject latestPrivateMessage(long userID,boolean userOnly) {
+        return storage().queryOne(
+                "SELECT `content`,`messageTime`,`isBot` FROM `"+RoleplayPrivateChatService.TABLE
+                        +"` WHERE `userID`=?"+(userOnly ? " AND `isBot`=0" : "")
+                        +" ORDER BY `messageTime` DESC,`ID` DESC LIMIT 1",
+                userID);
+    }
+
+    private void markPrivateFollowUpEnded(long userID,long now) {
+        int changed = storage().update("UPDATE `"+PRIVATE_STATE_TABLE+"` SET `nextDue`=0,"
+                        + "`lastResult`='ended',`lastReason`='最近对话已经收尾',`updateTime`=? "
+                        + "WHERE `profile`=? AND `userID`=?",
+                now,service.getRoleName(),userID);
+        if (changed > 0) {
+            plugin.getLogger().sendInfo("[随机刻] 用户"+userID
+                    +" 最近私聊已经收尾，取消后续主动追问");
+        }
     }
 
     private void runPrivateFollowUp(long userID,long scheduledAt) {

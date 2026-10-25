@@ -27,5 +27,13 @@ public class RoleplayPrivateChatDebounceTestMain {
                 1000L,0L,4000L,3,10) != 0) {
             throw new AssertionError("input_status 三秒等待或绝对上限计算不正确");
         }
+        if (!RoleplayPrivateChatDebounce.conversationEnded(
+                "嗯，小绿晚安","嗯，晚安洛妈妈",true)
+                || !RoleplayPrivateChatDebounce.conversationEnded(
+                "今天先聊到这里","我也关灯了",true)
+                || RoleplayPrivateChatDebounce.conversationEnded(
+                "我睡不着","要不再聊会儿",false)) {
+            throw new AssertionError("私聊追问收尾识别不正确");
+        }
     }
 }

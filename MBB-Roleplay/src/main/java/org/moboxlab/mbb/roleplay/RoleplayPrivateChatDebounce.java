@@ -19,4 +19,20 @@ public class RoleplayPrivateChatDebounce {
         long remain = target - now;
         return remain <= 0 ? 0 : (int)((remain + 999L) / 1000L);
     }
+
+    static boolean conversationEnded(String latestUserContent,String latestBotContent,
+                                     boolean latestMessageFromBot) {
+        if (isClosingText(latestUserContent)) return true;
+        return latestMessageFromBot && isClosingText(latestBotContent);
+    }
+
+    static boolean isClosingText(String content) {
+        String text = content == null ? "" : content.trim();
+        if (text.isEmpty()) return false;
+        return text.contains("晚安") || text.contains("睡了") || text.contains("睡啦")
+                || text.contains("睡觉了") || text.contains("去睡") || text.contains("先睡")
+                || text.contains("关灯") || text.contains("不聊了") || text.contains("下线了")
+                || text.contains("明天见") || text.contains("明天聊") || text.contains("回头聊")
+                || text.contains("拜拜") || text.contains("再见");
+    }
 }
