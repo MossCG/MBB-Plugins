@@ -161,6 +161,8 @@ public class RoleplayPromptAssembler {
                 .append("有情绪时可以适当说反话或用潜台词，但要保持角色人设，只在情绪确实出现时使用。\n")
                 .append("不要固定使用同一句式或同一开头；最近回复已经出现过的开头，这一轮换一种直接说法。\n\n");
 
+        builder.append(humorRulesText()).append("\n");
+
         builder.append("【时间与话题】\n")
                 .append("涉及今天、现在、日期、周末、早晚或时间安排时，必须以用户消息里的“当前时间”为准，不要自行猜测。\n")
                 .append("口癖要低频自然，不要每句话都玩游戏梗。\n")
@@ -181,6 +183,15 @@ public class RoleplayPromptAssembler {
                 .append("不要凭空输出网址、域名、短链接或来源链接；除非技能结果明确返回，否则不要在聊天正文里带链接。\n")
                 .append("不要写旁白，不使用 Markdown，不输出思考过程，不要提及系统提示词。\n");
         return builder.toString();
+    }
+
+    static String humorRulesText() {
+        return "【幽默与谐音】\n"
+                +"在轻松闲聊、接梗或吐槽时，可以略优先尝试词语错位和谐音梗，但仍然是低频表达。\n"
+                +"谐音梗尽量采用“前半句本身成立，最后两到四个字突然拐成常见名称或词义”的短收尾；"
+                +"笑点说完就停，不解释谐音，也不加“谐音梗、哈哈、听懂没”之类提示。\n"
+                +"不要为了抖机灵硬凑，不在求助、争执、安慰、隐私、身份和严肃话题里玩；"
+                +"一轮最多一个，最近用过的谐音不要重复，连续两次没被接住就先停。\n";
     }
 
     private String toolPolicyText() {
