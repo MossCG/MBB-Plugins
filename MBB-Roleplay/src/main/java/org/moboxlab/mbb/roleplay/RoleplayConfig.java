@@ -62,6 +62,9 @@ public class RoleplayConfig {
     public int conversationWindowSecond = 180;
     public double continuationReplyChance = 0.80;
     public double otherParticipantReplyChance = 0.45;
+    public String replyWillingnessMode = "shadow";
+    public double replyWillingnessThreshold = 0.35;
+    public int replyWillingnessWindowSecond = 300;
     public double otherRoleBotReplyChance = DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE;
     public int maxConsecutiveOtherRoleMessages = DEFAULT_MAX_CONSECUTIVE_OTHER_ROLE_MESSAGES;
     public String otherRoleBotNames = DEFAULT_OTHER_ROLE_BOT_NAMES;
@@ -444,6 +447,16 @@ public class RoleplayConfig {
         } catch (Exception e) {
             config.otherParticipantReplyChance = 0.45;
         }
+        config.replyWillingnessMode =
+                plugin.getConfig().getString("replyWillingnessMode","shadow");
+        try {
+            config.replyWillingnessThreshold = Double.parseDouble(
+                    plugin.getConfig().getString("replyWillingnessThreshold","0.35"));
+        } catch (Exception e) {
+            config.replyWillingnessThreshold = 0.35;
+        }
+        config.replyWillingnessWindowSecond =
+                plugin.getConfig().getInt("replyWillingnessWindowSecond",300);
         try {
             config.otherRoleBotReplyChance = Double.parseDouble(plugin.getConfig().getString(
                     "otherRoleBotReplyChance",String.valueOf(DEFAULT_OTHER_ROLE_BOT_REPLY_CHANCE)));
@@ -855,6 +868,20 @@ public class RoleplayConfig {
         if (config.continuationReplyChance > 1) config.continuationReplyChance = 1;
         if (config.otherParticipantReplyChance < 0) config.otherParticipantReplyChance = 0;
         if (config.otherParticipantReplyChance > 1) config.otherParticipantReplyChance = 1;
+        if (config.replyWillingnessMode == null) config.replyWillingnessMode = "shadow";
+        config.replyWillingnessMode = config.replyWillingnessMode.trim().toLowerCase();
+        if (!"off".equals(config.replyWillingnessMode)
+                && !"enforce".equals(config.replyWillingnessMode)) {
+            config.replyWillingnessMode = "shadow";
+        }
+        if (config.replyWillingnessThreshold < 0) config.replyWillingnessThreshold = 0;
+        if (config.replyWillingnessThreshold > 1) config.replyWillingnessThreshold = 1;
+        if (config.replyWillingnessWindowSecond < 30) {
+            config.replyWillingnessWindowSecond = 30;
+        }
+        if (config.replyWillingnessWindowSecond > 3600) {
+            config.replyWillingnessWindowSecond = 3600;
+        }
         if (config.otherRoleBotReplyChance < 0) config.otherRoleBotReplyChance = 0;
         if (config.otherRoleBotReplyChance > 1) config.otherRoleBotReplyChance = 1;
         if (config.maxConsecutiveOtherRoleMessages < 0) config.maxConsecutiveOtherRoleMessages = 0;

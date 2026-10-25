@@ -79,6 +79,12 @@ conversationWindowSecond: 180
 continuationReplyChance: 0.80
 #其他群员接续当前话题时的回复概率
 otherParticipantReplyChance: 0.45
+#本地回复意愿门控模式：off / shadow / enforce；默认 shadow 只记录不拦截
+replyWillingnessMode: shadow
+#回复意愿低于该值时视为低意愿
+replyWillingnessThreshold: 0.35
+#计算近期群活跃度和角色自身发言占比的时间窗口秒数
+replyWillingnessWindowSecond: 300
 #检测到另一个角色机器人发言时，继续接话的概率
 otherRoleBotReplyChance: 0.50
 #没有真人插话时，最多连续回应另一个角色机器人多少条

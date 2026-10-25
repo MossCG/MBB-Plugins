@@ -82,6 +82,9 @@ interestReplyChance: 0.65
 conversationWindowSecond: 180
 continuationReplyChance: 0.80
 otherParticipantReplyChance: 0.45
+replyWillingnessMode: shadow
+replyWillingnessThreshold: 0.35
+replyWillingnessWindowSecond: 300
 otherRoleBotReplyChance: 0.50
 maxConsecutiveOtherRoleMessages: 2
 shortContextMessages: 200
@@ -419,6 +422,10 @@ quietReplyEnable: true
 `messageBatchDebounceMode` 默认 `natural`，可选 `off / fast / natural / steady`；活跃群、
 同一用户续发、换人、直接点名和纯媒体首包会得到不同等待时间。`messageBatchWindowSecond`
 限制单次等待，`messageBatchMaxWaitSecond` 限制整批从第一条消息开始的总等待，默认 8 秒。
+`replyWillingnessMode` 默认 `shadow`，可选 `off / shadow / enforce`。门控会综合发言指向、
+续聊、兴趣、群活跃、话题疲劳、纯媒体、近期消息量和角色自身发言占比计算本地回复意愿；
+`shadow` 只记录概率和特征，`enforce` 才在 AI 路由前拦截低于 `replyWillingnessThreshold`
+的消息，直接点名始终放行。`replyWillingnessWindowSecond` 控制近期统计窗口，默认 300 秒。
 学生图鉴只在消息里出现具体学生名或别名时才追加「被提到的学生详细设定」，
 所以扩大窗口不会把整份图鉴重复带进每条请求。
 

@@ -68,6 +68,7 @@ public class RoleplayService {
     private final RoleplayReplyFeedbackService replyFeedbackService;
     private final RoleplayExpressionService expressionService;
     private final RoleplayAttentionService attentionService;
+    private final RoleplayReplyWillingnessService replyWillingnessService;
     private final RoleplayDailyReviewService dailyReviewService;
     private final RoleplayMessageSender messageSender;
     private final RoleplayContextService contextService;
@@ -297,6 +298,7 @@ public class RoleplayService {
         this.replyFeedbackService = new RoleplayReplyFeedbackService(plugin,config);
         this.expressionService = new RoleplayExpressionService(plugin,config);
         this.attentionService = new RoleplayAttentionService(plugin,config);
+        this.replyWillingnessService = new RoleplayReplyWillingnessService(this);
         this.dailyReviewService = new RoleplayDailyReviewService(plugin,config,this);
         this.messageSender = new RoleplayMessageSender(this);
         this.contextService = new RoleplayContextService(this);
@@ -632,6 +634,10 @@ public class RoleplayService {
 
     public RoleplayAttentionService getAttentionService() {
         return attentionService;
+    }
+
+    RoleplayReplyWillingnessService replyWillingnessService() {
+        return replyWillingnessService;
     }
 
     RoleplayPromptAssembler promptAssembler() {

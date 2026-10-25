@@ -51,6 +51,12 @@ public class RoleplayTurnProcessor {
         String content = service.mergeStickerEmotion(prepared.content,prepared.stickerEmotion);
         // 冷却或超频时直接跳过，不必再花一次路由调用
         if (service.rateLimited(groupID)) return false;
+        boolean mediaOnly = prepared.hasImage
+                && !service.hasMeaningfulText(event.getMessage());
+        RoleplayReplyWillingnessService.Result willingness =
+                service.replyWillingnessService().evaluate(groupID,prepared.signals,
+                        content,mediaOnly,1);
+        if ("enforce".equals(willingness.mode) && !willingness.allowed) return false;
         RoleplayRouteDecision decision = service.routeDecision(prepared.signals,event,groupID,
                 prepared.selfID,content);
         if (decision == null || !decision.reply) return false;
@@ -129,6 +135,12 @@ public class RoleplayTurnProcessor {
         RoleplayContextService.TopicFatigue batchFatigue = service.contextService().topicFatigue(groupID,batchText);
         primary.signals.topicFatigued = batchFatigue.fatigued();
         primary.signals.topicHint = batchFatigue.hint();
+        boolean mediaOnly = primary.hasImage
+                && !service.hasMeaningfulText(primary.event.getMessage());
+        RoleplayReplyWillingnessService.Result willingness =
+                service.replyWillingnessService().evaluate(groupID,primary.signals,
+                        batchText,mediaOnly,messages.size());
+        if ("enforce".equals(willingness.mode) && !willingness.allowed) return;
         RoleplayRouteDecision decision = service.routeDecision(primary.signals,primary.event,groupID,
                 primary.selfID,batchText);
         if (decision == null || !decision.reply) return;
