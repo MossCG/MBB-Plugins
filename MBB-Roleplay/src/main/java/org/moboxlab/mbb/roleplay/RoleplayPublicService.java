@@ -45,6 +45,27 @@ public class RoleplayPublicService implements PluginService {
         if ("decide-friend-request".equalsIgnoreCase(action)) {
             return service.friendRequestService().decide(params);
         }
+        if ("brain_remember".equalsIgnoreCase(action)) {
+            return service.brainMemoryService().remember(params);
+        }
+        if ("brain_search".equalsIgnoreCase(action)) {
+            JSONObject result = new JSONObject(true);
+            if (params == null) {
+                result.put("status",false);
+                result.put("message","缺少查询参数");
+                return result;
+            }
+            String channel = params.getString("channel");
+            if (channel == null || channel.trim().isEmpty()) channel = "group";
+            result.put("status",true);
+            result.put("memories",service.brainMemoryService().search(
+                    params.getLongValue("groupID"),params.getLongValue("userID"),channel,
+                    params.getString("query"),params.getIntValue("limit")));
+            return result;
+        }
+        if ("brain_status".equalsIgnoreCase(action)) {
+            return service.brainMemoryService().status();
+        }
         JSONObject result = new JSONObject(true);
         result.put("status",false);
         result.put("message","不支持的动作："+action);

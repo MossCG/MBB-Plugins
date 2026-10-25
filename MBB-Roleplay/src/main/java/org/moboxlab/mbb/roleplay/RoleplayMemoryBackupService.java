@@ -30,7 +30,7 @@ public class RoleplayMemoryBackupService {
         try {
             File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
-            root.put("version",6);
+            root.put("version",7);
             root.put("type","mbb-roleplay-memory-backup");
             root.put("createTime",System.currentTimeMillis());
             root.put("reason",service.safe(reason));
@@ -173,6 +173,7 @@ public class RoleplayMemoryBackupService {
         JSONArray result = new JSONArray();
         List<JSONObject> rows = service.storage().query(
                 "SELECT `groupID`,`scopeType`,`scopeID`,`sourceGroupID`,`sourceChannel`,`visibility`,"
+                        + "`audience`,`sourceType`,`sourceId`,`confidence`,`validFrom`,`validUntil`,"
                         + "`memoryType`,`subjectID`,`content`,`importance`,`eventTime`,`memoryStatus`,`supersededBy`,`updateTime` "
                         + "FROM `"+RoleplayService.MEMORY_TABLE+"` ORDER BY `groupID` ASC,`ID` ASC");
         if (rows == null) return result;
@@ -184,6 +185,12 @@ public class RoleplayMemoryBackupService {
             item.put("sourceGroupID",row.getLongValue("sourceGroupID"));
             item.put("sourceChannel",row.getString("sourceChannel"));
             item.put("visibility",row.getString("visibility"));
+            item.put("audience",row.getString("audience"));
+            item.put("sourceType",row.getString("sourceType"));
+            item.put("sourceId",row.getString("sourceId"));
+            item.put("confidence",row.getDoubleValue("confidence"));
+            item.put("validFrom",row.getLongValue("validFrom"));
+            item.put("validUntil",row.getLongValue("validUntil"));
             item.put("type",row.getString("memoryType"));
             item.put("subjectID",row.getLongValue("subjectID"));
             item.put("content",row.getString("content"));
@@ -254,11 +261,21 @@ public class RoleplayMemoryBackupService {
             if (sourceChannel.isEmpty()) sourceChannel = "group";
             String visibility = service.safe(item.getString("visibility"));
             if (visibility.isEmpty()) visibility = "shared";
+            String audience = service.safe(item.getString("audience"));
+            if (audience.isEmpty()) {
+                audience = "private".equals(visibility) ? "private-user"
+                        : ("self".equals(visibility) ? "self"
+                        : ("group".equals(visibility) ? "group" : "shared"));
+            }
             service.storage().insert("INSERT INTO `"+RoleplayService.MEMORY_TABLE+"` "
                             + "(`groupID`,`scopeType`,`scopeID`,`sourceGroupID`,`sourceChannel`,`visibility`,"
+                            + "`audience`,`sourceType`,`sourceId`,`confidence`,`validFrom`,`validUntil`,"
                             + "`memoryType`,`subjectID`,`content`,`importance`,`eventTime`,`memoryStatus`,`supersededBy`,`updateTime`) "
-                            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    groupID,scopeType,scopeID,sourceGroupID,sourceChannel,visibility,
+                            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    groupID,scopeType,scopeID,sourceGroupID,sourceChannel,visibility,audience,
+                    service.safe(item.getString("sourceType")),service.safe(item.getString("sourceId")),
+                    item.getDoubleValue("confidence") <= 0 ? 1.0 : item.getDoubleValue("confidence"),
+                    item.getLongValue("validFrom"),item.getLongValue("validUntil"),
                     service.safe(item.getString("type")),item.getLongValue("subjectID"),
                     content,item.getIntValue("importance"),
                     item.getLongValue("eventTime") > 0 ? item.getLongValue("eventTime")

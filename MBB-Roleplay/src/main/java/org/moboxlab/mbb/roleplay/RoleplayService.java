@@ -93,6 +93,7 @@ public class RoleplayService {
     private final RoleplayAddressService addressService;
     private final RoleplayRateLimitService rateLimitService;
     private final RoleplayMemoryQueryService memoryQueryService;
+    private final RoleplayBrainMemoryService brainMemoryService;
     private final RoleplayDrawNotifyService drawNotifyService;
     private final RoleplayDrawPromptService drawPromptService;
     private final RoleplayTraceService traceService;
@@ -326,6 +327,7 @@ public class RoleplayService {
         this.addressService = new RoleplayAddressService(this);
         this.rateLimitService = new RoleplayRateLimitService(this);
         this.memoryQueryService = new RoleplayMemoryQueryService(this);
+        this.brainMemoryService = new RoleplayBrainMemoryService(this);
         this.drawNotifyService = new RoleplayDrawNotifyService(this);
         this.drawPromptService = new RoleplayDrawPromptService(this);
         this.traceService = new RoleplayTraceService(plugin,config);
@@ -699,6 +701,10 @@ public class RoleplayService {
         return memoryQueryService;
     }
 
+    RoleplayBrainMemoryService brainMemoryService() {
+        return brainMemoryService;
+    }
+
     RoleplayPrivateChatService privateChatService() {
         return privateChatService;
     }
@@ -826,6 +832,10 @@ public class RoleplayService {
 
     public RoleplayFriendMemoryService getFriendMemoryService() {
         return friendMemoryService;
+    }
+
+    public RoleplayBrainMemoryService getBrainMemoryService() {
+        return brainMemoryService;
     }
 
     RoleplayTodoService todoService() {

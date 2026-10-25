@@ -140,7 +140,36 @@ flowchart TD
 - 私聊图片与表情会先交给 `MBB-Vision` 生成描述，再进入私聊上下文；这与群聊共用识图开关和每小时限额。
 - 私聊模型可以在同一轮返回可选的 `memory` 字段，插件只把明确、长期有效的称呼、偏好、边界或相处方式写入 `visibility=private` 的记忆；群聊检索、记忆工具和长期记忆合并都只读取 `shared`，不会把私聊记忆带进群聊。
 - 好友长期记忆和普通私聊记忆是两层：前者是低频整理后的稳定关系档案，后者是模型在单轮可选的私有语义记忆。两者都不会进入其他用户的群聊资料。
-- 备份格式升级为 v6，包含 `scopeType / scopeID / sourceGroupID / sourceChannel / visibility`、`structuredContext` 和 `friendMemory`；旧备份仍可恢复，缺少好友记忆字段的旧备份不会清空现有好友档案。
+- 备份格式升级为 v7，包含统一大脑字段、`structuredContext` 和 `friendMemory`；旧备份仍可恢复，缺少新字段的旧备份会按原 `visibility` 推导访问范围，且不会清空现有好友档案。
+
+## 统一大脑
+
+`RoleplayBrainMemoryService` 是所有记忆的统一检索入口，但数据仍按访问范围隔离：
+
+| scope | 内容 | 可见范围 |
+|---|---|---|
+| `self` | 角色自己的经历、兴趣、愿望、活动结果 | 群聊和私聊都可回忆 |
+| `shared` | 跨群共享的语义记忆 | 群聊和私聊都可回忆 |
+| `group` | 当前群的话题、约定、群内事件 | 只在对应群可见 |
+| `user` | 与某位用户的私聊记忆 | 只在本人私聊可见 |
+
+记忆表新增 `audience / sourceType / sourceId / confidence / validFrom / validUntil`。
+`RoleplayBrainMemoryService` 统一检索时始终按当前渠道、当前群和当前用户过滤，因此“一个大脑”不会变成所有用户共享一份公开记忆。
+`self` 记忆会以 `memory.self` 注入群聊，并在私聊动态块中注入；`group` 和 `user` 记忆不会跨边界进入错误渠道。
+
+其他插件可以通过 `MBB-Roleplay` 公共服务读写统一记忆：
+
+```text
+brain_remember
+  scope: self / shared / group / user
+  type / content / importance
+  sourceType / sourceId / confidence / validFrom / validUntil
+brain_search
+  groupID / userID / channel / query / limit
+brain_status
+```
+
+活动插件应写 `scope=self` 的精炼结果，例如“看过一个关于复古掌机的视频，觉得某些设计很有意思”，不要把完整网页或评论原文直接写进记忆。
 
 边界约定：
 

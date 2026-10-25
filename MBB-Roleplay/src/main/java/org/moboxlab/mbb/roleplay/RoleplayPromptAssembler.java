@@ -341,6 +341,10 @@ public class RoleplayPromptAssembler {
         materials.add(new RoleplayMaterial("tool.memory",true,83,
                 config.toolMemoryInjectMaxChars,
                 () -> service.toolMemoryService().promptText(groupID,userID,messageText)));
+        materials.add(new RoleplayMaterial("memory.self",true,82,
+                config.memoryRelevanceMaxChars,
+                () -> service.brainMemoryService().selfPromptText(
+                        groupID,userID,memoryQuery,config.memoryRelevanceMaxChars)));
         materials.add(new RoleplayMaterial("memory.long",true,81,config.memoryRelevanceMaxChars,
                 () -> "长期记忆：\n"+service.longMemoryText(groupID,userID,memoryQuery)));
         materials.add(new RoleplayMaterial("memory.global",true,79,

@@ -753,7 +753,7 @@ public class RoleplayToolRegistry {
         public String name() { return "memory_search"; }
 
         @Override
-        public String description() { return "按需检索跨群短期、长期、永久、好友和个人记忆；个人记忆默认查当前发言人"; }
+        public String description() { return "按需检索角色自我、跨群、群内、好友和个人记忆；个人记忆默认查当前发言人"; }
 
         @Override
         public String category() { return "retrieval"; }
@@ -791,21 +791,28 @@ public class RoleplayToolRegistry {
             }
             String friendMemory = targetUserID == context.userID || service.isOwner(context.userID)
                     ? service.friendMemoryService().promptText(targetUserID) : "";
-            RoleplayToolResult result = RoleplayToolResult.ok("已按需检索短期、长期、永久、好友和个人记忆");
+            RoleplayToolResult result = RoleplayToolResult.ok("已按需检索角色自我、跨群、群内、好友和个人记忆");
             result.data.put("query",query);
             result.data.put("userID",targetUserID);
-            result.data.put("shortTerm",service.shortText(service.shortSummary(0L),budget * 10 / 100));
-            result.data.put("profile",service.shortText(profile,budget * 12 / 100));
+            result.data.put("shortTerm",service.shortText(service.shortSummary(0L),budget * 8 / 100));
+            result.data.put("profile",service.shortText(profile,budget * 10 / 100));
+            String selfMemory = service.brainMemoryService().selfPromptText(
+                    context.groupID,targetUserID,query,budget * 18 / 100);
+            if (!selfMemory.isEmpty()) {
+                result.data.put("selfMemory",selfMemory);
+            }
+            result.data.put("brainMatches",service.brainMemoryService().search(
+                    context.groupID,targetUserID,"group",query,12));
             if (!friendMemory.isEmpty()) {
-                result.data.put("friendMemory",service.shortText(friendMemory,budget * 18 / 100));
+                result.data.put("friendMemory",service.shortText(friendMemory,budget * 15 / 100));
             }
             result.data.put("longTerm",service.shortText(
                     service.longMemoryText(context.groupID,targetUserID,query),
-                    budget * 24 / 100));
+                    budget * 18 / 100));
             result.data.put("global",service.shortText(
                     service.globalMemoryService().promptText(query,targetUserID,
-                            Math.max(1000,budget * 24 / 100)),
-                    budget * 24 / 100));
+                            Math.max(1000,budget * 18 / 100)),
+                    budget * 18 / 100));
             return result;
         }
     }

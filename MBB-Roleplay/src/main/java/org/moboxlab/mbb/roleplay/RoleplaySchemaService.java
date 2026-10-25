@@ -34,6 +34,12 @@ public class RoleplaySchemaService {
                 + "`sourceGroupID` INTEGER NOT NULL DEFAULT 0,"
                 + "`sourceChannel` TEXT NOT NULL DEFAULT 'group',"
                 + "`visibility` TEXT NOT NULL DEFAULT 'shared',"
+                + "`audience` TEXT NOT NULL DEFAULT 'shared',"
+                + "`sourceType` TEXT NOT NULL DEFAULT '',"
+                + "`sourceId` TEXT NOT NULL DEFAULT '',"
+                + "`confidence` REAL NOT NULL DEFAULT 1,"
+                + "`validFrom` INTEGER NOT NULL DEFAULT 0,"
+                + "`validUntil` INTEGER NOT NULL DEFAULT 0,"
                 + "`memoryType` TEXT NOT NULL DEFAULT '',"
                 + "`subjectID` INTEGER NOT NULL DEFAULT 0,"
                 + "`content` TEXT NOT NULL DEFAULT '',"
@@ -62,11 +68,23 @@ public class RoleplaySchemaService {
         ensureColumn(RoleplayService.MEMORY_TABLE,"sourceGroupID","INTEGER NOT NULL DEFAULT 0");
         ensureColumn(RoleplayService.MEMORY_TABLE,"sourceChannel","TEXT NOT NULL DEFAULT 'group'");
         ensureColumn(RoleplayService.MEMORY_TABLE,"visibility","TEXT NOT NULL DEFAULT 'shared'");
+        ensureColumn(RoleplayService.MEMORY_TABLE,"audience","TEXT NOT NULL DEFAULT 'shared'");
+        ensureColumn(RoleplayService.MEMORY_TABLE,"sourceType","TEXT NOT NULL DEFAULT ''");
+        ensureColumn(RoleplayService.MEMORY_TABLE,"sourceId","TEXT NOT NULL DEFAULT ''");
+        ensureColumn(RoleplayService.MEMORY_TABLE,"confidence","REAL NOT NULL DEFAULT 1");
+        ensureColumn(RoleplayService.MEMORY_TABLE,"validFrom","INTEGER NOT NULL DEFAULT 0");
+        ensureColumn(RoleplayService.MEMORY_TABLE,"validUntil","INTEGER NOT NULL DEFAULT 0");
         //旧数据保留原群号作为来源，新的长期记忆默认跨群可读。
         service.storage().update("UPDATE `"+RoleplayService.MEMORY_TABLE+"` SET "
                 + "`scopeType`='global',`scopeID`=0,`sourceGroupID`=`groupID`,"
                 + "`sourceChannel`='group',`visibility`='shared' "
                 + "WHERE `scopeType` IS NULL OR `scopeType`='' OR `sourceGroupID`=0");
+        service.storage().update("UPDATE `"+RoleplayService.MEMORY_TABLE+"` SET "
+                + "`audience`='private-user' WHERE `visibility`='private'");
+        service.storage().update("UPDATE `"+RoleplayService.MEMORY_TABLE+"` SET "
+                + "`audience`='self' WHERE `visibility`='self'");
+        service.storage().update("UPDATE `"+RoleplayService.MEMORY_TABLE+"` SET "
+                + "`audience`='group' WHERE `visibility`='group'");
         service.storage().update("CREATE TABLE IF NOT EXISTS `"+RoleplayService.GROUP_TABLE+"` ("
                 + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "`groupID` INTEGER NOT NULL DEFAULT 0 UNIQUE,"
@@ -98,6 +116,8 @@ public class RoleplaySchemaService {
         service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_msg_group` ON `"+RoleplayService.MSG_TABLE+"` (`groupID`,`messageTime`)");
         service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_memory_scope` "
                 + "ON `"+RoleplayService.MEMORY_TABLE+"` (`scopeType`,`memoryStatus`,`updateTime`)");
+        service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_memory_audience` "
+                + "ON `"+RoleplayService.MEMORY_TABLE+"` (`audience`,`memoryStatus`,`updateTime`)");
         service.storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_context_update` "
                 + "ON `"+RoleplayService.CONTEXT_TABLE+"` (`updateTime`)");
     }

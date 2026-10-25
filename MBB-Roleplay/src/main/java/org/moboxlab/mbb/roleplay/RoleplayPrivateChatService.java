@@ -448,6 +448,9 @@ public class RoleplayPrivateChatService {
                 .append("【个人印象】\n").append(service.memberService().promptText(0L,userID)).append("\n\n")
                 .append("【好友长期记忆】\n")
                 .append(service.friendMemoryService().promptText(userID)).append("\n\n")
+                .append("【全局自我记忆】\n")
+                .append(service.brainMemoryService().selfPromptText(
+                        0L,userID,current,config.memoryRelevanceMaxChars)).append("\n\n")
                 .append("【跨群短期记忆】\n").append(service.shortSummary(0L)).append("\n\n")
                 .append("【跨群长期记忆】\n").append(service.longMemoryText(0L,userID,current)).append("\n\n")
                 .append("【私聊长期记忆】\n")
@@ -544,10 +547,12 @@ public class RoleplayPrivateChatService {
         }
         storage().insert("INSERT INTO `"+RoleplayService.MEMORY_TABLE+"` "
                         + "(`groupID`,`scopeType`,`scopeID`,`sourceGroupID`,`sourceChannel`,"
-                        + "`visibility`,`memoryType`,`subjectID`,`content`,`importance`,"
+                        + "`visibility`,`audience`,`sourceType`,`sourceId`,`confidence`,`validFrom`,"
+                        + "`validUntil`,`memoryType`,`subjectID`,`content`,`importance`,"
                         + "`eventTime`,`memoryStatus`,`supersededBy`,`updateTime`) "
-                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                0L,"private",userID,0L,"private","private","note",userID,
+                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                0L,"private",userID,0L,"private","private","private-user",
+                "private-chat",String.valueOf(userID),1.0,now,0L,"note",userID,
                 content,3,now,"active",0L,now);
         storage().update("DELETE FROM `"+RoleplayService.MEMORY_TABLE+"` WHERE `ID` IN ("
                         + "SELECT `ID` FROM `"+RoleplayService.MEMORY_TABLE+"` "
