@@ -58,6 +58,8 @@ MoBoxBot 表情包收录、标签检索与发送插件。
 |---|---|
 | `tags` | 返回当前可用标签 |
 | `random` | 按标签随机选择；`tags` 为空时从全部表情随机选择 |
+| `candidates` | 按标签、最近使用规避和权重随机返回候选；支持 `limit`、`groupID`、`userID`，最多 12 条 |
+| `pick` | 按 `id` 确认视觉选择，记录使用次数并返回可直接发送的 `file://` 地址 |
 | `add` | 从 OneBot 图片段导入并去重，字段为 `file`、`fileUnique`、`url`、`tags`、`description`、`source` |
 | `stats` / `reload` | 查看统计或重载表情库 |
 

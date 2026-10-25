@@ -780,6 +780,10 @@ public class RoleplayService {
         return stickerService.sendSticker(groupID,userID,tags);
     }
 
+    boolean sendStickerMessage(long groupID,long userID,String tags,String context) {
+        return stickerService.sendSticker(groupID,userID,tags,context);
+    }
+
     boolean isOwnerUser(long userID) {
         return contentService.isOwner(userID);
     }

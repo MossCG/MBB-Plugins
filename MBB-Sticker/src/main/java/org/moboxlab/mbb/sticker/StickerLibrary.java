@@ -129,21 +129,9 @@ public class StickerLibrary {
     }
 
     public synchronized StickerEntry random(List<String> tags,Set<String> avoid) {
-        List<StickerEntry> candidates = new ArrayList<>();
-        List<String> wanted = normalizeTags(tags);
-        for (StickerEntry entry : entries) {
-            if (!entry.enabled) continue;
-            if (avoid != null && avoid.contains(entry.id)) continue;
-            if (!wanted.isEmpty() && !containsAny(entry.tags,wanted)) continue;
-            candidates.add(entry);
-        }
+        List<StickerEntry> candidates = filterCandidates(tags,avoid);
         if (candidates.isEmpty()) return null;
-        double penalty = 0.5;
-        try {
-            penalty = Double.parseDouble(plugin.getConfig().getString("usePenalty","0.5"));
-        } catch (Exception ignored) {
-        }
-        if (penalty < 0) penalty = 0;
+        double penalty = usePenalty();
         double total = 0;
         for (StickerEntry entry : candidates) total += effectiveWeight(entry,penalty);
         double value = ThreadLocalRandom.current().nextDouble(total);
@@ -153,6 +141,51 @@ public class StickerLibrary {
             if (value <= current) return entry;
         }
         return candidates.get(candidates.size() - 1);
+    }
+
+    public synchronized List<StickerEntry> candidates(List<String> tags,Set<String> avoid,int limit) {
+        List<StickerEntry> remaining = filterCandidates(tags,avoid);
+        List<StickerEntry> result = new ArrayList<>();
+        int target = Math.max(1,limit);
+        double penalty = usePenalty();
+        while (!remaining.isEmpty() && result.size() < target) {
+            double total = 0;
+            for (StickerEntry entry : remaining) total += effectiveWeight(entry,penalty);
+            double value = ThreadLocalRandom.current().nextDouble(total);
+            double current = 0;
+            int selected = remaining.size() - 1;
+            for (int i = 0; i < remaining.size(); i++) {
+                current += effectiveWeight(remaining.get(i),penalty);
+                if (value <= current) {
+                    selected = i;
+                    break;
+                }
+            }
+            result.add(remaining.remove(selected));
+        }
+        return result;
+    }
+
+    private List<StickerEntry> filterCandidates(List<String> tags,Set<String> avoid) {
+        List<StickerEntry> candidates = new ArrayList<>();
+        List<String> wanted = normalizeTags(tags);
+        for (StickerEntry entry : entries) {
+            if (!entry.enabled) continue;
+            if (avoid != null && avoid.contains(entry.id)) continue;
+            if (!wanted.isEmpty() && !containsAny(entry.tags,wanted)) continue;
+            candidates.add(entry);
+        }
+        return candidates;
+    }
+
+    private double usePenalty() {
+        double penalty = 0.5;
+        try {
+            penalty = Double.parseDouble(plugin.getConfig().getString("usePenalty","0.5"));
+        } catch (Exception ignored) {
+        }
+        if (penalty < 0) penalty = 0;
+        return penalty;
     }
 
     /**

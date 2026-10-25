@@ -39,6 +39,8 @@ public class StickerService implements PluginService {
         if (action == null) return error("缺少动作名");
         if ("tags".equalsIgnoreCase(action)) return tags();
         if ("random".equalsIgnoreCase(action)) return random(params);
+        if ("candidates".equalsIgnoreCase(action)) return candidates(params);
+        if ("pick".equalsIgnoreCase(action)) return pick(params);
         if ("add".equalsIgnoreCase(action)) return add(params);
         if ("stats".equalsIgnoreCase(action)) return stats();
         if ("reload".equalsIgnoreCase(action)) {
@@ -73,39 +75,55 @@ public class StickerService implements PluginService {
     private JSONObject random(JSONObject params) {
         List<String> tags = readTags(params == null ? null : params.get("tags"));
         String key = params == null ? "" : safe(params.getString("groupID"))+"|"+safe(params.getString("userID"));
-        Set<String> avoid = new TreeSet<>();
-        Deque<String> recent = recentMap.get(key);
-        if (recent != null) {
-            synchronized (recent) {
-                avoid.addAll(recent);
-            }
-        }
+        Set<String> avoid = avoid(key);
         StickerEntry entry = library.random(tags,avoid);
         if (entry == null) return error("没有可用的表情包");
         library.markUsed(entry.id);
-        if (!key.equals("|")) {
-            Deque<String> queue = recentMap.get(key);
-            if (queue == null) {
-                Deque<String> newQueue = new ArrayDeque<>();
-                Deque<String> existing = recentMap.putIfAbsent(key,newQueue);
-                queue = existing == null ? newQueue : existing;
-            }
-            synchronized (queue) {
-                queue.addLast(entry.id);
-                int limit = Math.max(1,plugin.getConfig().getInt("recentAvoidCount",20));
-                while (queue.size() > limit) queue.removeFirst();
-            }
-        }
+        rememberRecent(key,entry.id);
         JSONObject result = new JSONObject(true);
         result.put("status",true);
         result.put("id",entry.id);
-        //对外始终给可用的绝对 file:// 地址，存盘用相对路径
-        result.put("file",library.toUri(entry.file));
-        JSONArray tagArray = new JSONArray();
-        tagArray.addAll(entry.tags);
-        result.put("tags",tagArray);
-        result.put("description",entry.description);
+        return entryResult(result,entry);
+    }
+
+    private JSONObject candidates(JSONObject params) {
+        List<String> tags = readTags(params == null ? null : params.get("tags"));
+        String key = params == null ? "" : safe(params.getString("groupID"))+"|"+safe(params.getString("userID"));
+        int limit = params == null ? 6 : params.getIntValue("limit");
+        if (limit < 1) limit = 1;
+        if (limit > 12) limit = 12;
+        List<StickerEntry> entries = library.candidates(tags,avoid(key),limit);
+        JSONArray array = new JSONArray();
+        for (StickerEntry entry : entries) {
+            JSONObject item = new JSONObject(true);
+            item.put("id",entry.id);
+            item.put("file",library.toUri(entry.file));
+            JSONArray tagArray = new JSONArray();
+            tagArray.addAll(entry.tags);
+            item.put("tags",tagArray);
+            item.put("description",entry.description);
+            item.put("useCount",entry.useCount);
+            array.add(item);
+        }
+        JSONObject result = new JSONObject(true);
+        result.put("status",true);
+        result.put("candidates",array);
+        result.put("count",array.size());
         return result;
+    }
+
+    private JSONObject pick(JSONObject params) {
+        if (params == null) return error("缺少表情包 ID");
+        String id = safe(params.getString("id"));
+        StickerEntry entry = library.get(id);
+        if (entry == null || !entry.enabled) return error("没有找到表情包："+id);
+        library.markUsed(entry.id);
+        String key = safe(params.getString("groupID"))+"|"+safe(params.getString("userID"));
+        rememberRecent(key,entry.id);
+        JSONObject result = new JSONObject(true);
+        result.put("status",true);
+        result.put("id",entry.id);
+        return entryResult(result,entry);
     }
 
     private JSONObject stats() {
@@ -116,6 +134,42 @@ public class StickerService implements PluginService {
         tags.addAll(library.availableTags());
         result.put("tags",tags);
         return result;
+    }
+
+    private JSONObject entryResult(JSONObject result,StickerEntry entry) {
+        //对外始终给可用的绝对 file:// 地址，存盘用相对路径
+        result.put("file",library.toUri(entry.file));
+        JSONArray tagArray = new JSONArray();
+        tagArray.addAll(entry.tags);
+        result.put("tags",tagArray);
+        result.put("description",entry.description);
+        return result;
+    }
+
+    private Set<String> avoid(String key) {
+        Set<String> result = new TreeSet<>();
+        Deque<String> recent = recentMap.get(key);
+        if (recent != null) {
+            synchronized (recent) {
+                result.addAll(recent);
+            }
+        }
+        return result;
+    }
+
+    private void rememberRecent(String key,String id) {
+        if (key.equals("|") || id == null || id.isEmpty()) return;
+        Deque<String> queue = recentMap.get(key);
+        if (queue == null) {
+            Deque<String> newQueue = new ArrayDeque<>();
+            Deque<String> existing = recentMap.putIfAbsent(key,newQueue);
+            queue = existing == null ? newQueue : existing;
+        }
+        synchronized (queue) {
+            queue.addLast(id);
+            int limit = Math.max(1,plugin.getConfig().getInt("recentAvoidCount",20));
+            while (queue.size() > limit) queue.removeFirst();
+        }
     }
 
     private List<String> readTags(Object value) {

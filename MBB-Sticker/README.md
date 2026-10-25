@@ -42,5 +42,6 @@ MoBoxBot 表情包收录、标签检索与发送插件。
 
 AI 只把情绪、态度和聊天用途放进 `tags`，画面、服装、发色等视觉信息放进 `description`。可用标签集由所有启用表情包的 tags 自动去重生成。
 
-公共服务动作：`tags`、`random`、`add`、`stats`、`reload`。其中 `add` 使用 OneBot 图片段字段，
+公共服务动作：`tags`、`random`、`candidates`、`pick`、`add`、`stats`、`reload`。其中
+`candidates` 返回视觉选择候选，`pick` 按 ID 记录使用并返回可发送文件；`add` 使用 OneBot 图片段字段，
 支持 `file`、`fileUnique`、`url`、`tags`、`description` 和 `source`，并统一执行大小限制、SHA-256 查重和可选识图补全。

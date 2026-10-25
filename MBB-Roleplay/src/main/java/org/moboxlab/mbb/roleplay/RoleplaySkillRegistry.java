@@ -307,7 +307,8 @@ public class RoleplaySkillRegistry {
         @Override
         public RoleplaySkillResult execute(RoleplaySkillContext context) {
             String tags = context.arg("tags");
-            boolean sent = service.sendStickerMessage(context.groupID,context.userID,tags);
+            boolean sent = service.sendStickerMessage(context.groupID,context.userID,tags,
+                    context.message);
             return sent
                     ? RoleplaySkillResult.ok(id(),"已发送表情包")
                     : RoleplaySkillResult.failed(id(),"表情包发送失败或没有可用表情包");

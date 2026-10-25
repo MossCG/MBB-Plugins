@@ -23,10 +23,12 @@ public class RoleplayStickerService {
             "(?is)<\\s*sticker\\s*/?\\s*>");
 
     private final RoleplayService service;
+    private final RoleplayStickerVisualSelector visualSelector;
     private final Map<String,RoleplayService.RecentSticker> recentStickerMap = new ConcurrentHashMap<>();
 
     public RoleplayStickerService(RoleplayService service) {
         this.service = service;
+        this.visualSelector = new RoleplayStickerVisualSelector(service);
     }
 
     RoleplayService.StickerMarkerResult extractStickerMarker(String text) {
@@ -68,6 +70,14 @@ public class RoleplayStickerService {
     }
 
     boolean sendSticker(long groupID,long userID,String tags) {
+        return sendSticker(groupID,userID,tags,"");
+    }
+
+    boolean sendSticker(long groupID,long userID,String tags,String context) {
+        JSONObject selected = visualSelector.select(groupID,userID,tags,context);
+        if (selected != null && selected.getBooleanValue("status")) {
+            return sendFile(groupID,selected.getString("file"));
+        }
         PluginService sticker = service.plugin().getServer().getPluginManager().getService("MBB-Sticker");
         if (sticker == null) return false;
         JSONObject params = new JSONObject(true);
@@ -84,10 +94,15 @@ public class RoleplayStickerService {
                     +service.safe(result == null ? "" : result.getString("message")));
             return false;
         }
+        return sendFile(groupID,result.getString("file"));
+    }
+
+    private boolean sendFile(long groupID,String file) {
+        if (service.safe(file).trim().isEmpty()) return false;
         OneBotClient client = service.plugin().getServer().getOneBotClient();
         if (client == null) return false;
         JSONObject sent = client.sendGroupMessage(groupID,
-                MessageUtil.message(MessageUtil.image(result.getString("file"))));
+                MessageUtil.message(MessageUtil.image(file)));
         return sent != null && sent.getIntValue("retcode") == 0;
     }
 

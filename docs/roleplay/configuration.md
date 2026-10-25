@@ -151,6 +151,11 @@ stickerAttachWindowSecond: 5
 stickerAttachMaxWaitSecond: 15
 stickerAttachWaitUntilNextMessage: true
 stickerSendChance: 0.35
+stickerVisionEnable: true
+stickerVisionCandidates: 6
+stickerVisionProfile: ""
+stickerVisionMaxTokens: 600
+stickerVisionTimeoutSecond: 45
 messageBatchEnable: true
 messageBatchWindowSecond: 2
 messageBatchDebounceMode: natural
@@ -417,6 +422,11 @@ quietReplyEnable: true
 `suggest` 模式只保存 AI 理解、含义和质量分，仍由管理员决定是否通过；`auto` 模式在安全审查
 通过且质量达到 `expressionAutoApproveMinQuality` 时自动 `approved`，否则标记 `rejected`。
 `/role expression review` 可以立即触发当前群审核。
+
+`stickerVisionEnable` 默认 `true`。角色实际调用 `sticker` 时会先从 MBB-Sticker 取
+`stickerVisionCandidates` 张候选（范围 2 到 9），生成编号拼图并交给
+`stickerVisionProfile`（留空使用 `aiProfile`）结合当前聊天语境选择；候选不足、
+图片不可读、模型失败或编号非法时自动回退原来的标签随机发送。视觉选择失败不会阻断表情包技能。
 
 `quietReplyEnable` 默认 `true`，只作为新群的默认值：每个群的免打扰名单开关用 `/role quiet on|off` 单独保存，不受该配置影响。名单内的群员只有在主动叫到角色时才得到回复，其他消息不进入上下文、不触发记忆整理和识图，也不会更新情绪；其他群员不受影响。名单按群存在 `plugin_mbb_roleplay_quiet` 表里，插件启动时自动建表，不需要手动迁移；被免打扰的消息不会记入消息流水，因此角色不会记住这些内容。该功能只影响群消息，戳一戳仍按 `pokeReplyEnable` 处理。
 

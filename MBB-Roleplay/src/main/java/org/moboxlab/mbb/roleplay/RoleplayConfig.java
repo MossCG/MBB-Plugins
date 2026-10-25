@@ -139,6 +139,11 @@ public class RoleplayConfig {
     public int stickerAttachMaxWaitSecond = 15;
     public boolean stickerAttachWaitUntilNextMessage = true;
     public double stickerSendChance = 0.35;
+    public boolean stickerVisionEnable = true;
+    public int stickerVisionCandidates = 6;
+    public String stickerVisionProfile = "";
+    public int stickerVisionMaxTokens = 600;
+    public int stickerVisionTimeoutSecond = 45;
     public boolean messageBatchEnable = true;
     public boolean learnEnable = true;
     public String learnDirectory = "train-corpus";
@@ -583,6 +588,16 @@ public class RoleplayConfig {
                 plugin.getConfig().getBoolean("stickerAttachWaitUntilNextMessage",true);
         config.stickerSendChance = parseDouble(
                 plugin.getConfig().getString("stickerSendChance","0.35"),0.35);
+        config.stickerVisionEnable =
+                plugin.getConfig().getBoolean("stickerVisionEnable",true);
+        config.stickerVisionCandidates =
+                plugin.getConfig().getInt("stickerVisionCandidates",6);
+        config.stickerVisionProfile =
+                plugin.getConfig().getString("stickerVisionProfile","");
+        config.stickerVisionMaxTokens =
+                plugin.getConfig().getInt("stickerVisionMaxTokens",600);
+        config.stickerVisionTimeoutSecond =
+                plugin.getConfig().getInt("stickerVisionTimeoutSecond",45);
         config.messageBatchEnable = plugin.getConfig().getBoolean("messageBatchEnable",true);
         config.learnEnable = plugin.getConfig().getBoolean("learnEnable",true);
         config.learnDirectory = plugin.getConfig().getString("learnDirectory","train-corpus");
@@ -1043,6 +1058,13 @@ public class RoleplayConfig {
         if (config.stickerAttachMaxWaitSecond > 60) config.stickerAttachMaxWaitSecond = 60;
         if (config.stickerSendChance < 0) config.stickerSendChance = 0;
         if (config.stickerSendChance > 1) config.stickerSendChance = 1;
+        if (config.stickerVisionCandidates < 2) config.stickerVisionCandidates = 2;
+        if (config.stickerVisionCandidates > 9) config.stickerVisionCandidates = 9;
+        if (config.stickerVisionProfile == null) config.stickerVisionProfile = "";
+        if (config.stickerVisionMaxTokens < 200) config.stickerVisionMaxTokens = 200;
+        if (config.stickerVisionMaxTokens > 2000) config.stickerVisionMaxTokens = 2000;
+        if (config.stickerVisionTimeoutSecond < 10) config.stickerVisionTimeoutSecond = 10;
+        if (config.stickerVisionTimeoutSecond > 180) config.stickerVisionTimeoutSecond = 180;
         if (config.messageBatchWindowSecond < 1) config.messageBatchWindowSecond = 1;
         if (config.messageBatchWindowSecond > 10) config.messageBatchWindowSecond = 10;
         if (config.messageBatchDebounceMode == null) config.messageBatchDebounceMode = "natural";

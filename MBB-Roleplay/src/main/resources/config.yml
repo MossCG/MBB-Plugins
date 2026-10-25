@@ -213,6 +213,16 @@ stickerAttachMaxWaitSecond: 15
 stickerAttachWaitUntilNextMessage: true
 #提示词中的表情包参考使用率，0 到 1；不是代码强制抽样
 stickerSendChance: 0.35
+#是否用视觉模型从候选拼图中选择表情包
+stickerVisionEnable: true
+#视觉选择时最多生成多少张候选拼图，2 到 9
+stickerVisionCandidates: 6
+#表情包视觉选择使用的 AI profile，留空时使用 aiProfile
+stickerVisionProfile: ""
+#表情包视觉选择输出 Token 上限
+stickerVisionMaxTokens: 600
+#表情包视觉选择请求超时秒数
+stickerVisionTimeoutSecond: 45
 #是否启用群消息合批：短时间内连续到达的消息会合并成一个回合处理，避免刷屏时逐条排队
 messageBatchEnable: true
 #合批窗口秒数，窗口内到达的新消息会并入同一批
