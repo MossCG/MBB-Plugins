@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "50";
+    private static final String CURRENT_VERSION = "51";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -291,13 +291,14 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("expressionVectorMinScore","0.25","表达向量检索最低混合相似度"),
             new ConfigEntry("expressionVectorQueryCacheMinute","10","表达查询 embedding 的本地缓存分钟数"),
             new ConfigEntry("expressionReviewEnable","true","是否定期用 AI 审核表达候选"),
-            new ConfigEntry("expressionReviewMode","suggest","表达审核模式：suggest / auto"),
+            new ConfigEntry("expressionReviewMode","balanced","表达审核模式：suggest / balanced / auto"),
             new ConfigEntry("expressionReviewProfile","","表达审核使用的 AI profile，留空时使用 aiProfile"),
             new ConfigEntry("expressionReviewIntervalHours","24","表达审核定时任务间隔小时"),
             new ConfigEntry("expressionReviewMaxCandidates","50","单群单次最多审核多少条表达候选"),
             new ConfigEntry("expressionReviewMaxTokens","3000","表达审核输出 Token 上限"),
             new ConfigEntry("expressionReviewTimeoutSecond","120","表达审核请求超时秒数"),
-            new ConfigEntry("expressionAutoApproveMinQuality","0.70","auto 模式自动通过的最低质量"),
+            new ConfigEntry("expressionAutoApproveMinQuality","0.80","balanced 与 auto 自动通过的最低质量"),
+            new ConfigEntry("expressionBalancedRejectMaxQuality","0.25","balanced 模式直接拒绝的最高质量"),
             new ConfigEntry("attentionDriftEnable","true","是否启用注意力漂移"),
             new ConfigEntry("attentionDecayMinute","30","注意力向基线衰减的半衰期分钟数"),
             new ConfigEntry("attentionLowThreshold","0.25","低于该注意力时降低主动接话概率"),
@@ -513,6 +514,10 @@ public class RoleplayConfigMigrator {
                 && "5".equals(config.getString("webSearchMaxResults",""));
         boolean legacyStyleEnable = version < 48
                 && "true".equals(config.getString("styleEnable",""));
+        boolean legacyExpressionReviewMode = version < 51
+                && "suggest".equals(config.getString("expressionReviewMode",""));
+        boolean legacyExpressionApproveQuality = version < 51
+                && "0.70".equals(config.getString("expressionAutoApproveMinQuality",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -526,7 +531,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 50) {
+        if (version < 51) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -540,6 +545,14 @@ public class RoleplayConfigMigrator {
         }
         if (legacyStyleEnable) {
             config.set("styleEnable","false");
+            changed++;
+        }
+        if (legacyExpressionReviewMode) {
+            config.set("expressionReviewMode","balanced");
+            changed++;
+        }
+        if (legacyExpressionApproveQuality) {
+            config.set("expressionAutoApproveMinQuality","0.80");
             changed++;
         }
         if (legacyMemoryMergeRetryCount) {
@@ -728,7 +741,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 45 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 51 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort

@@ -272,13 +272,14 @@ public class RoleplayConfig {
     public double expressionVectorMinScore = 0.25;
     public int expressionVectorQueryCacheMinute = 10;
     public boolean expressionReviewEnable = true;
-    public String expressionReviewMode = "suggest";
+    public String expressionReviewMode = "balanced";
     public String expressionReviewProfile = "";
     public int expressionReviewIntervalHours = 24;
     public int expressionReviewMaxCandidates = 50;
     public int expressionReviewMaxTokens = 3000;
     public int expressionReviewTimeoutSecond = 120;
-    public double expressionAutoApproveMinQuality = 0.70;
+    public double expressionAutoApproveMinQuality = 0.80;
+    public double expressionBalancedRejectMaxQuality = 0.25;
     public boolean attentionDriftEnable = true;
     public int attentionDecayMinute = 30;
     public double attentionLowThreshold = 0.25;
@@ -780,7 +781,7 @@ public class RoleplayConfig {
         config.expressionReviewEnable =
                 plugin.getConfig().getBoolean("expressionReviewEnable",true);
         config.expressionReviewMode =
-                plugin.getConfig().getString("expressionReviewMode","suggest");
+                plugin.getConfig().getString("expressionReviewMode","balanced");
         config.expressionReviewProfile =
                 plugin.getConfig().getString("expressionReviewProfile","");
         config.expressionReviewIntervalHours =
@@ -792,7 +793,9 @@ public class RoleplayConfig {
         config.expressionReviewTimeoutSecond =
                 plugin.getConfig().getInt("expressionReviewTimeoutSecond",120);
         config.expressionAutoApproveMinQuality = parseDouble(
-                plugin.getConfig().getString("expressionAutoApproveMinQuality","0.70"),0.70);
+                plugin.getConfig().getString("expressionAutoApproveMinQuality","0.80"),0.80);
+        config.expressionBalancedRejectMaxQuality = parseDouble(
+                plugin.getConfig().getString("expressionBalancedRejectMaxQuality","0.25"),0.25);
         config.attentionDriftEnable = plugin.getConfig().getBoolean("attentionDriftEnable",true);
         config.attentionDecayMinute = plugin.getConfig().getInt("attentionDecayMinute",30);
         config.attentionLowThreshold = parseDouble(plugin.getConfig().getString("attentionLowThreshold","0.25"),0.25);
@@ -1338,9 +1341,13 @@ public class RoleplayConfig {
         if (config.expressionVectorQueryCacheMinute > 1440) {
             config.expressionVectorQueryCacheMinute = 1440;
         }
-        if (config.expressionReviewMode == null) config.expressionReviewMode = "suggest";
+        if (config.expressionReviewMode == null) config.expressionReviewMode = "balanced";
         config.expressionReviewMode = config.expressionReviewMode.trim().toLowerCase();
-        if (!"auto".equals(config.expressionReviewMode)) config.expressionReviewMode = "suggest";
+        if (!"auto".equals(config.expressionReviewMode)
+                && !"suggest".equals(config.expressionReviewMode)
+                && !"balanced".equals(config.expressionReviewMode)) {
+            config.expressionReviewMode = "balanced";
+        }
         if (config.expressionReviewProfile == null) config.expressionReviewProfile = "";
         if (config.expressionReviewIntervalHours < 1) config.expressionReviewIntervalHours = 1;
         if (config.expressionReviewIntervalHours > 168) config.expressionReviewIntervalHours = 168;
@@ -1352,6 +1359,13 @@ public class RoleplayConfig {
         if (config.expressionReviewTimeoutSecond > 600) config.expressionReviewTimeoutSecond = 600;
         if (config.expressionAutoApproveMinQuality < 0) config.expressionAutoApproveMinQuality = 0;
         if (config.expressionAutoApproveMinQuality > 1) config.expressionAutoApproveMinQuality = 1;
+        if (config.expressionBalancedRejectMaxQuality < 0) {
+            config.expressionBalancedRejectMaxQuality = 0;
+        }
+        if (config.expressionBalancedRejectMaxQuality
+                > config.expressionAutoApproveMinQuality) {
+            config.expressionBalancedRejectMaxQuality = config.expressionAutoApproveMinQuality;
+        }
         if (config.attentionDecayMinute < 1) config.attentionDecayMinute = 1;
         if (config.attentionDecayMinute > 1440) config.attentionDecayMinute = 1440;
         if (config.attentionLowThreshold < 0.05) config.attentionLowThreshold = 0.05;

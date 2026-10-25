@@ -467,8 +467,8 @@ expressionVectorMinScore: 0.25
 expressionVectorQueryCacheMinute: 10
 #是否定期用 AI 审核表达候选
 expressionReviewEnable: true
-#表达审核模式：suggest 只保存理解，auto 同时自动通过或拒绝
-expressionReviewMode: suggest
+#表达审核模式：suggest 只保存理解，balanced 高质通过/低质拒绝/中间待审，auto 全部二选一
+expressionReviewMode: balanced
 #表达审核使用的 AI profile，留空时使用 aiProfile
 expressionReviewProfile: ""
 #表达审核定时任务间隔小时
@@ -479,8 +479,10 @@ expressionReviewMaxCandidates: 50
 expressionReviewMaxTokens: 3000
 #表达审核请求超时秒数
 expressionReviewTimeoutSecond: 120
-#auto 模式自动通过的最低质量
-expressionAutoApproveMinQuality: 0.70
+#balanced 与 auto 自动通过的最低质量
+expressionAutoApproveMinQuality: 0.80
+#balanced 模式直接拒绝的最高质量，低于此值自动拒绝
+expressionBalancedRejectMaxQuality: 0.25
 #是否启用注意力漂移
 attentionDriftEnable: true
 #注意力向基线衰减的半衰期分钟数

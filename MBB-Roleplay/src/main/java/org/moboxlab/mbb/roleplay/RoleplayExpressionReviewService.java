@@ -102,22 +102,16 @@ public class RoleplayExpressionReviewService {
                 boolean keep = item.getBooleanValue("keep");
                 String unsafe = service.getSafetyService().unsafeMemoryReason(
                         service.safe(source.getString("content"))+"\n"+meaning);
-                String status = "pending";
                 if (!unsafe.isEmpty()) {
                     keep = false;
                     reason = unsafe;
                 }
-                if ("auto".equals(normalizeMode(service.config().expressionReviewMode))) {
-                    if (keep && quality >= service.config().expressionAutoApproveMinQuality) {
-                        status = "approved";
-                        approved++;
-                    } else {
-                        status = "rejected";
-                        rejected++;
-                    }
-                } else {
-                    suggested++;
-                }
+                String status = reviewStatus(service.config().expressionReviewMode,
+                        keep,quality,service.config().expressionAutoApproveMinQuality,
+                        service.config().expressionBalancedRejectMaxQuality);
+                if ("approved".equals(status)) approved++;
+                else if ("rejected".equals(status)) rejected++;
+                else suggested++;
                 if (service.expressionService().saveReview(id,meaning,quality,reason,status)) {
                     service.plugin().getLogger().sendInfo("[表达] 群"+groupID+" 审核 #"+id
                             +" 状态="+status+" 质量="+String.format(java.util.Locale.ROOT,"%.2f",quality)
@@ -146,7 +140,25 @@ public class RoleplayExpressionReviewService {
                 +"\"quality\":0.8,\"reason\":\"短句自然且无风险\"}]}。";
     }
 
-    private String normalizeMode(String mode) {
-        return mode != null && "auto".equalsIgnoreCase(mode.trim()) ? "auto" : "suggest";
+    static String reviewStatus(String mode,boolean keep,double quality,
+                               double approveMinQuality,double rejectMaxQuality) {
+        String normalized = normalizeMode(mode);
+        double score = Math.max(0,Math.min(1,quality));
+        double approve = Math.max(0,Math.min(1,approveMinQuality));
+        double reject = Math.max(0,Math.min(approve,rejectMaxQuality));
+        if ("suggest".equals(normalized)) return "pending";
+        if ("auto".equals(normalized)) {
+            return keep && score >= approve ? "approved" : "rejected";
+        }
+        if (!keep || score < reject) return "rejected";
+        return score >= approve ? "approved" : "pending";
+    }
+
+    static String normalizeMode(String mode) {
+        String value = mode == null ? "" : mode.trim().toLowerCase();
+        if ("auto".equals(value) || "suggest".equals(value) || "balanced".equals(value)) {
+            return value;
+        }
+        return "balanced";
     }
 }

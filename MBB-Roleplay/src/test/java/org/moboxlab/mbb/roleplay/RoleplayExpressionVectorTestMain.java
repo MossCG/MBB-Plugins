@@ -9,7 +9,7 @@ public class RoleplayExpressionVectorTestMain {
     public static void main(String[] args) {
         RoleplayConfig config = new RoleplayConfig();
         if (!config.expressionVectorEnable || !config.expressionReviewEnable
-                || !"suggest".equals(config.expressionReviewMode)
+                || !"balanced".equals(config.expressionReviewMode)
                 || config.expressionVectorTopK != 6
                 || config.expressionReviewIntervalHours != 24) {
             throw new AssertionError("表达向量与审核默认配置不正确");

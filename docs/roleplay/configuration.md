@@ -346,13 +346,14 @@ expressionVectorTopK: 6
 expressionVectorMinScore: 0.25
 expressionVectorQueryCacheMinute: 10
 expressionReviewEnable: true
-expressionReviewMode: suggest
+expressionReviewMode: balanced
 expressionReviewProfile: ""
 expressionReviewIntervalHours: 24
 expressionReviewMaxCandidates: 50
 expressionReviewMaxTokens: 3000
 expressionReviewTimeoutSecond: 120
-expressionAutoApproveMinQuality: 0.70
+expressionAutoApproveMinQuality: 0.80
+expressionBalancedRejectMaxQuality: 0.25
 attentionDriftEnable: true
 attentionDecayMinute: 30
 attentionLowThreshold: 0.25
@@ -478,9 +479,10 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 原有文本顺序，并进入 5 分钟失败冷却，避免每条消息重复打失败请求。
 
 `expressionReviewEnable` 默认 `true`，每 `expressionReviewIntervalHours` 小时审核一次待审表达。
-`suggest` 模式只保存 AI 理解、含义和质量分，仍由管理员决定是否通过；`auto` 模式在安全审查
-通过且质量达到 `expressionAutoApproveMinQuality` 时自动 `approved`，否则标记 `rejected`。
-`/role expression review` 可以立即触发当前群审核。
+默认 `balanced` 模式采用三段式：`keep=true` 且质量达到 `expressionAutoApproveMinQuality`
+时自动 `approved`；`keep=false` 或质量低于 `expressionBalancedRejectMaxQuality` 时自动
+`rejected`；中间区间保持 `pending`，继续供人工复核。`suggest` 只保存理解与质量，`auto`
+则把所有非通过项直接拒绝。未知模式会回退 `balanced`。`/role expression review` 可以立即触发当前群审核。
 
 `stickerVisionEnable` 默认 `true`。角色实际调用 `sticker` 时会先从 MBB-Sticker 取
 `stickerVisionCandidates` 张候选（范围 2 到 9），生成编号拼图并交给
