@@ -99,6 +99,8 @@ addressedOtherMemberSkip: true
 splitMessageSuppressSecond: 20
 #触发补充抑制的最大字数
 splitMessageSuppressMaxChars: 20
+#被直接点名或引用时是否绕过普通回复冷却；小时上限仍生效
+directReplyBypassCooldown: true
 #即时上下文消息条数
 shortContextMessages: 200
 #即时上下文最多注入多少字符，按新到旧保留，避免 200 条长消息把请求撑爆

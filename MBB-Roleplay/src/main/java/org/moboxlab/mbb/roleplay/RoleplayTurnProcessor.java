@@ -49,8 +49,11 @@ public class RoleplayTurnProcessor {
         GroupMessageEvent event = prepared.event;
         long groupID = prepared.groupID;
         String content = service.mergeStickerEmotion(prepared.content,prepared.stickerEmotion);
+        boolean bypassCooldown = RoleplayMultiRolePolicy.bypassCooldown(
+                service.config(),prepared.direct);
+        boolean multiAddress = service.isMultiRoleAddress(event,content,prepared.selfID);
         // 冷却或超频时直接跳过，不必再花一次路由调用
-        if (service.rateLimited(groupID)) return false;
+        if (service.rateLimited(groupID,bypassCooldown)) return false;
         boolean mediaOnly = prepared.hasImage
                 && !service.hasMeaningfulText(event.getMessage());
         RoleplayReplyWillingnessService.Result willingness =
@@ -79,11 +82,12 @@ public class RoleplayTurnProcessor {
         boolean defer = shouldDeferTurn(event,prepared.otherRoleBot,prepared.hasImage);
         //延后回合把限流判定留到真正生成回复时，避免这里刚登记的冷却把同一轮的延后执行挡掉
         if (defer) {
-            if (service.rateLimited(groupID)) return false;
-        } else if (!service.canReply(groupID)) {
+            if (service.rateLimited(groupID,bypassCooldown)) return false;
+        } else if (!service.canReply(groupID,bypassCooldown)) {
             return false;
         }
         service.plugin().getLogger().sendInfo("[角色] 群"+groupID+" 决策 addressed="+decision.addressed
+                +" 多角色="+(multiAddress ? "是" : "否")
                 +" 概率="+decision.chance
                 +" 技能="+decision.skills
                 +" 资料="+decision.materials
@@ -96,9 +100,8 @@ public class RoleplayTurnProcessor {
             return true;
         }
         String turnKey = "m"+event.getMessageID();
-        boolean multi = service.isMultiRoleAddress(event,content,prepared.selfID);
         RoleplayHubService.TurnResult turn = service.hubService().claimTurn(groupID,turnKey,
-                service.hubService().turnScore(decision,prepared.direct),multi);
+                service.hubService().turnScore(decision,prepared.direct),multiAddress);
         if (!turn.granted) return false;
         if (turn.staggerMs > 0) service.sleepQuietly(turn.staggerMs);
         service.hubService().typingStart(groupID,turnKey);
@@ -130,8 +133,11 @@ public class RoleplayTurnProcessor {
 
     private void handleBatchTurn(long groupID,List<RoleplayService.PreparedMessage> messages) {
         RoleplayService.PreparedMessage primary = primaryMessage(messages);
-        if (service.rateLimited(groupID)) return;
+        boolean bypassCooldown = RoleplayMultiRolePolicy.bypassCooldown(
+                service.config(),primary.direct);
         String batchText = batchPromptText(messages);
+        boolean multiAddress = service.isMultiRoleAddress(primary.event,batchText,primary.selfID);
+        if (service.rateLimited(groupID,bypassCooldown)) return;
         RoleplayContextService.TopicFatigue batchFatigue = service.contextService().topicFatigue(groupID,batchText);
         primary.signals.topicFatigued = batchFatigue.fatigued();
         primary.signals.topicHint = batchFatigue.hint();
@@ -160,20 +166,20 @@ public class RoleplayTurnProcessor {
         } else {
             service.hubService().botChainReset(groupID);
         }
-        if (!service.canReply(groupID)) {
+        if (!service.canReply(groupID,bypassCooldown)) {
             service.plugin().getLogger().sendInfo("[角色] 群"+groupID+" 合批回合被回复冷却拦下，本轮不回复");
             return;
         }
         service.plugin().getLogger().sendInfo("[角色] 群"+groupID+" 合批 "+messages.size()
                 +" 条 最早="+batchOldestAgeSecond(messages)+"秒前 决策 addressed="+decision.addressed
+                +" 多角色="+(multiAddress ? "是" : "否")
                 +" 概率="+decision.chance
                 +" 技能="+decision.skills
                 +" 资料="+decision.materials
                 +" 原因="+decision.reason);
         String turnKey = "b"+messages.get(messages.size() - 1).event.getMessageID();
-        boolean multi = service.isMultiRoleAddress(primary.event,batchText,primary.selfID);
         RoleplayHubService.TurnResult turn = service.hubService().claimTurn(groupID,turnKey,
-                service.hubService().turnScore(decision,primary.direct),multi);
+                service.hubService().turnScore(decision,primary.direct),multiAddress);
         if (!turn.granted) return;
         if (turn.staggerMs > 0) service.sleepQuietly(turn.staggerMs);
         service.hubService().typingStart(groupID,turnKey);

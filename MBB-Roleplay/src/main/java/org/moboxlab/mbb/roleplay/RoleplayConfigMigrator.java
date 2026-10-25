@@ -93,6 +93,8 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("splitMessageSuppressSecond","20",
                     "同一用户刚被回复后，多少秒内的短句视为补充不再回复，0 表示关闭"),
             new ConfigEntry("splitMessageSuppressMaxChars","20","触发补充抑制的最大字数"),
+            new ConfigEntry("directReplyBypassCooldown","true",
+                    "被直接点名或引用时是否绕过普通回复冷却；小时上限仍生效"),
             new ConfigEntry("shortContextMessages","200","即时上下文消息条数"),
             new ConfigEntry("shortContextMaxChars","12000","即时上下文最多注入字符数"),
             new ConfigEntry("structuredContextEnable","true","是否压缩并注入群级结构化上下文"),

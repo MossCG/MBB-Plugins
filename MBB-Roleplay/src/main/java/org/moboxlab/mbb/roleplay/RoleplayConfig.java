@@ -72,6 +72,7 @@ public class RoleplayConfig {
     public boolean addressedOtherMemberSkip = true;
     public int splitMessageSuppressSecond = 20;
     public int splitMessageSuppressMaxChars = 20;
+    public boolean directReplyBypassCooldown = true;
     public int shortContextMessages = 200;
     public int shortContextMaxChars = 12000;
     public boolean structuredContextEnable = true;
@@ -520,6 +521,8 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("splitMessageSuppressSecond",20);
         config.splitMessageSuppressMaxChars =
                 plugin.getConfig().getInt("splitMessageSuppressMaxChars",20);
+        config.directReplyBypassCooldown =
+                plugin.getConfig().getBoolean("directReplyBypassCooldown",true);
         config.shortContextMessages = plugin.getConfig().getInt("shortContextMessages",200);
         config.shortContextMaxChars = plugin.getConfig().getInt("shortContextMaxChars",12000);
         config.structuredContextEnable =

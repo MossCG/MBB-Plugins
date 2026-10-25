@@ -28,10 +28,14 @@ public class RoleplayRateLimitService {
     }
 
     boolean rateLimited(long groupID) {
+        return rateLimited(groupID,false);
+    }
+
+    boolean rateLimited(long groupID,boolean bypassCooldown) {
         synchronized (service.groupQueueLock) {
             long now = System.currentTimeMillis();
             RoleplayConversationState state = service.state(groupID);
-            if (state.lastReplyTime > 0
+            if (!bypassCooldown && state.lastReplyTime > 0
                     && now - state.lastReplyTime < service.config().replyCooldownSecond * 1000L) {
                 return true;
             }
@@ -42,11 +46,15 @@ public class RoleplayRateLimitService {
     }
 
     boolean canReply(long groupID) {
+        return canReply(groupID,false);
+    }
+
+    boolean canReply(long groupID,boolean bypassCooldown) {
         //冷却判定与时间戳写入必须原子，否则并发回合会同时读到旧值、各回一次
         synchronized (service.groupQueueLock) {
             long now = System.currentTimeMillis();
             RoleplayConversationState state = service.state(groupID);
-            if (state.lastReplyTime > 0
+            if (!bypassCooldown && state.lastReplyTime > 0
                     && now - state.lastReplyTime < service.config().replyCooldownSecond * 1000L) {
                 return false;
             }

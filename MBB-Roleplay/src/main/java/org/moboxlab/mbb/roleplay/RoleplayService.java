@@ -1383,8 +1383,16 @@ public class RoleplayService {
         return rateLimitService.rateLimited(groupID);
     }
 
+    boolean rateLimited(long groupID,boolean bypassCooldown) {
+        return rateLimitService.rateLimited(groupID,bypassCooldown);
+    }
+
     boolean canReply(long groupID) {
         return rateLimitService.canReply(groupID);
+    }
+
+    boolean canReply(long groupID,boolean bypassCooldown) {
+        return rateLimitService.canReply(groupID,bypassCooldown);
     }
 
     boolean shouldSuppressRepeat(long groupID,String reply) {

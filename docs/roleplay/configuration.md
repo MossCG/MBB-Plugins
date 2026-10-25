@@ -210,6 +210,7 @@ turnThreads: 4
 addressedOtherMemberSkip: true
 splitMessageSuppressSecond: 20
 splitMessageSuppressMaxChars: 20
+directReplyBypassCooldown: true
 imageAsyncEnable: true
 memoryRelevanceSort: true
 memoryRelevancePoolSize: 600
@@ -409,6 +410,11 @@ quietReplyEnable: true
 会把发送时间刷新为“最后一次输入状态后 3 秒”；持续输入会继续顺延，但
 `privateChatInputStatusMaxWaitSecond` 限制从第一条消息开始的绝对等待上限。
 typing 状态不会取消已经开始的 AI，只有真实消息到达才会清空 typing 等待并合并重生成。
+
+`directReplyBypassCooldown` 默认 `true`。消息明确艾特、引用或点名角色时，直接回复概率固定为
+`1.0`，并绕过普通 `replyCooldownSecond` 冷却，但仍然受 `maxRepliesPerHour` 小时上限约束。
+启用 Hub 回合共享时，每个角色进程都应配置完整的 `otherRoleBotNames` 和 `otherRoleBotQQs`；
+两者都为空会在启动时告警，因为“小桃小绿”这类同时点名可能只识别到一个角色。
 
 `friendRequestRoleDecisionEnable` 默认 `true`。MBB-QQ 收到好友申请后会调用角色裁决服务，
 角色结合 persona、个人印象、长期记忆和私聊记忆决定是否愿意通过。申请备注是不可信外部文本，

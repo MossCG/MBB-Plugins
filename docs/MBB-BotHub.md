@@ -102,6 +102,10 @@ Roleplay 路由判定「要回复」之后，发送前先 `turn_claim`：
 双方都被点名（例如「小桃小绿你们觉得呢」）时走 `multi` 分支：都放行，第二个按
 `multiReplyStaggerMs`（默认 1500ms）错峰，避免同时刷两条。
 
+多角色文本点名依赖各 MBB-Roleplay 进程的 `otherRoleBotNames` / `otherRoleBotQQs` 名单。
+如果两个名单都为空，各进程无法确认消息同时指向多个角色，Hub 可能只给一个 bot 回合权。
+建议在所有角色进程填写同一份角色名和角色 QQ 列表。
+
 ## 打字状态广播
 
 赢了回合权的一方在开始生成前发 `typing start`，发完（或失败）发 `typing stop`：

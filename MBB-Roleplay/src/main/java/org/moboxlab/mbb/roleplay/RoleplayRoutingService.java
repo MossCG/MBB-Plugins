@@ -41,6 +41,8 @@ public class RoleplayRoutingService {
         if (signals.direct) {
             routed.reply = true;
             routed.addressed = "direct";
+            routed.chance = RoleplayMultiRolePolicy.directChance(true,routed.chance);
+            routed.confidence = Math.max(routed.confidence,routed.chance);
         }
         routed.quoteRequired = service.config().quoteReplyEnable
                 && (signals.quotingSelf || signals.mentioningSelf);

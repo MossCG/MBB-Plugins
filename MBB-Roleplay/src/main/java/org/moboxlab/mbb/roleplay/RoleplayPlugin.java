@@ -44,6 +44,7 @@ public class RoleplayPlugin extends Plugin {
         getServer().getPluginManager().registerCommand(this,new RoleplayReminderCommand(service.getReminderService()));
         getServer().getPluginManager().registerService(this,new RoleplayPublicService(service));
         logPokeConfigWarning();
+        logMultiRoleConfigWarning();
         getLogger().sendInfo("MBB-Roleplay 已启用，角色："+persona.name);
         getServer().getPluginManager().runTaskLater(this,() -> service.recoverToolTurns(),5);
     }
@@ -67,6 +68,7 @@ public class RoleplayPlugin extends Plugin {
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
         if (service != null) service.reload(roleplayConfig,persona);
         logPokeConfigWarning();
+        logMultiRoleConfigWarning();
     }
 
     public int repairConfig() {
@@ -173,6 +175,13 @@ public class RoleplayPlugin extends Plugin {
         if (getServer().getPluginManager().isEnabled("MBB-Poke")) {
             getLogger().sendWarn("MBB-Poke 已启用，MBB-Roleplay 将跳过戳一戳事件，由 MBB-Poke 处理。");
         }
+    }
+
+    private void logMultiRoleConfigWarning() {
+        if (!roleplayConfig.hubEnable || !roleplayConfig.hubTurnShareEnable) return;
+        if (RoleplayMultiRolePolicy.multiRoleConfigured(roleplayConfig)) return;
+        getLogger().sendWarn("Hub 回合共享已开启，但 otherRoleBotNames 和 otherRoleBotQQs 都为空；"
+                +"同时点名多个角色时可能只识别到一个角色，进而只允许一个 bot 回复。");
     }
 
     private void saveDefaultPersonas() {
