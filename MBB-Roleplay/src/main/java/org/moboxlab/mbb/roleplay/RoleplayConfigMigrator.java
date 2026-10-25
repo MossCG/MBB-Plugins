@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "52";
+    private static final String CURRENT_VERSION = "53";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -63,6 +63,12 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("friendMemoryMaxTokens","1200","好友记忆整理输出 Token 上限"),
             new ConfigEntry("friendMemoryTimeoutSecond","120","好友记忆整理请求超时秒数"),
             new ConfigEntry("friendMemoryInjectMaxChars","1800","好友长期记忆注入提示词的最大字符数"),
+            new ConfigEntry("randomActivityEnable","true","是否启用外部插件活动调度器"),
+            new ConfigEntry("randomActivityServices","","活动插件服务名，多个用英文逗号分隔，例如 MBB-Bilibili,MBB-Shopping"),
+            new ConfigEntry("randomActivityMemoryImportance","3","活动结果写入全局自我记忆时的默认重要度"),
+            new ConfigEntry("randomActivityShareEnable","true","是否允许活动插件返回值得分享的内容"),
+            new ConfigEntry("randomActivityShareMinScore","0.75","活动分享候选的最低兴趣分"),
+            new ConfigEntry("randomActivityTimeoutSecond","300","单次活动插件调用超时秒数，由插件负责实际 HTTP 超时"),
             new ConfigEntry("emotionDecayMinute","30","情绪回落间隔，每隔多少分钟向角色人格基线靠近一次"),
             new ConfigEntry("emotionEventCooldownSecond","300","同一用户同一类情绪事件的规则更新冷却秒数"),
             new ConfigEntry("emotionAnalyzeEnable","true","是否异步调用 AI 分析语义情绪原因"),
@@ -541,7 +547,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 52) {
+        if (version < 53) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -751,7 +757,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 52 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 53 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort

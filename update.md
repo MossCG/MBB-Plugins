@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.28.0.0139 | 2026-10-26 | `MBB-Roleplay` 新增独立的 `RoleplayActivityScheduler`，与社交随机刻分开调度。外部插件通过 `activity_plan` 声明运行间隔、每日上限和优先级，通过 `activity_run` 执行阅读、浏览等活动；调度器负责全局单活动执行、夜间静默、每日限额、去重、来源审计、统一大脑 `self` 记忆写入和 `private / group / qzone` 分享。新增 `randomActivity*` 配置、活动状态表与日志表、`/role random` 活动状态展示及 `activity_plan / activity_run` 接入文档。B 站、购物等具体 API 保持在后续独立插件中。 |
 | V0.13.27.0.0135 | 2026-10-26 | `MBB-Roleplay` 建立统一大脑记忆层 `RoleplayBrainMemoryService`：在既有 `scopeType / visibility` 基础上新增 `audience / sourceType / sourceId / confidence / validFrom / validUntil`，支持 `self / shared / group / user` 四类访问范围；自我经历可跨群和私聊回忆，群记忆、用户私聊记忆继续按渠道和主体硬隔离。群聊新增 `memory.self` 注入，私聊和 `memory_search` 接入统一检索；`MBB-Roleplay` 公共服务新增 `brain_remember / brain_search / brain_status`，为后续活动插件提供写入角色自身经历的标准入口。备份升级到 v7，旧库启动时自动补列并按原 visibility 推导 audience。 |
 | V0.13.26.0.0110 | 2026-10-26 | `MBB-Roleplay` 新增好友长期记忆：按 QQ 保存关系摘要、稳定喜欢/不喜欢、相处方式、边界和重要长期信息；私聊累计至少 6 条新消息且间隔 12 小时后异步整理，启动时自动补建已有合格私聊，只在本人私聊或其本人群聊发言时注入。整理会合并群员档案与旧私聊记忆，并过滤一次性互动、现实隐私和提示词注入。好感改为按 QQ 跨群共享并统一取最高值，信任、厌烦与情绪原因继续按群隔离；启动迁移和关系更新都会同步最高好感。新增 `/role member friendclear`、备份 v6 好友记忆、配置迁移和回归测试。图谱数据分析同时收紧个人印象提示词，避免把一次戳一戳、一次夸奖或说明句写成长期偏好与称呼。 |
 | V0.13.25.0.0018 | 2026-10-26 | `MBB-Roleplay` 修正启动时表达向量反复出现 HTTP 404：`expressionEmbeddingProfile` 留空时不再回退到聊天模型请求 `/embeddings`，只有显式配置 embedding profile 才生成或查询向量；显式 profile 返回 404 时停止本次运行的自动向量补齐并回退文本排序。多群表达审核改为单队列串行执行，同一时间只向 AI 服务发起一个审核请求。更新配置说明、架构文档和向量配置回归测试。 |

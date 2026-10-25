@@ -81,6 +81,7 @@ public class RoleplayService {
     private final RoleplayPrivateChatService privateChatService;
     private final RoleplayFriendRequestService friendRequestService;
     private final RoleplayRandomTickService randomTickService;
+    private final RoleplayActivityScheduler activityScheduler;
     private final RoleplayBatchScheduler batchScheduler;
     private final RoleplayPokeService pokeService;
     private final RoleplayReplyExecutor replyExecutor;
@@ -315,6 +316,7 @@ public class RoleplayService {
         this.privateChatService = new RoleplayPrivateChatService(plugin,config,this);
         this.friendRequestService = new RoleplayFriendRequestService(this);
         this.randomTickService = new RoleplayRandomTickService(plugin,config,this);
+        this.activityScheduler = new RoleplayActivityScheduler(plugin,config,this);
         this.batchScheduler = new RoleplayBatchScheduler(this);
         this.pokeService = new RoleplayPokeService(this);
         this.replyExecutor = new RoleplayReplyExecutor(this);
@@ -356,6 +358,7 @@ public class RoleplayService {
 
     public void init() {
         schemaService.initSchema();
+        activityScheduler.init();
         contextCompactor.recoverLegacySummaries();
         reminderService.init();
         todoService.init();
@@ -382,6 +385,7 @@ public class RoleplayService {
         executorService.ensureBackgroundExecutor();
         dailyReviewService.ensureTask();
         randomTickService.ensureTask();
+        activityScheduler.ensureTask();
         if (config.replyReviewEnable) {
             plugin.getLogger().sendInfo("[角色] 回复风格、链接处理和长句分句已统一归入回复复核。");
         } else {
@@ -418,6 +422,8 @@ public class RoleplayService {
         executorService.ensureBackgroundExecutor();
         dailyReviewService.ensureTask();
         randomTickService.ensureTask();
+        activityScheduler.reload(config);
+        activityScheduler.ensureTask();
     }
 
     /**
@@ -715,6 +721,10 @@ public class RoleplayService {
 
     RoleplayRandomTickService randomTickService() {
         return randomTickService;
+    }
+
+    RoleplayActivityScheduler activityScheduler() {
+        return activityScheduler;
     }
 
     RoleplayBatchScheduler batchScheduler() {

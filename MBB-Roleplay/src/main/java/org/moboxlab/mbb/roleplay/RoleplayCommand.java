@@ -112,12 +112,19 @@ public class RoleplayCommand extends BotCommand {
         }
         if ("random".equals(action)) {
             JSONObject result = service.randomTickService().status();
-            sender.sendMessage("随机刻："+(result.getBooleanValue("enable") ? "开" : "关")
-                    +"\n下次时间："+service.formatMemoryTime(result.getLongValue("dueTime"))
-                    +"\n上次执行："+service.formatMemoryTime(result.getLongValue("lastRunTime"))
-                    +"\n上次行为："+result.getString("lastAction")
-                    +" "+result.getString("lastStatus")
-                    +"\n原因："+result.getString("lastReason"));
+            JSONObject activity = service.activityScheduler().status();
+            StringBuilder message = new StringBuilder();
+            message.append("随机刻：").append(result.getBooleanValue("enable") ? "开" : "关")
+                    .append("\n下次时间：").append(service.formatMemoryTime(result.getLongValue("dueTime")))
+                    .append("\n上次执行：").append(service.formatMemoryTime(result.getLongValue("lastRunTime")))
+                    .append("\n上次行为：").append(result.getString("lastAction"))
+                    .append(" ").append(result.getString("lastStatus"))
+                    .append("\n原因：").append(result.getString("lastReason"))
+                    .append("\n活动调度：").append(activity.getBooleanValue("enable") ? "开" : "关")
+                    .append("\n活动插件：").append(activity.getJSONArray("services").isEmpty()
+                            ? "未配置"
+                            : String.join("、",activity.getJSONArray("services").toJavaList(String.class)));
+            sender.sendMessage(message.toString());
             return true;
         }
         if ("groups".equals(action)) {

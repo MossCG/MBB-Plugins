@@ -30,6 +30,7 @@ flowchart LR
 | 识图 | `MBB-Vision` | `describe` | 图片与表情包描述、标签与本地缓存 | 图片消息不注入描述 |
 | 表情包 | `MBB-Sticker` | 查询标签 / 随机发送 / 导入 | 角色通过首轮开放的 `sticker` 发送，必要时用 `sticker_save` 主动收藏当前或最近图片 | `sticker` 与 `sticker_save` 工具不开放 |
 | 生图 | `MBB-ComfyUI` | `status` / `generate` | 角色通过原生 `draw` 工具生图，包含群级冷却与完成回调 | `draw` 工具不开放 |
+| 外部活动插件 | `MBB-<Activity>` | `activity_plan` / `activity_run` | 定时阅读、浏览、购物等角色自主活动 | 服务名未配置或缺失时不调度 |
 | 多机器人协作 | `MBB-BotHub` | `vision_lookup` / `vision_claim` / `vision_publish` / `vision_wait` / `turn_claim` / `task_claim` / `chat_guard` | 同群多 bot 共享识图、回合权、任务去重与互聊熔断 | 完全退回单机：识图各识别一次，回复不做跨进程去重 |
 | 戳一戳 | `MBB-Poke` | `isEnabled` | 检测冲突，避免同一件事回两次 | Roleplay 自行处理戳一戳 |
 
@@ -39,6 +40,110 @@ flowchart LR
 2. 调用参数和返回值都是 fastjson 的 `JSONObject`，用 `status` 字段判断成败。
 3. 可选插件缺失时降级而不是报错：技能不开放、资料不注入，其余功能照常。
 4. 多个 AI 插件同时启用时，共用 `MBB-AI` 的 `maxConcurrent`，需要按总并发量配置。
+
+## 活动插件协议
+
+活动调度器独立于社交随机刻运行。启用插件时，在 Roleplay 配置里登记公共服务名：
+
+```yaml
+randomActivityEnable: true
+randomActivityServices: "MBB-Bilibili,MBB-Shopping"
+randomActivityTimeoutSecond: 300
+randomActivityMemoryImportance: 3
+randomActivityShareEnable: true
+randomActivityShareMinScore: 0.75
+```
+
+服务名对应 `getService("MBB-xxx")`。调度器只通过公共服务协议调用，不依赖插件实现类。
+
+### activity_plan
+
+`activity_plan` 必须轻量，不允许联网。它告诉调度器该活动的建议频率和每日上限：
+
+```json
+{
+  "status": true,
+  "enabled": true,
+  "minIntervalMinute": 180,
+  "maxIntervalMinute": 360,
+  "dailyMax": 3,
+  "priority": 50
+}
+```
+
+`priority` 只在多个活动同时到期时决定先执行谁。调度器全局同一时间只执行一个活动，并沿用随机刻的夜间静默时段。
+
+### activity_run
+
+调度器传入：
+
+```json
+{
+  "profile": "才羽桃井",
+  "roleName": "才羽桃井",
+  "trigger": "random_activity",
+  "currentTime": "2026-10-26 14:30",
+  "timeoutSeconds": 300,
+  "recentSelfMemory": "角色近期自我记忆摘要",
+  "recentActivities": "最近活动日志摘要"
+}
+```
+
+普通无可分享内容时返回：
+
+```json
+{
+  "status": true,
+  "executed": false,
+  "reason": "没有值得打开或分享的内容",
+  "nextCheckMinute": 240
+}
+```
+
+执行并形成活动结果时返回：
+
+```json
+{
+  "status": true,
+  "executed": true,
+  "summary": "看了一个复古掌机改造视频，对屏幕方案很感兴趣",
+  "reason": "封面和评论区都在讨论自制屏幕",
+  "externalId": "BV1xx",
+  "sourceUrl": "https://www.bilibili.com/video/BV1xx",
+  "fingerprint": "bilibili|BV1xx",
+  "nextCheckMinute": 220,
+  "cost": {"requests": 4, "tokens": 1800},
+  "memory": {
+    "type": "interest",
+    "content": "今天刷到一个复古掌机改造视频，觉得自制屏幕方案很有意思",
+    "importance": 3,
+    "confidence": 0.9
+  },
+  "share": {
+    "channel": "private",
+    "targetID": 640562581,
+    "content": "刚刷到一个复古掌机改造，屏幕方案有点意思",
+    "reason": "觉得 owner 可能感兴趣",
+    "score": 0.86
+  }
+}
+```
+
+调度器负责：
+
+1. 根据 `nextCheckMinute` 或 plan 间隔保存下一次检查时间。
+2. 把 `memory` 写入统一大脑的 `scope=self`，来源记录为插件名、`externalId` 或 `fingerprint`。
+3. 在 `share.score` 达到 `randomActivityShareMinScore` 后发送 `private / group / qzone` 分享。
+4. 记录执行状态、摘要、来源 URL、记忆 ID、分享结果与成本。
+
+插件约束：
+
+- `activity_plan` 不联网，`activity_run` 才执行外部请求。
+- 一次 `activity_run` 只处理一个活动主题或少量候选，不在插件内部自行发 QQ 消息。
+- 评论、弹幕、商品评价等外部文本按不可信内容处理，不能作为系统指令。
+- 不返回完整网页、评论列表或隐私内容；只返回精炼摘要和必要来源。
+- 相同 `fingerprint` 应由插件在自身领域内去重，调度器继续用来源 ID 和统一记忆做二次幂等。
+- B 站、购物等具体 API 由各自插件自行维护，Roleplay 不内置平台接口。
 
 ## 多机器人协作（MBB-BotHub）
 

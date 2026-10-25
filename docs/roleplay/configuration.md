@@ -65,6 +65,12 @@ friendMemoryContextMessages: 120
 friendMemoryMaxTokens: 1200
 friendMemoryTimeoutSecond: 120
 friendMemoryInjectMaxChars: 1800
+randomActivityEnable: true
+randomActivityServices: ""
+randomActivityMemoryImportance: 3
+randomActivityShareEnable: true
+randomActivityShareMinScore: 0.75
+randomActivityTimeoutSecond: 300
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 300
 emotionAnalyzeEnable: true
@@ -428,6 +434,13 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 档案只按 QQ 保存，并只在和本人私聊或其本人发言的群聊中注入；`friendMemoryProfile`
 留空时依次回退到 `memoryProfile` 和 `aiProfile`。`/role member friendclear <QQ|@群友>`
 可以删除对应好友档案。
+
+`randomActivityEnable` 默认 `true`，但是否有活动完全取决于
+`randomActivityServices` 中登记的公共服务名。调度器与群话题、主动私聊、Qzone 等社交随机刻分开运行，
+并沿用随机刻夜间静默时段。外部插件通过 `activity_plan` 提供 3-6 小时等自定义间隔和每日上限，
+通过 `activity_run` 执行具体领域逻辑；完整协议见 `docs/roleplay/integrations.md`。
+活动返回的高兴趣内容可以由调度器写入统一大脑 `self` 记忆，并按 `randomActivityShareMinScore`
+决定是否分享到私聊、群聊或 Qzone。B 站和购物等 API 不内置于 Roleplay。
 
 `directReplyBypassCooldown` 默认 `true`。消息明确艾特、引用或点名角色时，直接回复概率固定为
 `1.0`，并绕过普通 `replyCooldownSecond` 冷却，但仍然受 `maxRepliesPerHour` 小时上限约束。

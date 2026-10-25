@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 52
+configVersion: 53
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -48,6 +48,18 @@ friendMemoryMaxTokens: 1200
 friendMemoryTimeoutSecond: 120
 #好友长期记忆注入提示词的最大字符数
 friendMemoryInjectMaxChars: 1800
+#是否启用外部插件活动调度器
+randomActivityEnable: true
+#活动插件服务名，多个用英文逗号分隔，例如 MBB-Bilibili,MBB-Shopping
+randomActivityServices: ""
+#活动结果写入全局自我记忆时的默认重要度
+randomActivityMemoryImportance: 3
+#是否允许活动插件返回值得分享的内容
+randomActivityShareEnable: true
+#活动分享候选的最低兴趣分
+randomActivityShareMinScore: 0.75
+#单次活动插件调用超时秒数，由插件负责实际 HTTP 超时
+randomActivityTimeoutSecond: 300
 #情绪回落间隔，每隔多少分钟向角色人格基线靠近一次
 emotionDecayMinute: 30
 #同一用户同一类情绪事件的规则更新冷却秒数

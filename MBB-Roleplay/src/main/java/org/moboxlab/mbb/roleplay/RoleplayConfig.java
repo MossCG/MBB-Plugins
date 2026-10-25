@@ -45,6 +45,12 @@ public class RoleplayConfig {
     public int friendMemoryMaxTokens = 1200;
     public int friendMemoryTimeoutSecond = 120;
     public int friendMemoryInjectMaxChars = 1800;
+    public boolean randomActivityEnable = true;
+    public String randomActivityServices = "";
+    public int randomActivityMemoryImportance = 3;
+    public boolean randomActivityShareEnable = true;
+    public double randomActivityShareMinScore = 0.75;
+    public int randomActivityTimeoutSecond = 300;
     public int emotionDecayMinute = 30;
     public int emotionEventCooldownSecond = 300;
     public boolean emotionAnalyzeEnable = true;
@@ -443,6 +449,17 @@ public class RoleplayConfig {
         config.friendMemoryMaxTokens = plugin.getConfig().getInt("friendMemoryMaxTokens",1200);
         config.friendMemoryTimeoutSecond = plugin.getConfig().getInt("friendMemoryTimeoutSecond",120);
         config.friendMemoryInjectMaxChars = plugin.getConfig().getInt("friendMemoryInjectMaxChars",1800);
+        config.randomActivityEnable = plugin.getConfig().getBoolean("randomActivityEnable",true);
+        config.randomActivityServices = plugin.getConfig().getString("randomActivityServices","");
+        config.randomActivityMemoryImportance = plugin.getConfig().getInt("randomActivityMemoryImportance",3);
+        config.randomActivityShareEnable = plugin.getConfig().getBoolean("randomActivityShareEnable",true);
+        try {
+            config.randomActivityShareMinScore = Double.parseDouble(
+                    plugin.getConfig().getString("randomActivityShareMinScore","0.75"));
+        } catch (Exception e) {
+            config.randomActivityShareMinScore = 0.75;
+        }
+        config.randomActivityTimeoutSecond = plugin.getConfig().getInt("randomActivityTimeoutSecond",300);
         config.emotionDecayMinute = plugin.getConfig().getInt("emotionDecayMinute",30);
         config.emotionEventCooldownSecond = plugin.getConfig().getInt("emotionEventCooldownSecond",300);
         config.emotionAnalyzeEnable = plugin.getConfig().getBoolean("emotionAnalyzeEnable",true);
@@ -990,6 +1007,13 @@ public class RoleplayConfig {
         if (config.friendMemoryTimeoutSecond > 600) config.friendMemoryTimeoutSecond = 600;
         if (config.friendMemoryInjectMaxChars < 200) config.friendMemoryInjectMaxChars = 200;
         if (config.friendMemoryInjectMaxChars > 8000) config.friendMemoryInjectMaxChars = 8000;
+        if (config.randomActivityServices == null) config.randomActivityServices = "";
+        if (config.randomActivityMemoryImportance < 1) config.randomActivityMemoryImportance = 1;
+        if (config.randomActivityMemoryImportance > 10) config.randomActivityMemoryImportance = 10;
+        if (config.randomActivityShareMinScore < 0) config.randomActivityShareMinScore = 0;
+        if (config.randomActivityShareMinScore > 1) config.randomActivityShareMinScore = 1;
+        if (config.randomActivityTimeoutSecond < 30) config.randomActivityTimeoutSecond = 30;
+        if (config.randomActivityTimeoutSecond > 900) config.randomActivityTimeoutSecond = 900;
         if (config.emotionEventCooldownSecond < 0) config.emotionEventCooldownSecond = 0;
         if (config.emotionEventCooldownSecond > 3600) config.emotionEventCooldownSecond = 3600;
         if (config.emotionAnalyzeMode == null || config.emotionAnalyzeMode.trim().isEmpty()) {
