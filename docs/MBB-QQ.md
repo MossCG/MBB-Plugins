@@ -24,7 +24,7 @@ QQ 扩展动作服务。它把 NapCat/OneBot 的常用 QQ 能力封装成稳定�
 | 群管理 | `group_leave` | 退出当前群；必须由 owner 明确要求，代码层拒绝非 owner 诱导 |
 | 好友 | `delete_friend` / `set_friend_remark` | 删除好友、设置好友备注；仅 owner |
 | 账号 | `set_avatar` / `set_profile` / `set_signature` | 设置头像、资料卡和个性签名；仅 owner |
-| Qzone | `qzone_post` / `qzone_delete` / `qzone_posts` | owner 管理机器人自己的 QQ 空间 |
+| Qzone | `qzone_post` / `qzone_delete` / `qzone_posts` / `qzone_count` | owner 管理机器人自己的 QQ 空间；`qzone_count` 供随机刻统计全部当日发布数 |
 
 好友申请写入本地待处理表后，会调用 `MBB-Roleplay` 的角色裁决服务自动通过或拒绝；MBB-Roleplay/AI
 暂不可用时保留 pending 并定期重试，owner 不再参与自动流程。群邀请仍只记录，由 owner 处理。
@@ -47,6 +47,7 @@ QQ 扩展动作服务。它把 NapCat/OneBot 的常用 QQ 能力封装成稳定�
 - 退群只接受 owner 的 `operatorID`；普通群员即使通过聊天诱导角色，也会在服务层被拒绝。
 - 机器人被移出群、主动退群或自身被禁言时，会私聊通知服务器配置的 owner；通知受 `notifyOwnerOnGroupEvent` 控制。
 - Qzone 发布、删除和查看本地记录仅 owner 可用。
+- `qzone_count` 只读统计本机记录中指定时间后的发布数量，不执行发布，也不应用任何随机刻上限。
 - 每个动作写入 `plugin_mbb_qq_audit`，记录群号、操作者、目标、结果和摘要，不保存图片/语音 base64。
 - Qzone 发布记录写入 `plugin_mbb_qq_qzone_post`，保存 `tid`、正文、图片描述、权限和发布时间。
 

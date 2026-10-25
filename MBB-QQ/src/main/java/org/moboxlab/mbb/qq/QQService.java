@@ -113,6 +113,7 @@ public class QQService implements PluginService {
             if ("qzone_post".equalsIgnoreCase(name)) return qzonePost(input);
             if ("qzone_delete".equalsIgnoreCase(name)) return qzoneDelete(input);
             if ("qzone_posts".equalsIgnoreCase(name)) return qzonePosts(input);
+            if ("qzone_count".equalsIgnoreCase(name)) return qzoneCount(input);
             if ("pending_requests".equalsIgnoreCase(name)) return pendingRequests(input);
             if ("friend_request".equalsIgnoreCase(name)) return friendRequest(input);
             if ("group_request".equalsIgnoreCase(name)) return groupRequest(input);
@@ -489,6 +490,27 @@ public class QQService implements PluginService {
         }
         JSONObject result = ok("读取本机 Qzone 发布记录");
         result.put("posts",posts);
+        return result;
+    }
+
+    private JSONObject qzoneCount(JSONObject input) {
+        long since = input.getLongValue("since");
+        if (since <= 0) {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd",Locale.CHINA);
+            format.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+            try {
+                Date date = format.parse(format.format(new Date()));
+                since = date == null ? System.currentTimeMillis() - 86400000L : date.getTime();
+            } catch (Exception e) {
+                since = System.currentTimeMillis() - 86400000L;
+            }
+        }
+        JSONObject row = storage().queryOne(
+                "SELECT COUNT(*) AS `count` FROM `"+QZONE_TABLE+"` WHERE `createTime`>=?",
+                since);
+        JSONObject result = ok("统计 Qzone 发布数量");
+        result.put("count",row == null ? 0 : row.getIntValue("count"));
+        result.put("since",since);
         return result;
     }
 

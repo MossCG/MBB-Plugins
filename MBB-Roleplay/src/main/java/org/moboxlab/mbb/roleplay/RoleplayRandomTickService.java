@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class RoleplayRandomTickService {
     private static final String TABLE = "plugin_mbb_roleplay_random_tick";
+    private static final String PRIVATE_STATE_TABLE = "plugin_mbb_roleplay_private_tick_state";
     private static final String ACTION_PRIVATE_OWNER = "private_owner";
     private static final String ACTION_GROUP_TOPIC = "group_topic";
     private static final String ACTION_QZONE = "qzone_post";
@@ -78,6 +79,20 @@ public class RoleplayRandomTickService {
                 + "ON `"+TABLE+"` (`profile`,`ID`)");
         storage().update("CREATE INDEX IF NOT EXISTS `idx_plugin_mbb_roleplay_random_tick_action` "
                 + "ON `"+TABLE+"` (`action`,`createTime`)");
+        storage().update("CREATE TABLE IF NOT EXISTS `"+PRIVATE_STATE_TABLE+"` ("
+                + "`ID` INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "`profile` TEXT NOT NULL DEFAULT '',"
+                + "`userID` INTEGER NOT NULL DEFAULT 0,"
+                + "`nextDue` INTEGER NOT NULL DEFAULT 0,"
+                + "`lastUserActivityTime` INTEGER NOT NULL DEFAULT 0,"
+                + "`lastProactiveTime` INTEGER NOT NULL DEFAULT 0,"
+                + "`unansweredCount` INTEGER NOT NULL DEFAULT 0,"
+                + "`noSendCount` INTEGER NOT NULL DEFAULT 0,"
+                + "`lastResult` TEXT NOT NULL DEFAULT '',"
+                + "`lastReason` TEXT NOT NULL DEFAULT '',"
+                + "`updateTime` INTEGER NOT NULL DEFAULT 0,"
+                + "UNIQUE(`profile`,`userID`)"
+                + ")");
         cleanup();
     }
 
@@ -101,12 +116,35 @@ public class RoleplayRandomTickService {
         result.put("lastAction",row == null ? "" : service.safe(row.getString("action")));
         result.put("lastStatus",row == null ? "" : service.safe(row.getString("status")));
         result.put("lastReason",row == null ? "" : service.safe(row.getString("reason")));
+        JSONObject privateState = storage().queryOne(
+                "SELECT MIN(`nextDue`) AS `nextDue`,COUNT(*) AS `count` FROM `"
+                        +PRIVATE_STATE_TABLE+"` WHERE `profile`=? AND `nextDue`>0",
+                service.getRoleName());
+        result.put("privateFollowUpEnable",config.randomTickPrivateFollowUpEnable);
+        result.put("privateNextDue",privateState == null ? 0L : privateState.getLongValue("nextDue"));
+        result.put("privateTargetCount",privateState == null ? 0 : privateState.getIntValue("count"));
         return result;
     }
 
     private void tick() {
         if (!config.randomTickEnable || running.get()) return;
         long now = System.currentTimeMillis();
+        if (isQuietHour()) {
+            JSONObject row = latest();
+            long due = row == null ? 0L : row.getLongValue("dueTime");
+            if (due <= 0 || now >= due) {
+                saveSchedule(nextMorning());
+                if (now >= due) record(ACTION_NONE(),STATUS_NO_OP,"system",0,"夜间静默",now);
+            }
+            return;
+        }
+        if (config.randomTickPrivateFollowUpEnable && config.privateChatEnable) {
+            long ownerID = duePrivateFollowUp(now);
+            if (ownerID > 0 && running.compareAndSet(false,true)) {
+                service.submitBackground(() -> runPrivateFollowUp(ownerID,now));
+                return;
+            }
+        }
         JSONObject row = latest();
         long due = row == null ? 0L : row.getLongValue("dueTime");
         if (due <= 0) {
@@ -114,13 +152,140 @@ public class RoleplayRandomTickService {
             return;
         }
         if (now < due) return;
-        if (isQuietHour()) {
-            saveSchedule(nextMorning());
-            record(ACTION_NONE(),STATUS_NO_OP,"system",0,"夜间静默",now);
-            return;
-        }
         if (!running.compareAndSet(false,true)) return;
         service.submitBackground(this::runOnce);
+    }
+
+    /**
+     * 每个 owner 的主动追问独立调度。用户发来新消息后重置退避，
+     * 无回应则按 2 分钟、4 分钟、8 分钟……增长，最大 2 小时。
+     */
+    private long duePrivateFollowUp(long now) {
+        long selected = 0L;
+        long selectedDue = Long.MAX_VALUE;
+        for (Long ownerID : owners()) {
+            JSONObject state = syncPrivateFollowUpState(ownerID,now);
+            if (state == null) continue;
+            long due = state.getLongValue("nextDue");
+            if (due > 0 && due <= now && due < selectedDue) {
+                selected = ownerID;
+                selectedDue = due;
+            }
+        }
+        return selected;
+    }
+
+    private JSONObject syncPrivateFollowUpState(long userID,long now) {
+        long latest = latestPrivateUserActivity(userID);
+        if (latest <= 0) return null;
+        JSONObject state = storage().queryOne(
+                "SELECT * FROM `"+PRIVATE_STATE_TABLE+"` WHERE `profile`=? AND `userID`=?",
+                service.getRoleName(),userID);
+        long freshMillis = Math.max(1,config.randomTickPrivateFollowUpFreshMinute) * 60000L;
+        if (state == null) {
+            if (now - latest > freshMillis) return null;
+            long due = Math.max(now,latest
+                    + Math.max(1,config.randomTickPrivateFollowUpInitialMinute) * 60000L);
+            storage().insert("INSERT OR IGNORE INTO `"+PRIVATE_STATE_TABLE+"` "
+                            + "(`profile`,`userID`,`nextDue`,`lastUserActivityTime`,`lastProactiveTime`,"
+                            + "`unansweredCount`,`noSendCount`,`lastResult`,`lastReason`,`updateTime`) "
+                            + "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    service.getRoleName(),userID,due,latest,0L,0,0,"","",now);
+            state = storage().queryOne("SELECT * FROM `"+PRIVATE_STATE_TABLE+"` "
+                    + "WHERE `profile`=? AND `userID`=?",service.getRoleName(),userID);
+        }
+        if (state == null) return null;
+        long lastUser = state.getLongValue("lastUserActivityTime");
+        if (latest > lastUser) {
+            long due = Math.max(now,latest
+                    + Math.max(1,config.randomTickPrivateFollowUpInitialMinute) * 60000L);
+            storage().update("UPDATE `"+PRIVATE_STATE_TABLE+"` SET "
+                            + "`nextDue`=?,`lastUserActivityTime`=?,`unansweredCount`=0,"
+                            + "`noSendCount`=0,`lastResult`='reset',`lastReason`='用户有新互动',"
+                            + "`updateTime`=? WHERE `profile`=? AND `userID`=?",
+                    due,latest,now,service.getRoleName(),userID);
+            state.put("nextDue",due);
+            state.put("lastUserActivityTime",latest);
+            state.put("unansweredCount",0);
+            state.put("noSendCount",0);
+        } else if (now - lastUser > freshMillis) {
+            storage().update("UPDATE `"+PRIVATE_STATE_TABLE+"` SET `nextDue`=0,"
+                            + "`lastResult`='expired',`lastReason`='最近私聊已过新鲜窗口',"
+                            + "`updateTime`=? WHERE `profile`=? AND `userID`=?",
+                    now,service.getRoleName(),userID);
+            return null;
+        }
+        return state;
+    }
+
+    private long latestPrivateUserActivity(long userID) {
+        JSONObject row = storage().queryOne(
+                "SELECT MAX(`messageTime`) AS `lastTime` FROM `"+RoleplayPrivateChatService.TABLE
+                        +"` WHERE `userID`=? AND `isBot`=0",userID);
+        return row == null ? 0L : row.getLongValue("lastTime");
+    }
+
+    private void runPrivateFollowUp(long userID,long scheduledAt) {
+        try {
+            long now = System.currentTimeMillis();
+            JSONObject state = syncPrivateFollowUpState(userID,now);
+            if (state == null || state.getLongValue("nextDue") > now) return;
+            String reason = "最近私聊后的主动追问";
+            String content = clean(service.privateChatService().generateProactive(userID,reason));
+            if (content.isEmpty() || "<SKIP>".equalsIgnoreCase(content)) {
+                int noSend = state.getIntValue("noSendCount") + 1;
+                long delay = privateBackoffMillis(noSend,
+                        config.randomTickPrivateFollowUpInitialMinute,
+                        config.randomTickPrivateFollowUpMaxMinute);
+                updatePrivateState(userID,state.getLongValue("lastProactiveTime"),
+                        state.getIntValue("unansweredCount"),noSend,
+                        "skipped","模型判断这次不必主动发",now+delay,now);
+                return;
+            }
+            boolean sent = service.privateChatService().sendProactive(userID,content,reason);
+            if (!sent) {
+                long delay = Math.max(1,config.randomTickPrivateFollowUpInitialMinute) * 60000L;
+                updatePrivateState(userID,state.getLongValue("lastProactiveTime"),
+                        state.getIntValue("unansweredCount"),state.getIntValue("noSendCount"),
+                        "failed","私聊主动追问发送失败",now+delay,now);
+                return;
+            }
+            int unanswered = state.getIntValue("unansweredCount");
+            long delay = privateBackoffMillis(unanswered,
+                    config.randomTickPrivateFollowUpInitialMinute,
+                    config.randomTickPrivateFollowUpMaxMinute);
+            updatePrivateState(userID,now,unanswered + 1,0,"sent",
+                    "私聊主动追问已发送",now+delay,now);
+            plugin.getLogger().sendInfo("[随机刻] 私聊主动追问 用户"+userID
+                    +" 下次="+(delay / 60000L)+"分钟后 内容="+service.shortText(content,60));
+        } catch (Exception e) {
+            plugin.getLogger().sendWarn("[随机刻] 私聊主动追问异常："
+                    +service.safe(e.getMessage()));
+        } finally {
+            running.set(false);
+        }
+    }
+
+    private void updatePrivateState(long userID,long lastProactiveTime,
+                                    int unansweredCount,int noSendCount,String result,
+                                    String reason,long nextDue,long now) {
+        storage().update("UPDATE `"+PRIVATE_STATE_TABLE+"` SET "
+                        + "`nextDue`=?,`lastProactiveTime`=?,`unansweredCount`=?,"
+                        + "`noSendCount`=?,`lastResult`=?,`lastReason`=?,`updateTime`=? "
+                        + "WHERE `profile`=? AND `userID`=?",
+                nextDue,lastProactiveTime,unansweredCount,noSendCount,result,
+                service.shortText(reason,300),now,service.getRoleName(),userID);
+    }
+
+    static long privateBackoffMillis(int unansweredCount,int initialMinute,int maxMinute) {
+        long initial = Math.max(1,initialMinute) * 60000L;
+        long cap = Math.max(initial,Math.max(1,maxMinute) * 60000L);
+        int shift = Math.max(0,Math.min(20,unansweredCount));
+        long delay = initial;
+        for (int i = 0; i < shift && delay < cap; i++) {
+            delay = delay > cap / 2 ? cap : delay * 2;
+        }
+        return Math.min(cap,delay);
     }
 
     private void runOnce() {
@@ -133,16 +298,7 @@ public class RoleplayRandomTickService {
                 return;
             }
             OwnerInteraction recentOwner = recentOwnerInteraction(now);
-            JSONObject decision;
-            if (candidates.contains(ACTION_QZONE) && qzoneDueToday(now)) {
-                decision = forcedDecision(ACTION_QZONE,"每日 Qzone 保底");
-            } else if (candidates.contains(ACTION_PRIVATE_OWNER)
-                    && shouldBoostRecentOwner(config.randomTickOwnerRecentBoostChance,
-                    recentOwner.ownerID)) {
-                decision = forcedDecision(ACTION_PRIVATE_OWNER,"优先找最近互动过的 owner");
-            } else {
-                decision = decide(candidates,now,recentOwner);
-            }
+            JSONObject decision = decide(candidates,now,recentOwner);
             if (decision == null) {
                 record("none",STATUS_NO_OP,"system",0,"随机刻决策失败",now);
                 return;
@@ -472,40 +628,49 @@ public class RoleplayRandomTickService {
 
     private List<String> candidates() {
         List<String> result = new ArrayList<>();
-        if (config.privateChatEnable && !owners().isEmpty()) result.add(ACTION_PRIVATE_OWNER);
         if (config.randomTickGroupMaxActions > 0 && !groupCandidates().isEmpty()) {
             result.add(ACTION_GROUP_TOPIC);
         }
         if (plugin.getServer().getPluginManager().getService("MBB-QQ") != null
                 && !owners().isEmpty() && config.randomTickQzoneDailyMax > 0) {
-            result.add(ACTION_QZONE);
+            int qzoneCount = qzonePostCountToday();
+            if (qzoneRandomDue(config.randomTickQzoneDailyMax,qzoneCount)
+                    && qzoneRandomOpportunity()) {
+                result.add(ACTION_QZONE);
+            }
         }
         return result;
     }
 
-    private JSONObject forcedDecision(String action,String reason) {
-        JSONObject decision = new JSONObject(true);
-        decision.put("action",action);
-        decision.put("confidence",1.0);
-        decision.put("reason",reason);
-        return decision;
+    private int qzonePostCountToday() {
+        PluginService qq = plugin.getServer().getPluginManager().getService("MBB-QQ");
+        if (qq == null) return -1;
+        JSONObject params = new JSONObject(true);
+        params.put("since",startOfToday(System.currentTimeMillis()));
+        JSONObject result = qq.call("qzone_count",params);
+        return result == null || !result.getBooleanValue("status")
+                ? -1 : Math.max(0,result.getIntValue("count"));
     }
 
-    private boolean qzoneDueToday(long now) {
-        if (plugin.getServer().getPluginManager().getService("MBB-QQ") == null
-                || owners().isEmpty() || config.randomTickQzoneDailyMax <= 0) {
-            return false;
-        }
-        return qzoneDue(config.randomTickQzoneDailyMax,
-                countAction(ACTION_QZONE,STATUS_SENT,startOfToday(now)));
+    private boolean qzoneRandomOpportunity() {
+        return Math.random() < qzoneChanceForHour(hour(),
+                config.randomTickQzoneEveningStartHour,
+                config.randomTickQzoneEveningEndHour,
+                config.randomTickQzoneNightEndHour,
+                config.randomTickQzoneDayChance,
+                config.randomTickQzoneEveningChance,
+                config.randomTickQzoneNightChance);
     }
 
-    static boolean qzoneDue(int dailyMax,int sentToday) {
-        return dailyMax > 0 && sentToday == 0;
+    static double qzoneChanceForHour(int hour,int eveningStart,int eveningEnd,int nightEnd,
+                                     double dayChance,double eveningChance,double nightChance) {
+        if (hour >= eveningStart && hour < eveningEnd) return eveningChance;
+        if (hour >= eveningEnd || hour < nightEnd) return nightChance;
+        return dayChance;
     }
 
-    static boolean shouldBoostRecentOwner(double chance,long ownerID) {
-        return ownerID > 0 && Math.random() < Math.max(0,Math.min(1,chance));
+    static boolean qzoneRandomDue(int dailyMax,int todayCount) {
+        return dailyMax > 0 && todayCount >= 0 && todayCount < dailyMax;
     }
 
     static String contentSessionId(String action,long targetID) {
@@ -574,9 +739,9 @@ public class RoleplayRandomTickService {
             return countAction(ACTION_GROUP_TOPIC,STATUS_SENT,since) < config.randomTickGroupMaxActions;
         }
         if (ACTION_QZONE.equals(action)) {
-            return countAction(ACTION_QZONE,STATUS_SENT,startOfToday(now)) < config.randomTickQzoneDailyMax;
+            int count = qzonePostCountToday();
+            return qzoneRandomDue(config.randomTickQzoneDailyMax,count);
         }
-        //主动私聊 owner 不做频率限制。
         return true;
     }
 
@@ -805,6 +970,7 @@ public class RoleplayRandomTickService {
         storage().update("DELETE FROM `"+TABLE+"` WHERE `createTime`<?",cutoff);
         storage().update("DELETE FROM `"+TABLE+"` WHERE `ID` NOT IN "
                 + "(SELECT `ID` FROM `"+TABLE+"` ORDER BY `ID` DESC LIMIT 2000)");
+        storage().update("DELETE FROM `"+PRIVATE_STATE_TABLE+"` WHERE `updateTime`<?",cutoff);
     }
 
     private StorageService storage() {

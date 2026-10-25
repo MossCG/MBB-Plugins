@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 不把其他群的原始流水直接带进私聊。
  */
 public class RoleplayPrivateChatService {
-    private static final String TABLE = "plugin_mbb_roleplay_private_message";
+    static final String TABLE = "plugin_mbb_roleplay_private_message";
     private final Plugin plugin;
     private final RoleplayService service;
     private volatile RoleplayConfig config;

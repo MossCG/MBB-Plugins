@@ -136,9 +136,19 @@ randomTickMorningEndHour: 10
 randomTickMorningChance: 0.80
 randomTickMorningMaxGroups: 3
 randomTickMorningMinMessages: 3
+randomTickPrivateFollowUpEnable: true
+randomTickPrivateFollowUpInitialMinute: 2
+randomTickPrivateFollowUpMaxMinute: 120
+randomTickPrivateFollowUpFreshMinute: 720
 randomTickGroupWindowMinute: 360
 randomTickGroupMaxActions: 2
 randomTickQzoneDailyMax: 2
+randomTickQzoneDayChance: 0.20
+randomTickQzoneEveningChance: 0.80
+randomTickQzoneNightChance: 0.03
+randomTickQzoneEveningStartHour: 18
+randomTickQzoneEveningEndHour: 23
+randomTickQzoneNightEndHour: 7
 randomTickOwnerRecentWindowMinute: 180
 randomTickOwnerRecentBoostChance: 0.30
 randomTickDedupeHours: 24
@@ -150,15 +160,25 @@ randomTickReasoningEffort: "low"
 目标群按角色最近 24 小时在该群的发言量加权抽样：发言最多的群权重为 `1.0`，
 其他群按比例缩放，并统一增加 `0.25` 基础权重，避免冷门群永久失去机会。
 生成阶段只注入目标群自己的短期摘要和近期消息，并使用按群隔离的 `sessionId`。
-`randomTickQzoneDailyMax > 0` 时，每天第一次满足条件的随机刻会优先保底发布一条 Qzone。
-`randomTickOwnerRecentWindowMinute` 内的最近互动 owner 会提高 `private_owner` 优先级；
-`randomTickOwnerRecentBoostChance` 控制直接触发主动私聊的基础概率，范围 `0` 到 `1`。
+`randomTickOwnerRecentWindowMinute` 内的最近互动 owner 继续作为 Qzone 等主动目标的优先选择。
+旧 `randomTickOwnerRecentBoostChance` 仅保留配置兼容，不再参与私聊主动追问调度。
 
 `randomTickMorningGreetingEnable` 默认 `true`。在 `randomTickMorningStartHour` 到
 `randomTickMorningEndHour` 窗口内，昨天至少有 `randomTickMorningMinMessages` 条真人消息的群
 会进入早安候选，并按昨日真人活跃度加权。`randomTickMorningChance` 决定当天是否启用早安，
 `randomTickMorningMaxGroups` 限制每个早晨最多向几个群发；每个群每天最多一次，
 每个随机刻只处理一个群，避免集中群发。发送失败会在窗口内重试，内容跳过后该群当天不再尝试。
+
+`randomTickPrivateFollowUpEnable` 默认 `true`。私聊主动追问按 owner 独立持久化，最近私聊后的
+初始机会为 2 分钟；用户有新消息会重置退避，未回应时按 2、4、8、16 分钟指数增长，
+到 `randomTickPrivateFollowUpMaxMinute`（默认 120 分钟）为止。模型可以返回 `<SKIP>`，
+此时不发送；连续无内容会使用单独的退避，避免每两分钟空转。超过
+`randomTickPrivateFollowUpFreshMinute` 没有新私聊后不再追问。
+
+随机刻 Qzone 不再做每日首条保底。白天、晚间和深夜分别使用
+`randomTickQzoneDayChance`、`randomTickQzoneEveningChance`、`randomTickQzoneNightChance`
+决定是否把 Qzone 放入候选，最终仍由模型决定是否发布。`randomTickQzoneDailyMax` 只限制
+随机刻通道；聊天工具、owner 私聊随机刻等其他入口发布 Qzone 只计入 QQ 插件计数，不受该上限拦截。
 
 activeMemory: true
 imageUnderstandingEnable: true

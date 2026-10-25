@@ -641,12 +641,32 @@ randomTickMorningChance: 0.80
 randomTickMorningMaxGroups: 3
 #昨日至少多少条真人消息才算活跃群
 randomTickMorningMinMessages: 3
+#是否启用私聊主动追问通道
+randomTickPrivateFollowUpEnable: true
+#私聊主动追问初始间隔分钟
+randomTickPrivateFollowUpInitialMinute: 2
+#私聊未回应时指数退避的上限分钟，最大 1440
+randomTickPrivateFollowUpMaxMinute: 120
+#最近私聊超过多少分钟后不再主动追问
+randomTickPrivateFollowUpFreshMinute: 720
 #群主动话题统计窗口分钟数
 randomTickGroupWindowMinute: 360
 #窗口内最多执行多少次群主动话题，0 表示关闭
 randomTickGroupMaxActions: 2
 #每天最多发布多少条 Qzone 说说，0 表示关闭
 randomTickQzoneDailyMax: 2
+#白天随机刻考虑 Qzone 的概率
+randomTickQzoneDayChance: 0.20
+#晚间随机刻考虑 Qzone 的概率
+randomTickQzoneEveningChance: 0.80
+#深夜随机刻考虑 Qzone 的概率
+randomTickQzoneNightChance: 0.03
+#Qzone 晚间概率开始小时
+randomTickQzoneEveningStartHour: 18
+#Qzone 晚间概率结束小时
+randomTickQzoneEveningEndHour: 23
+#Qzone 深夜概率结束小时
+randomTickQzoneNightEndHour: 7
 #owner 最近互动窗口分钟数，用于提高主动私聊概率
 randomTickOwnerRecentWindowMinute: 180
 #最近互动 owner 直接触发主动私聊的基础概率，0 到 1

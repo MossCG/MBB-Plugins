@@ -355,9 +355,19 @@ public class RoleplayConfig {
     public double randomTickMorningChance = 0.80;
     public int randomTickMorningMaxGroups = 3;
     public int randomTickMorningMinMessages = 3;
+    public boolean randomTickPrivateFollowUpEnable = true;
+    public int randomTickPrivateFollowUpInitialMinute = 2;
+    public int randomTickPrivateFollowUpMaxMinute = 120;
+    public int randomTickPrivateFollowUpFreshMinute = 720;
     public int randomTickGroupWindowMinute = 360;
     public int randomTickGroupMaxActions = 2;
     public int randomTickQzoneDailyMax = 2;
+    public double randomTickQzoneDayChance = 0.20;
+    public double randomTickQzoneEveningChance = 0.80;
+    public double randomTickQzoneNightChance = 0.03;
+    public int randomTickQzoneEveningStartHour = 18;
+    public int randomTickQzoneEveningEndHour = 23;
+    public int randomTickQzoneNightEndHour = 7;
     public int randomTickOwnerRecentWindowMinute = 180;
     public double randomTickOwnerRecentBoostChance = 0.30;
     public int randomTickDedupeHours = 24;
@@ -885,9 +895,29 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("randomTickMorningMaxGroups",3);
         config.randomTickMorningMinMessages =
                 plugin.getConfig().getInt("randomTickMorningMinMessages",3);
+        config.randomTickPrivateFollowUpEnable =
+                plugin.getConfig().getBoolean("randomTickPrivateFollowUpEnable",true);
+        config.randomTickPrivateFollowUpInitialMinute =
+                plugin.getConfig().getInt("randomTickPrivateFollowUpInitialMinute",2);
+        config.randomTickPrivateFollowUpMaxMinute =
+                plugin.getConfig().getInt("randomTickPrivateFollowUpMaxMinute",120);
+        config.randomTickPrivateFollowUpFreshMinute =
+                plugin.getConfig().getInt("randomTickPrivateFollowUpFreshMinute",720);
         config.randomTickGroupWindowMinute = plugin.getConfig().getInt("randomTickGroupWindowMinute",360);
         config.randomTickGroupMaxActions = plugin.getConfig().getInt("randomTickGroupMaxActions",2);
         config.randomTickQzoneDailyMax = plugin.getConfig().getInt("randomTickQzoneDailyMax",2);
+        config.randomTickQzoneDayChance = parseDouble(
+                plugin.getConfig().getString("randomTickQzoneDayChance","0.20"),0.20);
+        config.randomTickQzoneEveningChance = parseDouble(
+                plugin.getConfig().getString("randomTickQzoneEveningChance","0.80"),0.80);
+        config.randomTickQzoneNightChance = parseDouble(
+                plugin.getConfig().getString("randomTickQzoneNightChance","0.03"),0.03);
+        config.randomTickQzoneEveningStartHour =
+                plugin.getConfig().getInt("randomTickQzoneEveningStartHour",18);
+        config.randomTickQzoneEveningEndHour =
+                plugin.getConfig().getInt("randomTickQzoneEveningEndHour",23);
+        config.randomTickQzoneNightEndHour =
+                plugin.getConfig().getInt("randomTickQzoneNightEndHour",7);
         config.randomTickOwnerRecentWindowMinute =
                 plugin.getConfig().getInt("randomTickOwnerRecentWindowMinute",180);
         config.randomTickOwnerRecentBoostChance = parseDouble(
@@ -1472,12 +1502,48 @@ public class RoleplayConfig {
         if (config.randomTickMorningMaxGroups > 10) config.randomTickMorningMaxGroups = 10;
         if (config.randomTickMorningMinMessages < 1) config.randomTickMorningMinMessages = 1;
         if (config.randomTickMorningMinMessages > 100) config.randomTickMorningMinMessages = 100;
+        if (config.randomTickPrivateFollowUpInitialMinute < 1) {
+            config.randomTickPrivateFollowUpInitialMinute = 1;
+        }
+        if (config.randomTickPrivateFollowUpInitialMinute > 60) {
+            config.randomTickPrivateFollowUpInitialMinute = 60;
+        }
+        if (config.randomTickPrivateFollowUpMaxMinute
+                < config.randomTickPrivateFollowUpInitialMinute) {
+            config.randomTickPrivateFollowUpMaxMinute =
+                    config.randomTickPrivateFollowUpInitialMinute;
+        }
+        if (config.randomTickPrivateFollowUpMaxMinute > 1440) {
+            config.randomTickPrivateFollowUpMaxMinute = 1440;
+        }
+        if (config.randomTickPrivateFollowUpFreshMinute
+                < config.randomTickPrivateFollowUpMaxMinute) {
+            config.randomTickPrivateFollowUpFreshMinute =
+                    config.randomTickPrivateFollowUpMaxMinute;
+        }
+        if (config.randomTickPrivateFollowUpFreshMinute > 10080) {
+            config.randomTickPrivateFollowUpFreshMinute = 10080;
+        }
         if (config.randomTickGroupWindowMinute < 1) config.randomTickGroupWindowMinute = 1;
         if (config.randomTickGroupWindowMinute > 10080) config.randomTickGroupWindowMinute = 10080;
         if (config.randomTickGroupMaxActions < 0) config.randomTickGroupMaxActions = 0;
         if (config.randomTickGroupMaxActions > 100) config.randomTickGroupMaxActions = 100;
         if (config.randomTickQzoneDailyMax < 0) config.randomTickQzoneDailyMax = 0;
         if (config.randomTickQzoneDailyMax > 20) config.randomTickQzoneDailyMax = 20;
+        if (config.randomTickQzoneDayChance < 0) config.randomTickQzoneDayChance = 0;
+        if (config.randomTickQzoneDayChance > 1) config.randomTickQzoneDayChance = 1;
+        if (config.randomTickQzoneEveningChance < 0) config.randomTickQzoneEveningChance = 0;
+        if (config.randomTickQzoneEveningChance > 1) config.randomTickQzoneEveningChance = 1;
+        if (config.randomTickQzoneNightChance < 0) config.randomTickQzoneNightChance = 0;
+        if (config.randomTickQzoneNightChance > 1) config.randomTickQzoneNightChance = 1;
+        if (config.randomTickQzoneEveningStartHour < 0) config.randomTickQzoneEveningStartHour = 0;
+        if (config.randomTickQzoneEveningStartHour > 23) config.randomTickQzoneEveningStartHour = 23;
+        if (config.randomTickQzoneEveningEndHour < config.randomTickQzoneEveningStartHour) {
+            config.randomTickQzoneEveningEndHour = config.randomTickQzoneEveningStartHour;
+        }
+        if (config.randomTickQzoneEveningEndHour > 24) config.randomTickQzoneEveningEndHour = 24;
+        if (config.randomTickQzoneNightEndHour < 0) config.randomTickQzoneNightEndHour = 0;
+        if (config.randomTickQzoneNightEndHour > 12) config.randomTickQzoneNightEndHour = 12;
         if (config.randomTickOwnerRecentWindowMinute < 1) {
             config.randomTickOwnerRecentWindowMinute = 1;
         }
