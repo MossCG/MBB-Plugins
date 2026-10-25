@@ -75,6 +75,14 @@ MBB-Ping\out\MBB-Ping.jar
 out\
 ```
 
+同时生成插件版本清单：
+
+```text
+out\versions.json
+```
+
+将清单放到 `./MoBoxBot/plugins/MBB-Plugins/versions.json` 后，可使用 `/plugins check` 检查更新。
+
 例如：
 
 ```text

@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.24.0.2359 | 2026-10-25 | 插件构建产物新增 `out/versions.json`：`build-all.ps1` 从每个插件的 `plugin.json` 读取最新版本，同时记录 JAR 文件名和 SHA-256，按插件名生成 UTF-8 JSON 清单。`MBB-Plugins` 新增 `/plugins check`：优先读取插件数据目录的 `versions.json`，找不到时回退到 `./MoBoxBot/plugins/MBB-Plugins/versions.json` 或 `./plugins/MBB-Plugins/versions.json`，按数字版本段与当前已加载插件对比，分别报告可更新、未安装、本地较新和清单缺失。新增版本比较测试。 |
 | V0.13.23.0.2351 | 2026-10-25 | `MBB-Roleplay` 私聊追问增加对话收尾保护：同步追问状态时检查最近一条用户消息和最近一条角色消息，若出现晚安、睡了、去睡、关灯、不聊了、明天见、拜拜、再见等结束语义，则清空该 owner 的 `nextDue` 并记录 `ended`，后续随机刻不再追问；只有用户之后发来新的非收尾消息，才重新开启 2 分钟追问窗口。新增用户收尾、角色关灯收尾和正常续聊回归测试。 |
 | V0.13.22.0.2348 | 2026-10-25 | `MBB-Roleplay` 优化多角色同时点名：AI 路由明确识别为直接点名后强制 `chance=1.0`，不再被路由概率随机跳过；新增 `directReplyBypassCooldown`（默认 `true`），直接点名或引用可以绕过普通回复冷却，但仍受每小时回复上限约束。单条和合批决策日志新增 `多角色=是/否`，便于区分名单识别和 Hub 仲裁问题。启用 Hub 回合共享但 `otherRoleBotNames`、`otherRoleBotQQs` 都为空时，启动和重载会明确告警，提示多角色同时点名可能只允许一个 bot 回复。新增直接概率、冷却绕过和多角色名单配置测试。 |
 | V0.13.21.0.2336 | 2026-10-25 | `MBB-Roleplay` 表达审核新增 `balanced` 模式并设为默认：`keep=true` 且质量达到 `expressionAutoApproveMinQuality`（默认 0.80）自动 `approved`；`keep=false` 或质量低于 `expressionBalancedRejectMaxQuality`（默认 0.25）自动 `rejected`；中间质量保持 `pending` 供人工复核。`suggest` 和 `auto` 行为保留兼容；未知模式回退 `balanced`。配置版本升级到 51，旧默认 `expressionReviewMode=suggest` 和 `expressionAutoApproveMinQuality=0.70` 会自动迁移为 `balanced` 与 `0.80`。新增三段式边界、suggest/auto 兼容和未知模式回退测试。 |
