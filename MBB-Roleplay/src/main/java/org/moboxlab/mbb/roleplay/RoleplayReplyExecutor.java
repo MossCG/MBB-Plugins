@@ -84,7 +84,8 @@ public class RoleplayReplyExecutor {
                     decision != null && decision.quoteRequired,draft.quote,event.getMessageID());
             if (sent && service.config().conversationAppendEnable) {
                 service.conversationContextService().append("group",groupID,"assistant",reply,
-                        "group:"+event.getMessageID()+":assistant");
+                        "group:"+event.getMessageID()+":assistant",
+                        "group:"+event.getMessageID());
             }
         }
         executeSkillCalls(decision,draft,groupID,event.getUserID(),event.getMessageID(),selfID,
@@ -196,7 +197,8 @@ public class RoleplayReplyExecutor {
                 }
                 if (sent > sentBefore && service.config().conversationAppendEnable) {
                     service.conversationContextService().append("group",groupID,"assistant",reply,
-                            "group:"+primary.event.getMessageID()+":assistant:"+i);
+                            "group:"+primary.event.getMessageID()+":assistant:"+i,
+                            "group:"+primary.event.getMessageID());
                 }
             }
             if (!segmentDraft.actions.isEmpty()) {

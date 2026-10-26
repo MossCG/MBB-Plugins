@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "54";
+    private static final String CURRENT_VERSION = "55";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -71,9 +71,13 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("randomActivityTimeoutSecond","300","单次活动插件调用超时秒数，由插件负责实际 HTTP 超时"),
             new ConfigEntry("conversationAppendEnable","true","是否启用追加式会话上下文与自动压缩"),
             new ConfigEntry("conversationContextTokenLimit","1000000","模型上下文 Token 上限；代码按保守字符估算并在压缩阈值触发"),
-            new ConfigEntry("conversationContextCompactPercent","0.75","上下文达到窗口上限的多少比例时压缩，0.4 到 0.95"),
+            new ConfigEntry("conversationContextCompactPercent","0.70","上下文达到窗口上限的多少比例时后台预压缩，0.4 到 0.95"),
+            new ConfigEntry("conversationContextHardCompactPercent","0.85","上下文达到窗口上限的多少比例时必须同步压缩，0.5 到 0.98"),
             new ConfigEntry("conversationContextKeepPercent","0.20","压缩后保留最近原文的窗口比例，至少 0.05"),
             new ConfigEntry("conversationAppendRecentMessages","20","追加模式下额外放入本轮动态上下文的最近群聊/私聊条数"),
+            new ConfigEntry("conversationBootstrapMessages","50","首次启用追加上下文时从已有群聊或私聊导入多少条最近消息"),
+            new ConfigEntry("conversationContextToolReserveTokens","12000","上下文预算中为工具 schema 和工具结果预留的 Token"),
+            new ConfigEntry("conversationContextProtocolReserveTokens","4000","上下文预算中为协议、输出结构和安全余量预留的 Token"),
             new ConfigEntry("conversationCompactionProfile","","会话压缩使用的 AI profile，留空依次回退 memoryProfile 和 aiProfile"),
             new ConfigEntry("conversationCompactionMaxTokens","6000","会话压缩摘要输出 Token 上限"),
             new ConfigEntry("conversationCompactionTimeoutSecond","300","会话压缩请求超时秒数"),
@@ -542,6 +546,8 @@ public class RoleplayConfigMigrator {
                 && "suggest".equals(config.getString("expressionReviewMode",""));
         boolean legacyExpressionApproveQuality = version < 51
                 && "0.70".equals(config.getString("expressionAutoApproveMinQuality",""));
+        boolean legacyContextCompact75 = version < 55
+                && "0.75".equals(config.getString("conversationContextCompactPercent",""));
         int changed = 0;
         List<ConfigEntry> missing = new ArrayList<>();
         for (ConfigEntry entry : DEFAULTS) {
@@ -555,7 +561,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 54) {
+        if (version < 55) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -577,6 +583,10 @@ public class RoleplayConfigMigrator {
         }
         if (legacyExpressionApproveQuality) {
             config.set("expressionAutoApproveMinQuality","0.80");
+            changed++;
+        }
+        if (legacyContextCompact75) {
+            config.set("conversationContextCompactPercent","0.70");
             changed++;
         }
         if (legacyMemoryMergeRetryCount) {
@@ -765,7 +775,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 54 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 55 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort

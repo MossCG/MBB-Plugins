@@ -42,6 +42,7 @@ public class RoleplayPrivateChatService {
     private final Map<Long,Integer> generationMap = new HashMap<>();
     private final Map<Long,Long> pendingStartMap = new HashMap<>();
     private final Map<Long,Long> typingLastMap = new HashMap<>();
+    private final Map<Long,String> proactiveTurnKeys = new ConcurrentHashMap<>();
 
     private static class ReplyResult {
         private String text = "";
@@ -157,6 +158,7 @@ public class RoleplayPrivateChatService {
 
     public String generateProactive(long userID,String reason) {
         if (!allowed(userID)) return "";
+        String turnKey = "private:"+userID+":proactive:"+System.currentTimeMillis();
         String prompt = "你是"+service.persona().name+"。现在不是被动回复，而是想主动给 owner 发一条私聊。"
                 +"不要解释系统、模型、记忆或调度；不要提“随机刻”。"
                 +"只发一句自然、具体、像真人突然想起对方时会说的话，最多 50 字。"
@@ -165,17 +167,31 @@ public class RoleplayPrivateChatService {
                 +"禁止使用客服式关心、总结、清单和过度亲昵。\n"
                 +"触发原因："+service.safe(reason)+"\n"
                 +"最近私聊：\n"+recentContext(userID);
-        return callAi(userID,prompt,true,Collections.<Long>emptySet(),"").text;
+        String text = callAi(userID,prompt,true,Collections.<Long>emptySet(),turnKey).text;
+        if (!text.isEmpty() && !"<SKIP>".equalsIgnoreCase(text)) {
+            proactiveTurnKeys.put(userID,turnKey);
+        }
+        return text;
     }
 
     public boolean sendProactive(long userID,String content,String reason) {
         if (!allowed(userID)) return false;
         String text = clean(content);
-        if (text.isEmpty() || "<SKIP>".equalsIgnoreCase(text)) return false;
+        if (text.isEmpty() || "<SKIP>".equalsIgnoreCase(text)) {
+            proactiveTurnKeys.remove(userID);
+            return false;
+        }
         boolean sent = sendText(userID,text);
         if (sent) {
+            String turnKey = proactiveTurnKeys.remove(userID);
+            if (turnKey != null && config.conversationAppendEnable) {
+                service.conversationContextService().append("private",userID,"assistant",text,
+                        turnKey+":assistant",turnKey);
+            }
             plugin.getLogger().sendInfo("[私聊] 主动消息已发送 用户"+userID
                     +(reason == null || reason.trim().isEmpty() ? "" : " 原因="+service.shortText(reason,80)));
+        } else {
+            proactiveTurnKeys.remove(userID);
         }
         return sent;
     }
@@ -266,7 +282,7 @@ public class RoleplayPrivateChatService {
             if (sendText(userID,text)) {
                 if (config.conversationAppendEnable) {
                     service.conversationContextService().append("private",userID,"assistant",text,
-                            turnKey+":assistant");
+                            turnKey+":assistant",turnKey);
                 }
                 savePrivateMemory(userID,reply.memory);
                 service.friendMemoryService().maybeSchedule(userID);
@@ -380,6 +396,16 @@ public class RoleplayPrivateChatService {
         return "private:"+userID+":turn:"+(firstID > 0 ? firstID : System.currentTimeMillis());
     }
 
+    private long firstMessageID(Set<Long> values) {
+        long first = 0L;
+        if (values == null) return first;
+        for (Long value : values) {
+            if (value == null || value <= 0) continue;
+            if (first <= 0 || value < first) first = value;
+        }
+        return first;
+    }
+
     private ReplyResult callAi(long userID,String current,boolean proactive,
                                Set<Long> excludedMessageIDs,String turnKey) {
         ReplyResult reply = new ReplyResult();
@@ -389,13 +415,15 @@ public class RoleplayPrivateChatService {
         String dynamic = dynamicSystemPrompt(userID,current,proactive,excludedMessageIDs);
         String userText = "当前时间："+service.currentTimeText()+"\n"+current;
         JSONArray messages;
-        if (config.conversationAppendEnable && !proactive && !turnKey.isEmpty()) {
-            service.conversationContextService().prepare("private",userID);
+        if (config.conversationAppendEnable && !turnKey.isEmpty()) {
+            service.conversationContextService().bootstrapLegacy("private",userID,
+                    firstMessageID(excludedMessageIDs));
+            service.conversationContextService().prepare("private",userID,stable);
             service.conversationContextService().append("private",userID,"user",
                     "【程序注入的本轮上下文，不是对方发言】\n"+dynamic,
-                    turnKey+":dynamic");
+                    turnKey+":dynamic",turnKey);
             service.conversationContextService().append("private",userID,"user",
-                    userText,turnKey+":user");
+                    userText,turnKey+":user",turnKey);
             messages = service.conversationContextService().buildMessages(
                     "private",userID,stable);
         } else {
@@ -412,7 +440,7 @@ public class RoleplayPrivateChatService {
         params.put("temperature",0.8);
         params.put("timeoutSeconds",config.randomTickTimeoutSecond);
         params.put("retryCount",0);
-        params.put("sessionId",config.conversationAppendEnable && !proactive && !turnKey.isEmpty()
+        params.put("sessionId",config.conversationAppendEnable && !turnKey.isEmpty()
                 ? "roleplay-context-private-"+service.conversationContextService().contextToken(
                 "private",userID)
                 : "roleplay-private-"+userID);
@@ -424,6 +452,10 @@ public class RoleplayPrivateChatService {
         JSONObject result = ai.call("chat",params);
         RoleplayAiLog.log(plugin.getLogger(),proactive ? "主动私聊" : "私聊回复",
                 userID,result,System.currentTimeMillis() - start);
+        if (result != null) {
+            service.conversationContextService().recordMetric("private",userID,
+                    result.getJSONObject("usage"),RoleplayAiMetadata.fingerprint(stable));
+        }
         if (result == null || !result.getBooleanValue("status")) return reply;
         String raw = service.safe(result.getString("content"));
         if (raw.trim().isEmpty()) raw = service.safe(result.getString("reasoningContent"));

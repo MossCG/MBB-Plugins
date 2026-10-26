@@ -156,10 +156,16 @@ flowchart TD
 工具期间补充消息和最终角色回复按时间顺序写入 `plugin_mbb_roleplay_conversation_message`。
 `plugin_mbb_roleplay_conversation_channel` 保存每个频道的压缩摘要和 `compactedThroughID`。
 
-默认窗口为 `conversationContextTokenLimit=1000000`，使用字符做保守估算。达到 75% 后，
-旧消息交给 `memoryProfile` 或独立压缩 profile 生成摘要，默认保留最近 20% 原文。
-压缩失败时使用本地截断摘要兜底，原始消息仍保留，不会因为一次模型失败丢失数据库记录。
-工具调用内部消息只服务当前回合，工具结果会进入工具记忆；最终角色回复进入追加式上下文。
+默认窗口为 `conversationContextTokenLimit=1000000`，使用字符做保守估算，并把稳定前缀、工具 schema、
+协议和最大输出一起计入预算。达到 70% 时后台预压缩，达到 85% 时同步压缩保护，默认保留最近 20% 原文。
+压缩结果是结构化 JSON，分为当前话题、稳定偏好、边界、约定、未解决事项、关系变化和角色观点；
+同一压缩轮次内按文本去重。压缩失败时使用本地截断摘要兜底，原始消息仍保留。
+
+工具回合会把 assistant 的 `tool_calls` 和 tool result 按完整 message JSON 追加，下一轮不再只看到最终回复。
+每个频道使用递增 `turnSeq`，同一回合即使回复延迟、被高优先级回合接管或进程恢复，也保持原有顺序。
+首次启用时会从现有群聊或私聊导入最近 `conversationBootstrapMessages` 条消息。
+主动私聊也复用同一个私聊频道；`plugin_mbb_roleplay_context_metric` 记录每次请求的 prompt/cached token，
+`/role context` 可查看累计与最近缓存命中率。
 
 ## 统一大脑
 

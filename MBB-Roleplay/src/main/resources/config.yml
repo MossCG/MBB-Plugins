@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 54
+configVersion: 55
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -65,11 +65,19 @@ conversationAppendEnable: true
 #模型上下文 Token 上限；代码按保守字符估算并在压缩阈值触发
 conversationContextTokenLimit: 1000000
 #上下文达到窗口上限的多少比例时压缩
-conversationContextCompactPercent: 0.75
+conversationContextCompactPercent: 0.70
+#上下文达到窗口上限的多少比例时必须同步压缩
+conversationContextHardCompactPercent: 0.85
 #压缩后保留最近原文的窗口比例
 conversationContextKeepPercent: 0.20
 #追加模式下额外放入本轮动态上下文的最近群聊/私聊条数
 conversationAppendRecentMessages: 20
+#首次启用追加上下文时从已有群聊或私聊导入多少条最近消息
+conversationBootstrapMessages: 50
+#上下文预算中为工具 schema 和工具结果预留的 Token
+conversationContextToolReserveTokens: 12000
+#上下文预算中为协议、输出结构和安全余量预留的 Token
+conversationContextProtocolReserveTokens: 4000
 #会话压缩使用的 AI profile，留空依次回退 memoryProfile 和 aiProfile
 conversationCompactionProfile: ""
 #会话压缩摘要输出 Token 上限

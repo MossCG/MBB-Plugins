@@ -11,19 +11,30 @@ public class RoleplayConversationContextTestMain {
         RoleplayConfig config = new RoleplayConfig();
         if (!config.conversationAppendEnable
                 || config.conversationContextTokenLimit != 1000000
-                || Math.abs(config.conversationContextCompactPercent - 0.75) > 0.0001
+                || Math.abs(config.conversationContextCompactPercent - 0.70) > 0.0001
+                || Math.abs(config.conversationContextHardCompactPercent - 0.85) > 0.0001
                 || Math.abs(config.conversationContextKeepPercent - 0.20) > 0.0001
-                || config.conversationAppendRecentMessages != 20) {
+                || config.conversationAppendRecentMessages != 20
+                || config.conversationBootstrapMessages != 50) {
             throw new AssertionError("追加式上下文默认配置不正确");
         }
         if (!"assistant".equals(RoleplayConversationContextService.normalizeRole("assistant"))
                 || !"system".equals(RoleplayConversationContextService.normalizeRole("system"))
-                || !"user".equals(RoleplayConversationContextService.normalizeRole("tool"))) {
+                || !"tool".equals(RoleplayConversationContextService.normalizeRole("tool"))
+                || !"user".equals(RoleplayConversationContextService.normalizeRole("unknown"))) {
             throw new AssertionError("上下文 role 归一化不正确");
         }
         if (RoleplayConversationContextService.shouldCompact(749999,1000000,0.75)
                 || !RoleplayConversationContextService.shouldCompact(750000,1000000,0.75)) {
             throw new AssertionError("1M 窗口压缩阈值判断不正确");
+        }
+        JSONArray duplicate = new JSONArray();
+        duplicate.add("喜欢布丁");
+        duplicate.add(" 喜欢布丁 ");
+        duplicate.add("喜欢打游戏");
+        JSONArray deduped = RoleplayConversationContextService.dedupeTextList(duplicate,8);
+        if (deduped.size() != 2 || !"喜欢布丁".equals(deduped.getString(0))) {
+            throw new AssertionError("压缩轮次内文本列表未正确去重");
         }
 
         JSONArray content = new JSONArray();

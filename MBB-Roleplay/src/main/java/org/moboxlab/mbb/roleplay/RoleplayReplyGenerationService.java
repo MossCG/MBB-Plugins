@@ -32,6 +32,7 @@ public class RoleplayReplyGenerationService {
         if (ai == null) return null;
         String speechPrompt = service.speechPrompt(groupID,userID,content,otherRoleBot,decision);
         String stablePrompt = service.promptAssembler().buildStableSystemPrompt();
+        String promptVersion = service.promptAssembler().stablePromptVersion(batchCount);
         String dynamicPrompt = service.promptAssembler().buildDynamicContext(
                 groupID,userID,otherRoleBot,relationship,speechPrompt,content,decision,batchCount);
         String systemPrompt = stablePrompt+"\n"+dynamicPrompt;
@@ -91,16 +92,17 @@ public class RoleplayReplyGenerationService {
         JSONArray messages;
         if (service.config().conversationAppendEnable) {
             String turnKey = "group:"+messageID;
-            service.conversationContextService().prepare("group",groupID);
+            service.conversationContextService().bootstrapLegacy("group",groupID,messageID);
+            service.conversationContextService().prepare("group",groupID,stablePrompt);
             service.conversationContextService().append("group",groupID,"user",
                     "【程序注入的本轮上下文，不是对方发言】\n"+dynamicPrompt,
-                    turnKey+":dynamic");
+                    turnKey+":dynamic",turnKey);
             if (!styleAnchor.isEmpty()) {
                 service.conversationContextService().append("group",groupID,"user",
-                        "【程序注入的临时表达提示】\n"+styleAnchor,turnKey+":style");
+                        "【程序注入的临时表达提示】\n"+styleAnchor,turnKey+":style",turnKey);
             }
             service.conversationContextService().append("group",groupID,"user",
-                    userMessage.get("content"),turnKey+":user");
+                    userMessage.get("content"),turnKey+":user",turnKey);
             messages = service.conversationContextService().buildMessages(
                     "group",groupID,stablePrompt);
             for (int i = messages.size() - 1; i >= 0; i--) {
@@ -126,8 +128,7 @@ public class RoleplayReplyGenerationService {
                 ? "roleplay-context-group-"+service.conversationContextService().contextToken(
                 "group",groupID)
                 : "roleplay-"+groupID+"-"+service.contextToken(groupID));
-        RoleplayAiMetadata.tag(params,"roleplay.reply",
-                service.promptAssembler().stablePromptVersion(batchCount));
+        RoleplayAiMetadata.tag(params,"roleplay.reply",promptVersion);
         RoleplayToolContext toolContext = new RoleplayToolContext();
         toolContext.groupID = groupID;
         toolContext.userID = userID;
@@ -144,6 +145,10 @@ public class RoleplayReplyGenerationService {
         JSONObject response = service.toolLoopService().run(groupID,toolContext,messages,params);
         long elapsed = System.currentTimeMillis() - startTime;
         RoleplayAiLog.log(service.plugin().getLogger(),"回复",groupID,response,elapsed);
+        if (response != null) {
+            service.conversationContextService().recordMetric("group",groupID,
+                    response.getJSONObject("usage"),promptVersion);
+        }
         if (response != null) {
             JSONObject usage = response.getJSONObject("usage");
             JSONObject trace = new JSONObject(true);

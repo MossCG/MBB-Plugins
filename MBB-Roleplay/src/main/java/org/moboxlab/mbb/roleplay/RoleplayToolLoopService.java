@@ -683,16 +683,21 @@ public class RoleplayToolLoopService {
         try {
             JSONArray messages;
             if (service.config().conversationAppendEnable) {
-                messages = service.conversationContextService().buildMessages("group",
-                        turn.context.groupID,service.promptAssembler().buildStableSystemPrompt());
                 if (turn.messages != null) {
-                    for (Object object : turn.messages) {
+                    for (int i = 0; i < turn.messages.size(); i++) {
+                        Object object = turn.messages.get(i);
                         if (!(object instanceof JSONObject)) continue;
                         JSONObject item = (JSONObject)object;
                         String role = service.safe(item.getString("role"));
-                        if ("assistant".equals(role) || "tool".equals(role)) messages.add(item);
+                        if ("assistant".equals(role) || "tool".equals(role)) {
+                            service.conversationContextService().appendMessage("group",
+                                    turn.context.groupID,item,"group-tool:"+turn.token+":"+i,
+                                    "group-tool:"+turn.token);
+                        }
                     }
                 }
+                messages = service.conversationContextService().buildMessages("group",
+                        turn.context.groupID,service.promptAssembler().buildStableSystemPrompt());
             } else {
                 messages = turn.messages == null ? new JSONArray() : turn.messages;
             }
@@ -717,7 +722,8 @@ public class RoleplayToolLoopService {
                         if (messageID > lastID) lastID = messageID;
                     }
                     service.conversationContextService().append("group",turn.context.groupID,"user",
-                            liveText,"group-tool-recover:"+turn.token+":"+firstID+":"+lastID);
+                            liveText,"group-tool-recover:"+turn.token+":"+firstID+":"+lastID,
+                            "group-tool-recover:"+turn.token);
                 }
             }
             PluginService ai = service.plugin().getServer().getPluginManager().getService("MBB-AI");
@@ -761,7 +767,16 @@ public class RoleplayToolLoopService {
         if (!service.config().conversationAppendEnable || messages == null) return messages;
         JSONArray result = new JSONArray();
         int start = Math.max(0,Math.min(base,messages.size()));
-        for (int i = start; i < messages.size(); i++) result.add(messages.get(i));
+        for (int i = start; i < messages.size(); i++) {
+            Object value = messages.get(i);
+            result.add(value);
+            if (!(value instanceof JSONObject)) continue;
+            JSONObject item = (JSONObject)value;
+            String role = service.safe(item.getString("role"));
+            if (!"assistant".equals(role) && !"tool".equals(role)) continue;
+            service.conversationContextService().appendMessage("group",groupID,item,
+                    "group-tool:"+token+":"+(i - start),"group-tool:"+token);
+        }
         return result;
     }
 
@@ -800,7 +815,7 @@ public class RoleplayToolLoopService {
             long firstID = drained.get(0).messageID;
             long lastID = drained.get(drained.size() - 1).messageID;
             service.conversationContextService().append("group",groupID,"user",liveText,
-                    "group-tool-live:"+token+":"+firstID+":"+lastID);
+                    "group-tool-live:"+token+":"+firstID+":"+lastID,"group-tool-live:"+token);
         }
         try {
             service.toolTurnService().clearLive(token);

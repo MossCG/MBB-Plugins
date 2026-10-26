@@ -73,9 +73,13 @@ randomActivityShareMinScore: 0.75
 randomActivityTimeoutSecond: 300
 conversationAppendEnable: true
 conversationContextTokenLimit: 1000000
-conversationContextCompactPercent: 0.75
+conversationContextCompactPercent: 0.70
+conversationContextHardCompactPercent: 0.85
 conversationContextKeepPercent: 0.20
 conversationAppendRecentMessages: 20
+conversationBootstrapMessages: 50
+conversationContextToolReserveTokens: 12000
+conversationContextProtocolReserveTokens: 4000
 conversationCompactionProfile: ""
 conversationCompactionMaxTokens: 6000
 conversationCompactionTimeoutSecond: 300
@@ -452,10 +456,13 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 
 `conversationAppendEnable` 默认 `true`。稳定 persona、固定规则和工具策略作为不可变系统前缀；
 动态上下文、用户消息、工具期间补充消息和最终角色回复按群聊或私聊频道持久化追加。
-`conversationContextTokenLimit` 默认 `1000000`，代码按字符做保守估算，并在达到
-`conversationContextCompactPercent`（默认 75%）时把旧区间压缩成频道摘要，保留最近
+`conversationContextTokenLimit` 默认 `1000000`，代码按字符做保守估算，并把稳定前缀、工具 schema、
+协议和最大输出 Token 一起计入预算。达到 `conversationContextCompactPercent`（默认 70%）时后台预压缩，
+达到 `conversationContextHardCompactPercent`（默认 85%）时同步压缩保护；压缩后保留最近
 `conversationContextKeepPercent`（默认 20%）的原文；追加模式每轮额外带入的动态近期消息由
-`conversationAppendRecentMessages` 控制，避免和持久化历史重复注入整段旧上下文。压缩模型由 `conversationCompactionProfile`
+`conversationAppendRecentMessages` 控制，避免和持久化历史重复注入整段旧上下文。
+首次启用时会按 `conversationBootstrapMessages` 导入最近旧消息；`conversationContextToolReserveTokens`
+和 `conversationContextProtocolReserveTokens` 用于预算预留。压缩模型由 `conversationCompactionProfile`
 指定，留空依次回退 `memoryProfile` 和 `aiProfile`。`/role context` 可以查看状态，
 `/role context compact` 强制压缩，`/role context clear` 清空当前群追加上下文。
 

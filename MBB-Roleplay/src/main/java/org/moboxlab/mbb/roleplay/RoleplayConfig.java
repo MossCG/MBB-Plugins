@@ -190,9 +190,13 @@ public class RoleplayConfig {
     public int promptTotalChars = 120000;
     public boolean conversationAppendEnable = true;
     public int conversationContextTokenLimit = 1000000;
-    public double conversationContextCompactPercent = 0.75;
+    public double conversationContextCompactPercent = 0.70;
+    public double conversationContextHardCompactPercent = 0.85;
     public double conversationContextKeepPercent = 0.20;
     public int conversationAppendRecentMessages = 20;
+    public int conversationBootstrapMessages = 50;
+    public int conversationContextToolReserveTokens = 12000;
+    public int conversationContextProtocolReserveTokens = 4000;
     public String conversationCompactionProfile = "";
     public int conversationCompactionMaxTokens = 6000;
     public int conversationCompactionTimeoutSecond = 300;
@@ -704,9 +708,15 @@ public class RoleplayConfig {
                 plugin.getConfig().getInt("conversationContextTokenLimit",1000000);
         try {
             config.conversationContextCompactPercent = Double.parseDouble(
-                    plugin.getConfig().getString("conversationContextCompactPercent","0.75"));
+                    plugin.getConfig().getString("conversationContextCompactPercent","0.70"));
         } catch (Exception e) {
-            config.conversationContextCompactPercent = 0.75;
+            config.conversationContextCompactPercent = 0.70;
+        }
+        try {
+            config.conversationContextHardCompactPercent = Double.parseDouble(
+                    plugin.getConfig().getString("conversationContextHardCompactPercent","0.85"));
+        } catch (Exception e) {
+            config.conversationContextHardCompactPercent = 0.85;
         }
         try {
             config.conversationContextKeepPercent = Double.parseDouble(
@@ -716,6 +726,12 @@ public class RoleplayConfig {
         }
         config.conversationAppendRecentMessages =
                 plugin.getConfig().getInt("conversationAppendRecentMessages",20);
+        config.conversationBootstrapMessages =
+                plugin.getConfig().getInt("conversationBootstrapMessages",50);
+        config.conversationContextToolReserveTokens =
+                plugin.getConfig().getInt("conversationContextToolReserveTokens",12000);
+        config.conversationContextProtocolReserveTokens =
+                plugin.getConfig().getInt("conversationContextProtocolReserveTokens",4000);
         config.conversationCompactionProfile =
                 plugin.getConfig().getString("conversationCompactionProfile","");
         config.conversationCompactionMaxTokens =
@@ -1288,6 +1304,17 @@ public class RoleplayConfig {
         if (config.conversationContextCompactPercent > 0.95) {
             config.conversationContextCompactPercent = 0.95;
         }
+        if (config.conversationContextHardCompactPercent < 0.5) {
+            config.conversationContextHardCompactPercent = 0.5;
+        }
+        if (config.conversationContextHardCompactPercent > 0.98) {
+            config.conversationContextHardCompactPercent = 0.98;
+        }
+        if (config.conversationContextHardCompactPercent
+                <= config.conversationContextCompactPercent) {
+            config.conversationContextHardCompactPercent = Math.min(0.98,
+                    config.conversationContextCompactPercent + 0.10);
+        }
         if (config.conversationContextKeepPercent < 0.05) {
             config.conversationContextKeepPercent = 0.05;
         }
@@ -1301,6 +1328,20 @@ public class RoleplayConfig {
         }
         if (config.conversationAppendRecentMessages > 100) {
             config.conversationAppendRecentMessages = 100;
+        }
+        if (config.conversationBootstrapMessages < 0) config.conversationBootstrapMessages = 0;
+        if (config.conversationBootstrapMessages > 300) config.conversationBootstrapMessages = 300;
+        if (config.conversationContextToolReserveTokens < 0) {
+            config.conversationContextToolReserveTokens = 0;
+        }
+        if (config.conversationContextToolReserveTokens > 100000) {
+            config.conversationContextToolReserveTokens = 100000;
+        }
+        if (config.conversationContextProtocolReserveTokens < 0) {
+            config.conversationContextProtocolReserveTokens = 0;
+        }
+        if (config.conversationContextProtocolReserveTokens > 50000) {
+            config.conversationContextProtocolReserveTokens = 50000;
         }
         if (config.conversationCompactionProfile == null) {
             config.conversationCompactionProfile = "";

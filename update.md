@@ -20,6 +20,7 @@
 
 | 版本号 | 日期 | 更新内容 |
 |---|---|---|
+| V0.13.30.0.2250 | 2026-10-26 | `MBB-Roleplay` 完成追加式上下文的 P0/P1/P2 补强：预算同时计入稳定前缀、工具 schema、协议和最大输出；70% 后台预压缩、85% 同步保护；压缩摘要改为结构化分类并在当前压缩轮次内去重；完整持久化 assistant `tool_calls` 与 tool result；使用频道 `turnSeq` 保证并发、延迟回复和恢复顺序；主动私聊复用私聊历史；首次启用导入最近旧消息；`/role context` 新增预算占用与累计/最近缓存命中率，并通过 `plugin_mbb_roleplay_context_metric` 记录真实 prompt/cache Token。配置升级到 v55。 |
 | V0.13.29.0.1945 | 2026-10-26 | `MBB-Roleplay` 新增追加式会话上下文与 1M 窗口压缩：稳定 persona、固定规则和工具策略组成不可变系统前缀，动态上下文、用户消息、工具期间补充和最终回复按群聊/私聊频道持久化追加；默认 `conversationContextTokenLimit=1000000`，达到 75% 时压缩旧区间并保留最近 20% 原文。新增 `/role context [status|compact|clear]`、上下文状态/日志 trace、工具回合增量持久化、图片 data URI 清洗和追加上下文备份。备份升级到 v8，配置升级到 v54。 |
 | V0.13.28.0.0139 | 2026-10-26 | `MBB-Roleplay` 新增独立的 `RoleplayActivityScheduler`，与社交随机刻分开调度。外部插件通过 `activity_plan` 声明运行间隔、每日上限和优先级，通过 `activity_run` 执行阅读、浏览等活动；调度器负责全局单活动执行、夜间静默、每日限额、去重、来源审计、统一大脑 `self` 记忆写入和 `private / group / qzone` 分享。新增 `randomActivity*` 配置、活动状态表与日志表、`/role random` 活动状态展示及 `activity_plan / activity_run` 接入文档。B 站、购物等具体 API 保持在后续独立插件中。 |
 | V0.13.27.0.0135 | 2026-10-26 | `MBB-Roleplay` 建立统一大脑记忆层 `RoleplayBrainMemoryService`：在既有 `scopeType / visibility` 基础上新增 `audience / sourceType / sourceId / confidence / validFrom / validUntil`，支持 `self / shared / group / user` 四类访问范围；自我经历可跨群和私聊回忆，群记忆、用户私聊记忆继续按渠道和主体硬隔离。群聊新增 `memory.self` 注入，私聊和 `memory_search` 接入统一检索；`MBB-Roleplay` 公共服务新增 `brain_remember / brain_search / brain_status`，为后续活动插件提供写入角色自身经历的标准入口。备份升级到 v7，旧库启动时自动补列并按原 visibility 推导 audience。 |

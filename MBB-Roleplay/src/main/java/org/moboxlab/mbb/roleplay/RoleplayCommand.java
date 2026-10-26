@@ -150,13 +150,21 @@ public class RoleplayCommand extends BotCommand {
                 sender.sendMessage("开始压缩当前群会话上下文。");
                 return true;
             }
-            JSONObject status = service.conversationContextService().status("group",groupID);
+            JSONObject status = service.conversationContextService().status("group",groupID,
+                    service.promptAssembler().buildStableSystemPrompt());
+            JSONObject cache = service.conversationContextService().cacheStats("group",groupID);
             sender.sendMessage("追加式上下文："+(status.getBooleanValue("enable") ? "开" : "关")
                     +"\n窗口上限："+status.getIntValue("tokenLimit")+" Token（按字符保守估算）"
                     +"\n当前估算："+status.getLongValue("estimatedChars")+" Token"
+                    +"\n预算占用："+String.format(java.util.Locale.ROOT,"%.1f%%",
+                    status.getDoubleValue("usagePercent") * 100)
                     +"\n窗口消息："+status.getIntValue("messageCount")+" 条"
                     +"\n压缩摘要："+status.getIntValue("summaryChars")+" 字符"
-                    +"\n压缩游标："+status.getLongValue("compactedThroughID"));
+                    +"\n压缩游标："+status.getLongValue("compactedThroughID")
+                    +"\n缓存命中："+String.format(java.util.Locale.ROOT,"%.1f%%",
+                    cache.getDoubleValue("cachePercent") * 100)
+                    +"（最近 "+String.format(java.util.Locale.ROOT,"%.1f%%",
+                    cache.getDoubleValue("lastCachePercent") * 100)+"）");
             return true;
         }
         if ("groups".equals(action)) {
