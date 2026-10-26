@@ -93,8 +93,10 @@ public class RoleplayToolLoopService {
     public JSONObject run(long groupID,RoleplayToolContext context,JSONArray messages,JSONObject params) {
         String token = begin(groupID);
         ActiveTurn active = activeTurns.get(groupID);
+        int persistedBase = messages == null ? 0 : messages.size();
         try {
-            service.toolTurnService().begin(token,context,messages,params);
+            service.toolTurnService().begin(token,context,
+                    pendingTurnMessages(groupID,token,messages,persistedBase),params);
         } catch (Exception e) {
             service.plugin().getLogger().sendWarn("[工具] 群"+groupID
                     +" 工具回合持久化失败，继续执行："+service.safe(e.getMessage()));
@@ -184,7 +186,8 @@ public class RoleplayToolLoopService {
                 if (calls == null || calls.isEmpty()) {
                     int liveCount = finishLiveMessages(groupID,token,messages,toolTrace);
                     if (liveCount > 0) {
-                        service.toolTurnService().update(token,messages,params);
+                        service.toolTurnService().update(token,
+                                pendingTurnMessages(groupID,token,messages,persistedBase),params);
                         service.plugin().getLogger().sendInfo("[工具] 群"+groupID
                                 +" 最终回复生成期间又收到 "+liveCount+" 条消息，丢弃旧候选并重新生成");
                         continue;
@@ -201,7 +204,8 @@ public class RoleplayToolLoopService {
                     }
                     response.put("usage",usage);
                     response.put("toolTrace",toolTrace);
-                    service.toolTurnService().update(token,messages,params);
+                    service.toolTurnService().update(token,
+                            pendingTurnMessages(groupID,token,messages,persistedBase),params);
                     service.toolTurnService().finish(token,"finished");
                     finished = true;
                     return response;
@@ -216,14 +220,16 @@ public class RoleplayToolLoopService {
                 assistant.put("content",service.safe(response.getString("content")));
                 assistant.put("tool_calls",calls);
                 messages.add(assistant);
-                service.toolTurnService().update(token,messages,params);
+                service.toolTurnService().update(token,
+                        pendingTurnMessages(groupID,token,messages,persistedBase),params);
                 boolean endTurn = false;
                 int consumed = executeCalls(context,calls,exposedTools,perToolCalls,
                         totalCalls,resultCharsUsed,deadline,active,messages,toolTrace);
                 totalCalls += countCalls(calls);
                 resultCharsUsed = consumed;
                 appendLiveMessages(groupID,token,messages,toolTrace);
-                service.toolTurnService().update(token,messages,params);
+                service.toolTurnService().update(token,
+                        pendingTurnMessages(groupID,token,messages,persistedBase),params);
                 for (int i = 0; i < calls.size(); i++) {
                     RoleplayToolResult last = active == null ? null : active.lastResults.get(i);
                     if (last != null && last.endTurn) {
@@ -231,7 +237,8 @@ public class RoleplayToolLoopService {
                         break;
                     }
                 }
-                service.toolTurnService().update(token,messages,params);
+                service.toolTurnService().update(token,
+                        pendingTurnMessages(groupID,token,messages,persistedBase),params);
                 if (endTurn) {
                     service.plugin().getLogger().sendInfo("[工具] 群"+groupID
                             +" 模型调用 end_turn，本轮保持沉默");
@@ -674,7 +681,21 @@ public class RoleplayToolLoopService {
             return;
         }
         try {
-            JSONArray messages = turn.messages == null ? new JSONArray() : turn.messages;
+            JSONArray messages;
+            if (service.config().conversationAppendEnable) {
+                messages = service.conversationContextService().buildMessages("group",
+                        turn.context.groupID,service.promptAssembler().buildStableSystemPrompt());
+                if (turn.messages != null) {
+                    for (Object object : turn.messages) {
+                        if (!(object instanceof JSONObject)) continue;
+                        JSONObject item = (JSONObject)object;
+                        String role = service.safe(item.getString("role"));
+                        if ("assistant".equals(role) || "tool".equals(role)) messages.add(item);
+                    }
+                }
+            } else {
+                messages = turn.messages == null ? new JSONArray() : turn.messages;
+            }
             if (turn.liveMessages != null && !turn.liveMessages.isEmpty()) {
                 StringBuilder live = new StringBuilder("工具执行期间收到的补充消息：\n");
                 for (Object object : turn.liveMessages) {
@@ -684,7 +705,20 @@ public class RoleplayToolLoopService {
                             .append(item.getLongValue("userID")).append("）：")
                             .append(service.shortText(item.getString("content"),500)).append("\n");
                 }
-                messages.add(service.message("user",live.toString()));
+                String liveText = live.toString();
+                messages.add(service.message("user",liveText));
+                if (service.config().conversationAppendEnable) {
+                    long firstID = 0L;
+                    long lastID = 0L;
+                    for (Object object : turn.liveMessages) {
+                        if (!(object instanceof JSONObject)) continue;
+                        long messageID = ((JSONObject)object).getLongValue("messageID");
+                        if (firstID <= 0 || (messageID > 0 && messageID < firstID)) firstID = messageID;
+                        if (messageID > lastID) lastID = messageID;
+                    }
+                    service.conversationContextService().append("group",turn.context.groupID,"user",
+                            liveText,"group-tool-recover:"+turn.token+":"+firstID+":"+lastID);
+                }
             }
             PluginService ai = service.plugin().getServer().getPluginManager().getService("MBB-AI");
             if (ai == null) {
@@ -723,6 +757,14 @@ public class RoleplayToolLoopService {
         return drainLiveMessages(groupID,token,messages,toolTrace,false);
     }
 
+    private JSONArray pendingTurnMessages(long groupID,String token,JSONArray messages,int base) {
+        if (!service.config().conversationAppendEnable || messages == null) return messages;
+        JSONArray result = new JSONArray();
+        int start = Math.max(0,Math.min(base,messages.size()));
+        for (int i = start; i < messages.size(); i++) result.add(messages.get(i));
+        return result;
+    }
+
     /**
      * 最终回复采纳前关闭 live inbox，再原子地 drain 一次。
      * 关闭后到达的消息不会再进入当前回合，而会正常进入下一批。
@@ -752,7 +794,14 @@ public class RoleplayToolLoopService {
             builder.append(item.userName).append("（QQ：").append(item.userID).append("）：")
                     .append(service.shortText(item.content,500)).append("\n");
         }
-        messages.add(service.message("user",builder.toString()));
+        String liveText = builder.toString();
+        messages.add(service.message("user",liveText));
+        if (service.config().conversationAppendEnable) {
+            long firstID = drained.get(0).messageID;
+            long lastID = drained.get(drained.size() - 1).messageID;
+            service.conversationContextService().append("group",groupID,"user",liveText,
+                    "group-tool-live:"+token+":"+firstID+":"+lastID);
+        }
         try {
             service.toolTurnService().clearLive(token);
         } catch (Exception e) {

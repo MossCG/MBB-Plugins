@@ -133,6 +133,7 @@ public class RoleplayMemberCommandHandler {
         }
         if ("memory".equals(category)) {
             sender.sendMessage("记忆："
+                    +"\n/role context [status|compact|clear]"
                     +"\n/role memory [页码|merge|backup|backups|restore <文件名>]"
                     +"\n/role memory timeline [页码]"
                     +"\n/role memory conflicts [条数]"

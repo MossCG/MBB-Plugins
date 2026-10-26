@@ -80,8 +80,12 @@ public class RoleplayReplyExecutor {
         if (sendText) ensurePokeBackAction(draft,decision,reply);
         OneBotClient client = service.plugin().getServer().getOneBotClient();
         if (sendText && client != null) {
-            service.messageSender().sendReply(client,groupID,selfID,event.getUserID(),reply,
+            boolean sent = service.messageSender().sendReply(client,groupID,selfID,event.getUserID(),reply,
                     decision != null && decision.quoteRequired,draft.quote,event.getMessageID());
+            if (sent && service.config().conversationAppendEnable) {
+                service.conversationContextService().append("group",groupID,"assistant",reply,
+                        "group:"+event.getMessageID()+":assistant");
+            }
         }
         executeSkillCalls(decision,draft,groupID,event.getUserID(),event.getMessageID(),selfID,
                 userName,relationship,content);
@@ -176,6 +180,7 @@ public class RoleplayReplyExecutor {
                 //和单回合保持一致：段内换行按多段发送，引用只挂在第一段上
                 List<String> parts = service.messageSender().splitReply(reply);
                 int partLimit = Math.min(parts.size(),Math.max(1,service.config().replyMaxSegments));
+                int sentBefore = sent;
                 for (int p = 0; p < partLimit && sent < messageBudget; p++) {
                     if (p == 0 && sent == 0) {
                         if (!service.getPacingService().sleep(
@@ -188,6 +193,10 @@ public class RoleplayReplyExecutor {
                             quote && p == 0,quoteMessageID)) break;
                     if (!responded.contains(target)) responded.add(target);
                     sent++;
+                }
+                if (sent > sentBefore && service.config().conversationAppendEnable) {
+                    service.conversationContextService().append("group",groupID,"assistant",reply,
+                            "group:"+primary.event.getMessageID()+":assistant:"+i);
                 }
             }
             if (!segmentDraft.actions.isEmpty()) {

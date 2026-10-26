@@ -188,6 +188,14 @@ public class RoleplayConfig {
     public int pokeStreakThreshold = 3;
     public boolean quoteReplyEnable = true;
     public int promptTotalChars = 120000;
+    public boolean conversationAppendEnable = true;
+    public int conversationContextTokenLimit = 1000000;
+    public double conversationContextCompactPercent = 0.75;
+    public double conversationContextKeepPercent = 0.20;
+    public int conversationAppendRecentMessages = 20;
+    public String conversationCompactionProfile = "";
+    public int conversationCompactionMaxTokens = 6000;
+    public int conversationCompactionTimeoutSecond = 300;
     public boolean routerEnable = true;
     public String routerProfile = "";
     public int routerMaxTokens = 2400;
@@ -690,6 +698,30 @@ public class RoleplayConfig {
         config.pokeBackCooldownSecond = plugin.getConfig().getInt("pokeBackCooldownSecond",60);
         config.quoteReplyEnable = plugin.getConfig().getBoolean("quoteReplyEnable",true);
         config.promptTotalChars = plugin.getConfig().getInt("promptTotalChars",120000);
+        config.conversationAppendEnable =
+                plugin.getConfig().getBoolean("conversationAppendEnable",true);
+        config.conversationContextTokenLimit =
+                plugin.getConfig().getInt("conversationContextTokenLimit",1000000);
+        try {
+            config.conversationContextCompactPercent = Double.parseDouble(
+                    plugin.getConfig().getString("conversationContextCompactPercent","0.75"));
+        } catch (Exception e) {
+            config.conversationContextCompactPercent = 0.75;
+        }
+        try {
+            config.conversationContextKeepPercent = Double.parseDouble(
+                    plugin.getConfig().getString("conversationContextKeepPercent","0.20"));
+        } catch (Exception e) {
+            config.conversationContextKeepPercent = 0.20;
+        }
+        config.conversationAppendRecentMessages =
+                plugin.getConfig().getInt("conversationAppendRecentMessages",20);
+        config.conversationCompactionProfile =
+                plugin.getConfig().getString("conversationCompactionProfile","");
+        config.conversationCompactionMaxTokens =
+                plugin.getConfig().getInt("conversationCompactionMaxTokens",6000);
+        config.conversationCompactionTimeoutSecond =
+                plugin.getConfig().getInt("conversationCompactionTimeoutSecond",300);
         config.routerEnable = plugin.getConfig().getBoolean("routerEnable",true);
         config.routerProfile = plugin.getConfig().getString("routerProfile","");
         config.routerMaxTokens = plugin.getConfig().getInt("routerMaxTokens",2400);
@@ -1244,6 +1276,47 @@ public class RoleplayConfig {
         if (config.pokeBackCooldownSecond > 3600) config.pokeBackCooldownSecond = 3600;
         if (config.promptTotalChars < 4000) config.promptTotalChars = 4000;
         if (config.promptTotalChars > 400000) config.promptTotalChars = 400000;
+        if (config.conversationContextTokenLimit < 40000) {
+            config.conversationContextTokenLimit = 40000;
+        }
+        if (config.conversationContextTokenLimit > 2000000) {
+            config.conversationContextTokenLimit = 2000000;
+        }
+        if (config.conversationContextCompactPercent < 0.4) {
+            config.conversationContextCompactPercent = 0.4;
+        }
+        if (config.conversationContextCompactPercent > 0.95) {
+            config.conversationContextCompactPercent = 0.95;
+        }
+        if (config.conversationContextKeepPercent < 0.05) {
+            config.conversationContextKeepPercent = 0.05;
+        }
+        if (config.conversationContextKeepPercent
+                >= config.conversationContextCompactPercent - 0.05) {
+            config.conversationContextKeepPercent = Math.max(0.05,
+                    config.conversationContextCompactPercent - 0.05);
+        }
+        if (config.conversationAppendRecentMessages < 4) {
+            config.conversationAppendRecentMessages = 4;
+        }
+        if (config.conversationAppendRecentMessages > 100) {
+            config.conversationAppendRecentMessages = 100;
+        }
+        if (config.conversationCompactionProfile == null) {
+            config.conversationCompactionProfile = "";
+        }
+        if (config.conversationCompactionMaxTokens < 1000) {
+            config.conversationCompactionMaxTokens = 1000;
+        }
+        if (config.conversationCompactionMaxTokens > 32000) {
+            config.conversationCompactionMaxTokens = 32000;
+        }
+        if (config.conversationCompactionTimeoutSecond < 30) {
+            config.conversationCompactionTimeoutSecond = 30;
+        }
+        if (config.conversationCompactionTimeoutSecond > 600) {
+            config.conversationCompactionTimeoutSecond = 600;
+        }
         if (config.routerProfile == null) config.routerProfile = "";
         if (config.routerMaxTokens < 200) config.routerMaxTokens = 200;
         if (config.routerMaxTokens > 4000) config.routerMaxTokens = 4000;

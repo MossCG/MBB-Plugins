@@ -135,10 +135,15 @@ public class RoleplayContextService {
     }
 
     public String recentContext(long groupID) {
-        return recentContext(groupID,0L);
+        return recentContext(groupID,0L,service.config().shortContextMessages);
     }
 
     public String recentContext(long groupID,long excludeMessageID) {
+        return recentContext(groupID,excludeMessageID,service.config().shortContextMessages);
+    }
+
+    public String recentContext(long groupID,long excludeMessageID,int limit) {
+        int capped = Math.max(1,Math.min(500,limit));
         List<JSONObject> rows;
         if (excludeMessageID > 0) {
             rows = service.storage().query(
@@ -147,14 +152,14 @@ public class RoleplayContextService {
                             +"AND `messageID`<>? AND `userID` NOT IN "
                             +"(SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` WHERE `groupID`=?) "
                             +"ORDER BY `messageTime` DESC LIMIT ?",
-                    groupID,excludeMessageID,groupID,service.config().shortContextMessages);
+                    groupID,excludeMessageID,groupID,capped);
         } else {
             rows = service.storage().query(
                     "SELECT `messageID`,`userID`,`userName`,`content`,`isBot`,`messageTime` FROM `"
                             +RoleplayService.MSG_TABLE+"` WHERE `groupID`=? "
                             +"AND `userID` NOT IN (SELECT `userID` FROM `plugin_mbb_roleplay_blacklist` "
                             +"WHERE `groupID`=?) ORDER BY `messageTime` DESC LIMIT ?",
-                    groupID,groupID,service.config().shortContextMessages);
+                    groupID,groupID,capped);
         }
         if (rows == null || rows.isEmpty()) return "无";
         List<JSONObject> selected = new ArrayList<>();

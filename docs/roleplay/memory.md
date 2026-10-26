@@ -141,7 +141,25 @@ flowchart TD
 - 私聊图片与表情会先交给 `MBB-Vision` 生成描述，再进入私聊上下文；这与群聊共用识图开关和每小时限额。
 - 私聊模型可以在同一轮返回可选的 `memory` 字段，插件只把明确、长期有效的称呼、偏好、边界或相处方式写入 `visibility=private` 的记忆；群聊检索、记忆工具和长期记忆合并都只读取 `shared`，不会把私聊记忆带进群聊。
 - 好友长期记忆和普通私聊记忆是两层：前者是低频整理后的稳定关系档案，后者是模型在单轮可选的私有语义记忆。两者都不会进入其他用户的群聊资料。
-- 备份格式升级为 v7，包含统一大脑字段、`structuredContext` 和 `friendMemory`；旧备份仍可恢复，缺少新字段的旧备份会按原 `visibility` 推导访问范围，且不会清空现有好友档案。
+- 备份格式升级为 v8，包含统一大脑字段、`structuredContext`、`friendMemory` 和 `conversationContext`；旧备份仍可恢复，缺少新字段的旧备份会按原 `visibility` 推导访问范围，且不会清空现有好友档案或追加上下文。
+
+### 追加式会话上下文
+
+统一大脑负责长期资料，`RoleplayConversationContextService` 负责模型实际看到的工作上下文。
+两者不是同一层：
+
+- 长期记忆可以从任意频道按访问边界检索。
+- 会话上下文只追加到 `group:<群号>` 或 `private:<QQ>` 自己的频道。
+- 群聊不会看到私聊 messages 历史，私聊也不会看到当前群原始流水。
+
+稳定 persona、身份关系、输出纪律和工具策略不写入追加表，作为固定系统前缀。动态上下文、用户消息、
+工具期间补充消息和最终角色回复按时间顺序写入 `plugin_mbb_roleplay_conversation_message`。
+`plugin_mbb_roleplay_conversation_channel` 保存每个频道的压缩摘要和 `compactedThroughID`。
+
+默认窗口为 `conversationContextTokenLimit=1000000`，使用字符做保守估算。达到 75% 后，
+旧消息交给 `memoryProfile` 或独立压缩 profile 生成摘要，默认保留最近 20% 原文。
+压缩失败时使用本地截断摘要兜底，原始消息仍保留，不会因为一次模型失败丢失数据库记录。
+工具调用内部消息只服务当前回合，工具结果会进入工具记忆；最终角色回复进入追加式上下文。
 
 ## 统一大脑
 

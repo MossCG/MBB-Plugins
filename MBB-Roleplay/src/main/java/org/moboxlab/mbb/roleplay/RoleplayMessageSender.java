@@ -25,22 +25,25 @@ public class RoleplayMessageSender {
         this.service = service;
     }
 
-    public void sendReply(OneBotClient client,long groupID,long selfID,long userID,String reply,
-                          boolean quoteRequired,boolean quoteSuggested,long quoteMessageID) {
+    public boolean sendReply(OneBotClient client,long groupID,long selfID,long userID,String reply,
+                             boolean quoteRequired,boolean quoteSuggested,long quoteMessageID) {
         reply = normalizeSentencePeriods(groupID,reply);
         List<String> segments = splitReply(reply);
-        if (segments.isEmpty()) return;
-        if (!service.getPacingService().sleep(groupID,userID,"",segments.get(0))) return;
+        if (segments.isEmpty()) return false;
+        if (!service.getPacingService().sleep(groupID,userID,"",segments.get(0))) return false;
         RoleplayConfig config = service.config();
         boolean quote = config.quoteReplyEnable
                 && (quoteRequired || quoteSuggested) && quoteMessageID > 0;
         int count = Math.min(segments.size(),config.replyBeatMaxSegments);
+        boolean sent = false;
         for (int i = 0; i < count; i++) {
-            sendSingleMessage(client,groupID,selfID,userID,segments.get(i),quote && i == 0,
-                    quoteMessageID);
+            if (!sendSingleMessage(client,groupID,selfID,userID,segments.get(i),quote && i == 0,
+                    quoteMessageID)) break;
+            sent = true;
             if (i + 1 < count && !service.sleepQuietly(
-                    service.getPacingService().beatDelayMillis(groupID,segments.get(i + 1)))) return;
+                    service.getPacingService().beatDelayMillis(groupID,segments.get(i + 1)))) break;
         }
+        return sent;
     }
 
     public String normalizeSentencePeriods(long groupID,String text) {

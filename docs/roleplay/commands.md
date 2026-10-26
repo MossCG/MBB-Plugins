@@ -68,6 +68,7 @@
 | `/role bot max <1-10>` | `BOT_ADMIN` | 设置无人插话时的连续回应上限 |
 | `/role bot qq ...` | `BOT_ADMIN` | 查看、增删或清空其他角色机器人 QQ，增删时可艾特机器人 |
 | `/role bot name ...` | `BOT_ADMIN` | 查看、增删、重置或清空名称识别关键词 |
+| `/role context [status\|compact\|clear]` | `BOT_ADMIN` | 查看、压缩或清空当前群的追加式模型上下文 |
 | `/role memory [页码]` | `BOT_ADMIN` | 以图片查看当前群短期记忆和长期记忆 |
 | `/role memory merge` | `BOT_ADMIN` | 手动整理合并当前群长期记忆，完成后反馈结果 |
 | `/role memory backup` | `BOT_ADMIN` | 备份全部群的短期、长期、永久记忆 |

@@ -17,21 +17,31 @@ public class RoleplayPromptAssembler {
     }
 
     public String stablePromptVersion(int batchCount) {
-        return RoleplayAiMetadata.fingerprint(assembleStableMaterials()+stableRulesText()
-                +toolPolicyText()+outputFormatLead(batchCount));
+        return RoleplayAiMetadata.fingerprint(buildStableSystemPrompt());
+    }
+
+    public String buildStableSystemPrompt() {
+        return assembleStableMaterials()+stableRulesText()+toolPolicyText();
     }
 
     public String buildSystemPrompt(long groupID,long userID,boolean otherRoleBot,
                                     String relationship,String speechPrompt,String messageText,
                                     RoleplayRouteDecision decision,int batchCount) {
+        return buildStableSystemPrompt()+"\n"
+                +buildDynamicContext(groupID,userID,otherRoleBot,relationship,speechPrompt,
+                messageText,decision,batchCount);
+    }
+
+    public String buildDynamicContext(long groupID,long userID,boolean otherRoleBot,
+                                      String relationship,String speechPrompt,String messageText,
+                                      RoleplayRouteDecision decision,int batchCount) {
         String recentReplies = service.contextService().recentRoleReplyText(groupID);
         String otherRoleReplies = service.contextService().recentOtherRoleReplyText(groupID);
         List<String> actionIds = service.config().toolEnable
                 ? Collections.<String>emptyList()
                 : (decision == null ? service.skillRegistry().actionIds(service.config())
                 : decision.actions);
-        String stable = assembleStableMaterials()+stableRulesText()+toolPolicyText()
-                +outputFormatLead(batchCount);
+        String stable = buildStableSystemPrompt()+outputFormatLead(batchCount);
         int dynamicBudget = service.config().contextHardLimitEnable
                 ? Math.max(2000,service.config().promptTotalChars - stable.length()) : -1;
         String dynamicMaterials = assembleDynamicMaterials(groupID,userID,messageText,
@@ -46,7 +56,7 @@ public class RoleplayPromptAssembler {
         String skillPrompt = service.config().toolEnable ? ""
                 : service.skillRegistry().promptFragments(
                 service.config(),actionIds,skillContext);
-        StringBuilder builder = new StringBuilder(stable);
+        StringBuilder builder = new StringBuilder(outputFormatLead(batchCount));
         builder.append("\n【本轮指令】\n")
                 .append(dynamicInstructionText(otherRoleBot,relationship,messageText,actionIds,batchCount));
         if (decision != null && decision.threadHint != null && !decision.threadHint.isEmpty()) {
@@ -328,7 +338,8 @@ public class RoleplayPromptAssembler {
         materials.add(new RoleplayMaterial("member.profile",true,91,600,
                 () -> service.memberService().promptText(groupID,userID)));
         materials.add(new RoleplayMaterial("context.recent",true,89,2500,
-                () -> "你最近说过的话（这些已经说过了，不要重复内容，也不要换个说法再说一遍）：\n"
+                () -> config.conversationAppendEnable ? ""
+                        : "你最近说过的话（这些已经说过了，不要重复内容，也不要换个说法再说一遍）：\n"
                         +recentReplies));
         materials.add(new RoleplayMaterial("context.otherRoleRecent",true,87,1400,
                 () -> "另一个角色机器人最近说过的话（这不是你自己，不要把对方的话当成自己说过）：\n"

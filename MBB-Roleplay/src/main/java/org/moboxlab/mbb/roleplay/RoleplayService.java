@@ -75,6 +75,7 @@ public class RoleplayService {
     private final RoleplayMessageSender messageSender;
     private final RoleplayContextService contextService;
     private final RoleplayContextCompactor contextCompactor;
+    private final RoleplayConversationContextService conversationContextService;
     private final RoleplayPromptAssembler promptAssembler;
     private final RoleplayMemoryBackupService memoryBackupService;
     private final RoleplayMemoryUpdateService memoryUpdateService;
@@ -310,6 +311,7 @@ public class RoleplayService {
         this.messageSender = new RoleplayMessageSender(this);
         this.contextService = new RoleplayContextService(this);
         this.contextCompactor = new RoleplayContextCompactor(this);
+        this.conversationContextService = new RoleplayConversationContextService(this);
         this.promptAssembler = new RoleplayPromptAssembler(this);
         this.memoryBackupService = new RoleplayMemoryBackupService(this);
         this.memoryUpdateService = new RoleplayMemoryUpdateService(this);
@@ -358,6 +360,7 @@ public class RoleplayService {
 
     public void init() {
         schemaService.initSchema();
+        conversationContextService.init();
         activityScheduler.init();
         contextCompactor.recoverLegacySummaries();
         reminderService.init();
@@ -677,6 +680,10 @@ public class RoleplayService {
 
     RoleplayContextCompactor contextCompactor() {
         return contextCompactor;
+    }
+
+    RoleplayConversationContextService conversationContextService() {
+        return conversationContextService;
     }
 
     RoleplayReplyExecutor replyExecutor() {
@@ -1530,6 +1537,7 @@ public class RoleplayService {
 
     public void clearMemory(long groupID) {
         groupStatusService.clearMemory(groupID);
+        conversationContextService.clear("group",groupID);
     }
 
 

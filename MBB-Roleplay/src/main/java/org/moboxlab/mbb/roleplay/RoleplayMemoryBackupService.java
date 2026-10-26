@@ -30,7 +30,7 @@ public class RoleplayMemoryBackupService {
         try {
             File directory = backupDirectory();
             JSONObject root = new JSONObject(true);
-            root.put("version",7);
+            root.put("version",8);
             root.put("type","mbb-roleplay-memory-backup");
             root.put("createTime",System.currentTimeMillis());
             root.put("reason",service.safe(reason));
@@ -42,6 +42,7 @@ public class RoleplayMemoryBackupService {
             root.put("blacklist",service.blacklistService().exportAll());
             root.put("member",service.memberService().exportAll());
             root.put("friendMemory",service.friendMemoryService().exportAll());
+            root.put("conversationContext",service.conversationContextService().exportAll());
             String name = "memory-backup-"
                     +new SimpleDateFormat("yyyyMMdd-HHmmss-SSS",Locale.CHINA).format(new Date())
                     +".json";
@@ -106,6 +107,7 @@ public class RoleplayMemoryBackupService {
             JSONArray blacklist = root.getJSONArray("blacklist");
             JSONArray member = root.getJSONArray("member");
             JSONArray friendMemory = root.getJSONArray("friendMemory");
+            JSONObject conversationContext = root.getJSONObject("conversationContext");
             backupAllMemories("before-restore-"+name);
             service.storage().update("DELETE FROM `"+RoleplayService.MEMORY_TABLE+"`");
             service.storage().update("DELETE FROM `"+RoleplayService.STATE_TABLE+"`");
@@ -116,6 +118,10 @@ public class RoleplayMemoryBackupService {
             service.memberService().restoreAll(member);
             if (root.containsKey("friendMemory")) {
                 service.friendMemoryService().restoreAll(friendMemory);
+            }
+            int conversationSaved = 0;
+            if (root.containsKey("conversationContext")) {
+                conversationSaved = service.conversationContextService().restoreAll(conversationContext);
             }
             int shortSaved = restoreShortTerm(shortTerm);
             int contextSaved = service.contextCompactor().restoreAll(structuredContext);
@@ -132,10 +138,12 @@ public class RoleplayMemoryBackupService {
             result.put("blacklist",blacklist == null ? 0 : blacklist.size());
             result.put("member",member == null ? 0 : member.size());
             result.put("friendMemory",friendMemory == null ? 0 : friendMemory.size());
+            result.put("conversationContext",conversationSaved);
             service.plugin().getLogger().sendInfo("[记忆] 已从 "+name+" 恢复记忆：短期 "+shortSaved
                     +" 条，结构化上下文 "+contextSaved+" 条，长期 "+longSaved+" 条，永久 "
                     +(globalMemory == null ? 0 : globalMemory.size())+" 条，好友 "
-                    +(friendMemory == null ? 0 : friendMemory.size())+" 条");
+                    +(friendMemory == null ? 0 : friendMemory.size())+" 条，追加上下文 "
+                    +conversationSaved+" 条");
             return result;
         } catch (Exception e) {
             service.plugin().getLogger().sendException(e);

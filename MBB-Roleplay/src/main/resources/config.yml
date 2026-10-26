@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 53
+configVersion: 54
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -60,6 +60,22 @@ randomActivityShareEnable: true
 randomActivityShareMinScore: 0.75
 #单次活动插件调用超时秒数，由插件负责实际 HTTP 超时
 randomActivityTimeoutSecond: 300
+#是否启用追加式会话上下文与自动压缩
+conversationAppendEnable: true
+#模型上下文 Token 上限；代码按保守字符估算并在压缩阈值触发
+conversationContextTokenLimit: 1000000
+#上下文达到窗口上限的多少比例时压缩
+conversationContextCompactPercent: 0.75
+#压缩后保留最近原文的窗口比例
+conversationContextKeepPercent: 0.20
+#追加模式下额外放入本轮动态上下文的最近群聊/私聊条数
+conversationAppendRecentMessages: 20
+#会话压缩使用的 AI profile，留空依次回退 memoryProfile 和 aiProfile
+conversationCompactionProfile: ""
+#会话压缩摘要输出 Token 上限
+conversationCompactionMaxTokens: 6000
+#会话压缩请求超时秒数
+conversationCompactionTimeoutSecond: 300
 #情绪回落间隔，每隔多少分钟向角色人格基线靠近一次
 emotionDecayMinute: 30
 #同一用户同一类情绪事件的规则更新冷却秒数

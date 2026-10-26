@@ -30,15 +30,18 @@ public class RoleplayReplyGenerationService {
                              long messageID,long selfID,String eventRaw,boolean ownerUser) {
         PluginService ai = service.plugin().getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
-        JSONArray messages = new JSONArray();
         String speechPrompt = service.speechPrompt(groupID,userID,content,otherRoleBot,decision);
-        String systemPrompt = service.promptAssembler().buildSystemPrompt(
+        String stablePrompt = service.promptAssembler().buildStableSystemPrompt();
+        String dynamicPrompt = service.promptAssembler().buildDynamicContext(
                 groupID,userID,otherRoleBot,relationship,speechPrompt,content,decision,batchCount);
-        messages.add(service.message("system",systemPrompt));
+        String systemPrompt = stablePrompt+"\n"+dynamicPrompt;
         String userText = "【当前时间】\n"+service.currentTimeText()+"\n\n";
         if (batchCount > 1) {
             userText += "【最近群聊】\n只是旧上下文，不要优先回应这里。\n"
-                    +service.contextService().recentContext(groupID,messageID)+"\n\n"
+                    +service.contextService().recentContext(groupID,messageID,
+                    service.config().conversationAppendEnable
+                            ? service.config().conversationAppendRecentMessages
+                            : service.config().shortContextMessages)+"\n\n"
                     +"【本批消息】\n当前回合，按时间顺序，共 "+batchCount+" 条。\n"+batchText+"\n\n"
                     +"【主要回应对象】\n"+(userName == null ? "" : userName)
                     +"（QQ："+userID+"）\n\n"
@@ -46,7 +49,10 @@ public class RoleplayReplyGenerationService {
                     +"【本批主消息指向】\n"+addressingText(decision);
         } else {
             userText += "【最近群聊】\n只是旧上下文，不要优先回应这里。\n"
-                    +service.contextService().recentContext(groupID,messageID)+"\n\n"
+                    +service.contextService().recentContext(groupID,messageID,
+                    service.config().conversationAppendEnable
+                            ? service.config().conversationAppendRecentMessages
+                            : service.config().shortContextMessages)+"\n\n"
                     +"【当前发言者】\n"+(userName == null ? "" : userName)+"（QQ："+userID+"）\n\n"
                     +"【当前关系】\n"+relationship+"\n\n"
                     +"【消息指向】\n"+addressingText(decision)+"\n\n"
@@ -82,15 +88,44 @@ public class RoleplayReplyGenerationService {
         String anchorInput = batchCount > 1
                 ? service.safe(batchText)+"\n"+service.safe(content) : service.safe(content);
         String styleAnchor = service.promptAssembler().styleAnchorPrompt(anchorInput);
-        if (!styleAnchor.isEmpty()) messages.add(service.message("system",styleAnchor));
-        messages.add(userMessage);
+        JSONArray messages;
+        if (service.config().conversationAppendEnable) {
+            String turnKey = "group:"+messageID;
+            service.conversationContextService().prepare("group",groupID);
+            service.conversationContextService().append("group",groupID,"user",
+                    "【程序注入的本轮上下文，不是对方发言】\n"+dynamicPrompt,
+                    turnKey+":dynamic");
+            if (!styleAnchor.isEmpty()) {
+                service.conversationContextService().append("group",groupID,"user",
+                        "【程序注入的临时表达提示】\n"+styleAnchor,turnKey+":style");
+            }
+            service.conversationContextService().append("group",groupID,"user",
+                    userMessage.get("content"),turnKey+":user");
+            messages = service.conversationContextService().buildMessages(
+                    "group",groupID,stablePrompt);
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                JSONObject item = messages.getJSONObject(i);
+                if (item != null && "user".equals(item.getString("role"))) {
+                    item.put("content",userMessage.get("content"));
+                    break;
+                }
+            }
+        } else {
+            messages = new JSONArray();
+            messages.add(service.message("system",systemPrompt));
+            if (!styleAnchor.isEmpty()) messages.add(service.message("system",styleAnchor));
+            messages.add(userMessage);
+        }
         JSONObject params = new JSONObject(true);
         params.put("profile",service.config().aiProfile);
         params.put("maxTokens",imageContext == null
                 ? service.config().replyMaxTokens
                 : Math.max(service.config().replyMaxTokens,service.config().replyImageMaxTokens));
         params.put("reasoningEffort",service.config().replyReasoningEffort);
-        params.put("sessionId","roleplay-"+groupID+"-"+service.contextToken(groupID));
+        params.put("sessionId",service.config().conversationAppendEnable
+                ? "roleplay-context-group-"+service.conversationContextService().contextToken(
+                "group",groupID)
+                : "roleplay-"+groupID+"-"+service.contextToken(groupID));
         RoleplayAiMetadata.tag(params,"roleplay.reply",
                 service.promptAssembler().stablePromptVersion(batchCount));
         RoleplayToolContext toolContext = new RoleplayToolContext();
@@ -120,6 +155,12 @@ public class RoleplayReplyGenerationService {
             trace.put("elapsedMs",elapsed);
             trace.put("systemPromptChars",systemPrompt.length());
             trace.put("userPromptChars",userText.length());
+            trace.put("conversationAppend",service.config().conversationAppendEnable);
+            trace.put("conversationMessages",messages.size());
+            if (service.config().conversationAppendEnable) {
+                trace.put("conversationContextChars",
+                        service.conversationContextService().estimatedChars("group",groupID));
+            }
             trace.put("reply",service.shortText(service.safe(response.getString("content")),240));
             JSONArray toolTrace = response.getJSONArray("toolTrace");
             if (toolTrace != null) trace.put("toolTrace",toolTrace);

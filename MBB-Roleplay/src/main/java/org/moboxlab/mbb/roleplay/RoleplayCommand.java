@@ -83,6 +83,7 @@ public class RoleplayCommand extends BotCommand {
                 "/role help [分类]",
                 "/role status",
                 "/role random",
+                "/role context [status|compact|clear]",
                 "/role quiet add|remove");
     }
 
@@ -125,6 +126,37 @@ public class RoleplayCommand extends BotCommand {
                             ? "未配置"
                             : String.join("、",activity.getJSONArray("services").toJavaList(String.class)));
             sender.sendMessage(message.toString());
+            return true;
+        }
+        if ("context".equals(action)) {
+            long groupID = sender.getGroupID();
+            if (groupID <= 0) {
+                sender.sendMessage("请在群聊中使用。");
+                return true;
+            }
+            String sub = args.length > 2 ? args[2].toLowerCase() : "status";
+            if ("clear".equals(sub)) {
+                service.conversationContextService().clear("group",groupID);
+                sender.sendMessage("当前群的追加式会话上下文已清空。");
+                return true;
+            }
+            if ("compact".equals(sub)) {
+                service.submitBackground(() -> {
+                    boolean compacted = service.conversationContextService().compactNow("group",groupID);
+                    sender.sendMessage(compacted
+                            ? "当前群会话上下文已压缩。"
+                            : "当前群可供压缩的消息不足。");
+                });
+                sender.sendMessage("开始压缩当前群会话上下文。");
+                return true;
+            }
+            JSONObject status = service.conversationContextService().status("group",groupID);
+            sender.sendMessage("追加式上下文："+(status.getBooleanValue("enable") ? "开" : "关")
+                    +"\n窗口上限："+status.getIntValue("tokenLimit")+" Token（按字符保守估算）"
+                    +"\n当前估算："+status.getLongValue("estimatedChars")+" Token"
+                    +"\n窗口消息："+status.getIntValue("messageCount")+" 条"
+                    +"\n压缩摘要："+status.getIntValue("summaryChars")+" 字符"
+                    +"\n压缩游标："+status.getLongValue("compactedThroughID"));
             return true;
         }
         if ("groups".equals(action)) {
@@ -240,6 +272,7 @@ public class RoleplayCommand extends BotCommand {
                 return true;
             }
             service.clearMemory(groupID);
+            service.conversationContextService().clear("group",groupID);
             sender.sendMessage("当前群的角色记忆、聊天上下文和 AI 会话已清空。");
             return true;
         }
@@ -264,7 +297,7 @@ public class RoleplayCommand extends BotCommand {
             sender.sendMessage(changed ? "角色设定已切换："+args[2] : "切换失败，请检查文件名是否存在。");
             return true;
         }
-        sender.sendMessage("用法：/role status | random | enable/disable | groups | reload | memory | forget | persona");
+        sender.sendMessage("用法：/role status | random | context | enable/disable | groups | reload | memory | forget | persona");
         return true;
     }
 

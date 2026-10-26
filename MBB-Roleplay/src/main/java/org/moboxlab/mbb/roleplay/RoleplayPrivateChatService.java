@@ -165,7 +165,7 @@ public class RoleplayPrivateChatService {
                 +"禁止使用客服式关心、总结、清单和过度亲昵。\n"
                 +"触发原因："+service.safe(reason)+"\n"
                 +"最近私聊：\n"+recentContext(userID);
-        return callAi(userID,prompt,true,Collections.<Long>emptySet()).text;
+        return callAi(userID,prompt,true,Collections.<Long>emptySet(),"").text;
     }
 
     public boolean sendProactive(long userID,String content,String reason) {
@@ -235,13 +235,14 @@ public class RoleplayPrivateChatService {
 
     private void runBatch(long userID,List<PrivateIncoming> initial) {
         List<PrivateIncoming> batch = new ArrayList<>(initial);
+        String turnKey = privateTurnKey(userID,batch);
         int merges = 0;
         try {
             ReplyResult reply;
             while (true) {
                 String current = buildBatchContent(batch);
                 Set<Long> excluded = excludedMessageIDs(batch);
-                reply = callAi(userID,current,false,excluded);
+                reply = callAi(userID,current,false,excluded,turnKey);
                 List<PrivateIncoming> extra = null;
                 if (merges < Math.max(0,config.privateChatLiveMergeMaxRounds)) {
                     synchronized (queueLock) {
@@ -263,6 +264,10 @@ public class RoleplayPrivateChatService {
                 text = text.substring(0,config.privateChatMaxReplyChars).trim();
             }
             if (sendText(userID,text)) {
+                if (config.conversationAppendEnable) {
+                    service.conversationContextService().append("private",userID,"assistant",text,
+                            turnKey+":assistant");
+                }
                 savePrivateMemory(userID,reply.memory);
                 service.friendMemoryService().maybeSchedule(userID);
             }
@@ -363,17 +368,43 @@ public class RoleplayPrivateChatService {
         return result;
     }
 
+    private String privateTurnKey(long userID,List<PrivateIncoming> batch) {
+        long firstID = 0L;
+        if (batch != null) {
+            for (PrivateIncoming item : batch) {
+                if (item != null && item.messageID > 0) {
+                    if (firstID <= 0 || item.messageID < firstID) firstID = item.messageID;
+                }
+            }
+        }
+        return "private:"+userID+":turn:"+(firstID > 0 ? firstID : System.currentTimeMillis());
+    }
+
     private ReplyResult callAi(long userID,String current,boolean proactive,
-                               Set<Long> excludedMessageIDs) {
+                               Set<Long> excludedMessageIDs,String turnKey) {
         ReplyResult reply = new ReplyResult();
         PluginService ai = plugin.getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return reply;
-        JSONArray messages = new JSONArray();
-        //固定规则和人设放在最前，时间、用户、记忆与最近消息继续放在动态系统块。
-        messages.add(service.message("system",stableSystemPrompt()));
-        messages.add(service.message("system",dynamicSystemPrompt(
-                userID,current,proactive,excludedMessageIDs)));
-        messages.add(service.message("user","当前时间："+service.currentTimeText()+"\n"+current));
+        String stable = stableSystemPrompt();
+        String dynamic = dynamicSystemPrompt(userID,current,proactive,excludedMessageIDs);
+        String userText = "当前时间："+service.currentTimeText()+"\n"+current;
+        JSONArray messages;
+        if (config.conversationAppendEnable && !proactive && !turnKey.isEmpty()) {
+            service.conversationContextService().prepare("private",userID);
+            service.conversationContextService().append("private",userID,"user",
+                    "【程序注入的本轮上下文，不是对方发言】\n"+dynamic,
+                    turnKey+":dynamic");
+            service.conversationContextService().append("private",userID,"user",
+                    userText,turnKey+":user");
+            messages = service.conversationContextService().buildMessages(
+                    "private",userID,stable);
+        } else {
+            messages = new JSONArray();
+            //固定规则和人设放在最前，时间、用户、记忆与最近消息继续放在动态系统块。
+            messages.add(service.message("system",stable));
+            messages.add(service.message("system",dynamic));
+            messages.add(service.message("user",userText));
+        }
         JSONObject params = new JSONObject(true);
         params.put("profile",config.aiProfile);
         params.put("maxTokens",config.replyMaxTokens);
@@ -381,7 +412,10 @@ public class RoleplayPrivateChatService {
         params.put("temperature",0.8);
         params.put("timeoutSeconds",config.randomTickTimeoutSecond);
         params.put("retryCount",0);
-        params.put("sessionId","roleplay-private-"+userID);
+        params.put("sessionId",config.conversationAppendEnable && !proactive && !turnKey.isEmpty()
+                ? "roleplay-context-private-"+service.conversationContextService().contextToken(
+                "private",userID)
+                : "roleplay-private-"+userID);
         params.put("messages",messages);
         RoleplayAiMetadata.tagTemplate(params,proactive
                 ? "roleplay.private.proactive" : "roleplay.private.reply",
@@ -458,22 +492,29 @@ public class RoleplayPrivateChatService {
                 .append("【全局永久记忆】\n")
                 .append(service.globalMemoryService().promptText(
                         current,userID,config.globalMemoryRelevanceMaxChars)).append("\n\n")
-                .append("【近期私聊】\n").append(recentContext(userID,excludedMessageIDs));
+                .append("【近期私聊】\n").append(recentContext(userID,excludedMessageIDs,
+                        config.conversationAppendEnable
+                                ? config.conversationAppendRecentMessages
+                                : config.privateChatContextMessages));
         return builder.toString();
     }
 
     String recentContext(long userID) {
-        return recentContext(userID,Collections.<Long>emptySet());
+        return recentContext(userID,Collections.<Long>emptySet(),config.privateChatContextMessages);
     }
 
     String recentContext(long userID,long excludedMessageID) {
         return recentContext(userID,excludedMessageID <= 0
                 ? Collections.<Long>emptySet()
-                : Collections.singleton(excludedMessageID));
+                : Collections.singleton(excludedMessageID),config.privateChatContextMessages);
     }
 
     String recentContext(long userID,Set<Long> excludedMessageIDs) {
-        int limit = Math.max(4,config.privateChatContextMessages);
+        return recentContext(userID,excludedMessageIDs,config.privateChatContextMessages);
+    }
+
+    String recentContext(long userID,Set<Long> excludedMessageIDs,int limit) {
+        int capped = Math.max(4,Math.min(200,limit));
         Set<Long> excluded = new LinkedHashSet<>();
         if (excludedMessageIDs != null) {
             for (Long id : excludedMessageIDs) {
@@ -494,7 +535,7 @@ public class RoleplayPrivateChatService {
             sql += " AND `messageID` NOT IN ("+placeholders+")";
         }
         sql += " ORDER BY `messageTime` DESC,`ID` DESC LIMIT ?";
-        params.add(limit);
+        params.add(capped);
         List<JSONObject> rows = storage().query(sql,params.toArray());
         if (rows == null || rows.isEmpty()) return "暂无。";
         StringBuilder builder = new StringBuilder();

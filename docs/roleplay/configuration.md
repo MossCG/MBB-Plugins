@@ -71,6 +71,14 @@ randomActivityMemoryImportance: 3
 randomActivityShareEnable: true
 randomActivityShareMinScore: 0.75
 randomActivityTimeoutSecond: 300
+conversationAppendEnable: true
+conversationContextTokenLimit: 1000000
+conversationContextCompactPercent: 0.75
+conversationContextKeepPercent: 0.20
+conversationAppendRecentMessages: 20
+conversationCompactionProfile: ""
+conversationCompactionMaxTokens: 6000
+conversationCompactionTimeoutSecond: 300
 emotionDecayMinute: 30
 emotionEventCooldownSecond: 300
 emotionAnalyzeEnable: true
@@ -441,6 +449,15 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 通过 `activity_run` 执行具体领域逻辑；完整协议见 `docs/roleplay/integrations.md`。
 活动返回的高兴趣内容可以由调度器写入统一大脑 `self` 记忆，并按 `randomActivityShareMinScore`
 决定是否分享到私聊、群聊或 Qzone。B 站和购物等 API 不内置于 Roleplay。
+
+`conversationAppendEnable` 默认 `true`。稳定 persona、固定规则和工具策略作为不可变系统前缀；
+动态上下文、用户消息、工具期间补充消息和最终角色回复按群聊或私聊频道持久化追加。
+`conversationContextTokenLimit` 默认 `1000000`，代码按字符做保守估算，并在达到
+`conversationContextCompactPercent`（默认 75%）时把旧区间压缩成频道摘要，保留最近
+`conversationContextKeepPercent`（默认 20%）的原文；追加模式每轮额外带入的动态近期消息由
+`conversationAppendRecentMessages` 控制，避免和持久化历史重复注入整段旧上下文。压缩模型由 `conversationCompactionProfile`
+指定，留空依次回退 `memoryProfile` 和 `aiProfile`。`/role context` 可以查看状态，
+`/role context compact` 强制压缩，`/role context clear` 清空当前群追加上下文。
 
 `directReplyBypassCooldown` 默认 `true`。消息明确艾特、引用或点名角色时，直接回复概率固定为
 `1.0`，并绕过普通 `replyCooldownSecond` 冷却，但仍然受 `maxRepliesPerHour` 小时上限约束。
