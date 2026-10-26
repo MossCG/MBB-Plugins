@@ -54,11 +54,12 @@ public class ComfyUIService implements PluginService {
         private final int width;
         private final int height;
         private final String cameraMode;
+        private final String requestContext;
 
         private ComfyUIJob(long taskID,long groupID,long userID,long messageID,
                            String prompt,String negativePrompt,
                            String expectedTags,String forbiddenTags,
-                           int width,int height,String cameraMode) {
+                           int width,int height,String cameraMode,String requestContext) {
             this.taskID = taskID;
             this.groupID = groupID;
             this.userID = userID;
@@ -70,6 +71,7 @@ public class ComfyUIService implements PluginService {
             this.width = width;
             this.height = height;
             this.cameraMode = cameraMode;
+            this.requestContext = requestContext;
         }
     }
 
@@ -204,6 +206,7 @@ public class ComfyUIService implements PluginService {
         String negativePrompt = sanitizeNegativePrompt(params.getString("negativePrompt"));
         String expectedTags = sanitizeTags(params.getString("expectedTags"));
         String forbiddenTags = sanitizeTags(params.getString("forbiddenTags"));
+        String requestContext = normalizeRequestContext(params.getJSONObject("requestContext")).toJSONString();
         if (prompt.length() < config.promptMinChars) {
             return error("生图需求还不够明确，请先补充主体和风格。","prompt");
         }
@@ -222,7 +225,8 @@ public class ComfyUIService implements PluginService {
         }
         long taskID = sequence.incrementAndGet();
         ComfyUIJob job = new ComfyUIJob(taskID,groupID,userID,messageID,
-                prompt,negativePrompt,expectedTags,forbiddenTags,size.width,size.height,cameraMode);
+                prompt,negativePrompt,expectedTags,forbiddenTags,size.width,size.height,
+                cameraMode,requestContext);
         if (!busyGroups.add(groupID)) {
             return error("当前群已经有生图任务在执行。","busy");
         }
@@ -697,6 +701,8 @@ public class ComfyUIService implements PluginService {
         params.put("messageID",job.messageID);
         params.put("prompt",job.prompt);
         params.put("model",config.checkpoint);
+        JSONObject requestContext = jobRequestContext(job);
+        if (!requestContext.isEmpty()) params.put("requestContext",requestContext);
         if (imageFile != null) params.put("imageFile",imageFile.getAbsolutePath());
         JSONObject result = roleplay.call("prepare-draw-complete",params);
         if (result == null || !result.getBooleanValue("status")) return "画好啦，快看看。";
@@ -735,11 +741,80 @@ public class ComfyUIService implements PluginService {
         params.put("messageID",job.messageID);
         params.put("prompt",job.prompt);
         params.put("reason",reason);
+        JSONObject requestContext = jobRequestContext(job);
+        if (!requestContext.isEmpty()) params.put("requestContext",requestContext);
         roleplay.call("notify-draw-failed",params);
+    }
+
+    private JSONObject jobRequestContext(ComfyUIJob job) {
+        if (job == null || safe(job.requestContext).trim().isEmpty()) return new JSONObject(true);
+        try {
+            JSONObject value = JSON.parseObject(job.requestContext);
+            return value == null ? new JSONObject(true) : value;
+        } catch (Exception e) {
+            return new JSONObject(true);
+        }
     }
 
     private String fileUri(File file) {
         return "file:///"+file.getAbsolutePath().replace("\\","/");
+    }
+
+    static JSONObject normalizeRequestContext(JSONObject input) {
+        JSONObject result = new JSONObject(true);
+        if (input == null) return result;
+        putText(result,"message",input.getString("message"),800);
+        putText(result,"userName",input.getString("userName"),80);
+        putText(result,"relationship",input.getString("relationship"),40);
+        putText(result,"size",input.getString("size"),20);
+        putText(result,"camera",input.getString("camera"),20);
+        result.put("targetNames",textArray(input.getJSONArray("targetNames"),8,80));
+        result.put("targetAliases",textArray(input.getJSONArray("targetAliases"),16,80));
+        long requestedAt = input.getLongValue("requestedAt");
+        if (requestedAt > 0) result.put("requestedAt",requestedAt);
+        JSONObject brief = normalizeDrawBrief(input.getJSONObject("brief"));
+        if (!brief.isEmpty()) result.put("brief",brief);
+        return result;
+    }
+
+    private static JSONObject normalizeDrawBrief(JSONObject input) {
+        JSONObject result = new JSONObject(true);
+        if (input == null) return result;
+        putText(result,"subject",input.getString("subject"),160);
+        putText(result,"action",input.getString("action"),160);
+        putText(result,"expression",input.getString("expression"),120);
+        putText(result,"outfit",input.getString("outfit"),160);
+        putText(result,"scene",input.getString("scene"),240);
+        putText(result,"composition",input.getString("composition"),160);
+        putText(result,"raw",input.getString("raw"),500);
+        result.put("characters",textArray(input.getJSONArray("characters"),8,80));
+        result.put("mustInclude",textArray(input.getJSONArray("mustInclude"),8,80));
+        result.put("mustExclude",textArray(input.getJSONArray("mustExclude"),8,80));
+        return result;
+    }
+
+    private static void putText(JSONObject result,String key,String value,int maxChars) {
+        String text = value == null ? "" : value.trim();
+        if (!text.isEmpty()) result.put(key,shorten(text,maxChars));
+    }
+
+    private static JSONArray textArray(JSONArray values,int maxItems,int maxChars) {
+        JSONArray result = new JSONArray();
+        if (values == null) return result;
+        for (Object value : values) {
+            if (result.size() >= maxItems) break;
+            String text = value == null ? "" : String.valueOf(value).trim();
+            if (text.isEmpty()) continue;
+            String shortened = shorten(text,maxChars);
+            if (!result.contains(shortened)) result.add(shortened);
+        }
+        return result;
+    }
+
+    private static String shorten(String value,int maxChars) {
+        String text = value == null ? "" : value;
+        if (maxChars <= 0) return "";
+        return text.length() <= maxChars ? text : text.substring(0,maxChars);
     }
 
     private JSONObject error(String message,String type) {

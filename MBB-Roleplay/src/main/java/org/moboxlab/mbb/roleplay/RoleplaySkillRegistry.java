@@ -492,6 +492,17 @@ public class RoleplaySkillRegistry {
             if (!service.safe(compiled.size).isEmpty()) params.put("size",compiled.size);
             if (!service.safe(compiled.camera).isEmpty()) params.put("camera",compiled.camera);
             if (!service.config().cameraEnable) params.remove("camera");
+            JSONObject requestContext = new JSONObject(true);
+            requestContext.put("message",service.shortText(context.message,800));
+            requestContext.put("userName",service.shortText(context.userName,80));
+            requestContext.put("relationship",service.shortText(context.relationship,40));
+            requestContext.put("brief",brief.toJson());
+            requestContext.put("targetNames",compiled.targetNames);
+            requestContext.put("targetAliases",compiled.targetAliases);
+            requestContext.put("size",compiled.size);
+            requestContext.put("camera",compiled.camera);
+            requestContext.put("requestedAt",System.currentTimeMillis());
+            params.put("requestContext",requestContext);
             params.put("groupID",context.groupID);
             params.put("userID",context.userID);
             params.put("messageID",context.messageID);

@@ -182,9 +182,11 @@ JSON 使用带换行缩进的格式保存，方便直接打开阅读和对比；
 
 普通生图不传 `camera`；用户明确说“自拍”“拍你”时传 `selfie`，说“拍照看看你的布丁”“拍一下桌子/房间”时传 `photo`。
 
-生图完成后由 `MBB-ComfyUI` 回调 `MBB-Roleplay`，回调会携带本机生成文件路径；Roleplay 启用工作区时
-自动归档到 `media/generated/comfyui/`。角色会在群里提醒生图发起者，同时 Roleplay 会抑制 draw
-工具本轮额外生成的“画好了/完成”正文，避免和真正的完成回调重复。
+生图完成后由 `MBB-ComfyUI` 回调 `MBB-Roleplay`，回调会携带本机生成文件路径和提交任务时的
+`requestContext`。上下文包含用户原话、画面 brief、解析后的 `targetNames / targetAliases`、尺寸和相机模式；
+`MBB-ComfyUI` 会裁剪字段后随任务保存在内存中，并在成功、失败两种回调里原样返回。
+Roleplay 生成提醒时必须使用这份请求上下文，不能从最近群聊重新猜人物；如果模型提到非目标角色，会丢弃该文案并使用带正确角色名的兜底提醒。
+Roleplay 启用工作区时，图片会自动归档到 `media/generated/comfyui/`，并抑制 draw 工具本轮额外生成的“画好了/完成”正文。
 
 ## 构建
 

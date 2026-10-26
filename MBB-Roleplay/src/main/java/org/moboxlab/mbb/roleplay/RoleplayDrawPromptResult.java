@@ -1,5 +1,8 @@
 package org.moboxlab.mbb.roleplay;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 生图 prompt 编译结果
  */
@@ -13,6 +16,8 @@ public class RoleplayDrawPromptResult {
     public String validation = "";
     public String expectedTags = "";
     public String forbiddenTags = "";
+    public List<String> targetNames = new ArrayList<>();
+    public List<String> targetAliases = new ArrayList<>();
 
     public static RoleplayDrawPromptResult ok(String prompt,String negativePrompt,
                                               String size,String camera,String validation) {

@@ -194,12 +194,13 @@ Roleplay 还会用 `turn_status` 复核一次，被抢就放弃发送。赢了�
 1. 角色层只输出结构化 `brief`：目标角色、主体、动作、表情、服装、场景、构图、尺寸、必须出现和禁止出现；
 2. `RoleplayDrawPromptService` 用独立上下文把 `brief` 编译成最终 prompt，并按 `brief.characters/subject` 解析目标角色，注入对应角色的 `imageTags`、`imageNegativeTags`、外貌资料和知识库条目。
 
-编译器只取目标角色自己的学生条目，不会把其他角色或同源角色的外貌一起注入。用户让角色画别人时，目标角色就是别人，不会自动把当前角色画进画面。编译完成后 `RoleplayDrawPromptValidator` 会做本地质检：把其他角色和冲突外貌词从正向 prompt 移到负向 prompt，强制目标角色 canonical tag 和人数标签。最终交给 `MBB-ComfyUI` 的是 `prompt + negativePrompt + size + camera`，其中 `negativePrompt` 会追加到 ComfyUI 全局负向词后面。
+编译器只取目标角色自己的学生条目，不会把其他角色或同源角色的外貌一起注入。用户让角色画别人时，目标角色就是别人，不会自动把当前角色画进画面。编译完成后 `RoleplayDrawPromptValidator` 会做本地质检：把其他角色和冲突外貌词从正向 prompt 移到负向 prompt，强制目标角色 canonical tag 和人数标签。最终交给 `MBB-ComfyUI` 的是 `prompt + negativePrompt + size + camera + requestContext`，其中 `negativePrompt` 会追加到 ComfyUI 全局负向词后面；`requestContext` 保存用户原话、原始 brief、解析后的目标角色名与别名，供完成或失败回调继续使用。
 
 `MBB-ComfyUI` 生成完成后，如果 `identityCheckEnable` 为 `true`，会调用 `MBB-Vision` 对图片做一次身份/外貌校验：命中 `forbiddenTags` 时在控制台输出“身份校验疑似不符”，校验只记录日志，不阻断图片发送。
 
 draw 工具成功只表示任务已提交。Roleplay 会在本轮最终回复阶段抑制额外正文，由 MBB-ComfyUI 在图片完成时
-发送图片和完成提醒；回调同时携带生成文件路径，Roleplay 工作区启用时会自动归档到
+发送图片和完成提醒；回调同时携带生成文件路径和任务提交时的 `requestContext`。Roleplay 只依据
+`targetNames / targetAliases` 生成提醒，检测到非目标角色名时改用正确目标的兜底文案。工作区启用时会自动归档到
 `media/generated/comfyui/`。
 
 ## 回复复核与隐式反馈

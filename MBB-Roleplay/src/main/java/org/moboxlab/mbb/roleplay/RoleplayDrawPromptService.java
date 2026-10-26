@@ -83,6 +83,7 @@ public class RoleplayDrawPromptService {
             String compiledCamera = safe(parsed.getString("camera"));
             RoleplayDrawPromptResult result = RoleplayDrawPromptValidator.validate(targets,brief,
                     prompt,negative,config.drawPromptMaxChars,config.drawPromptNegativeMaxChars);
+            populateTargets(result,targets);
             if (!result.status) return result;
             if (!compiledSize.isEmpty()) result.size = compiledSize;
             else result.size = size;
@@ -205,6 +206,7 @@ public class RoleplayDrawPromptService {
         RoleplayDrawPromptResult result = RoleplayDrawPromptValidator.validate(targets,brief,
                 positive.toString(),negative.toString(),
                 service.config().drawPromptMaxChars,service.config().drawPromptNegativeMaxChars);
+        populateTargets(result,targets);
         if (result.status) {
             result.size = size;
             result.camera = camera;
@@ -214,6 +216,20 @@ public class RoleplayDrawPromptService {
                     +" prompt="+service.shortText(result.prompt,180));
         }
         return result;
+    }
+
+    private void populateTargets(RoleplayDrawPromptResult result,List<RoleplayDrawTarget> targets) {
+        if (result == null || targets == null) return;
+        for (RoleplayDrawTarget target : targets) {
+            if (target == null) continue;
+            addDistinct(result.targetNames,target.name);
+            for (String alias : target.aliases) addDistinct(result.targetAliases,alias);
+        }
+    }
+
+    private void addDistinct(List<String> values,String value) {
+        String text = safe(value);
+        if (!text.isEmpty() && !values.contains(text)) values.add(text);
     }
 
     private void append(StringBuilder builder,String value) {
