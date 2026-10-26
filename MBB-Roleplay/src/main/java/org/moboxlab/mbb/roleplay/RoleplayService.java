@@ -117,6 +117,7 @@ public class RoleplayService {
     private final RoleplayModelClient modelClient;
     private final RoleplayTrainService trainService;
     private final RoleplaySkillRegistry skillRegistry;
+    private final RoleplaySlangLexicon slangLexicon;
     private final RoleplayToolLoopService toolLoopService;
     private final RoleplayToolMemoryService toolMemoryService;
     private final RoleplayToolTurnService toolTurnService;
@@ -358,6 +359,7 @@ public class RoleplayService {
         this.skillRegistry = new RoleplaySkillRegistry(this);
         this.toolMemoryService = new RoleplayToolMemoryService(plugin,config);
         this.toolTurnService = new RoleplayToolTurnService(plugin,config);
+        this.slangLexicon = new RoleplaySlangLexicon(this);
         this.toolLoopService = new RoleplayToolLoopService(this,config);
         this.router = new RoleplayRouter(plugin,this);
     }
@@ -384,6 +386,7 @@ public class RoleplayService {
         traceService.init();
         toolMemoryService.init();
         toolTurnService.init();
+        slangLexicon.reload();
         threadService.init();
         privateChatService.init();
         friendMemoryService.scheduleBackfill();
@@ -426,6 +429,7 @@ public class RoleplayService {
         toolLoopService.reload(config);
         toolMemoryService.reload(config);
         toolTurnService.reload(config);
+        slangLexicon.reload();
         executorService.ensureTurnExecutor();
         executorService.ensureBackgroundExecutor();
         dailyReviewService.ensureTask();
@@ -773,6 +777,10 @@ public class RoleplayService {
 
     RoleplaySkillRegistry skillRegistry() {
         return skillRegistry;
+    }
+
+    RoleplaySlangLexicon slangLexicon() {
+        return slangLexicon;
     }
 
     RoleplayEmotionService emotionService() {

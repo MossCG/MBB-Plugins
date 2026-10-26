@@ -514,7 +514,7 @@ public class RoleplayPrivateChatService {
                 .append("\n【对方】\n")
                 .append("QQ：").append(userID).append("\n")
                 .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n");
-        String slangPrompt = RoleplaySlangLexicon.promptFor(current);
+        String slangPrompt = service.slangLexicon().promptFor(current);
         if (!slangPrompt.isEmpty()) builder.append(slangPrompt).append("\n");
         appendMemorySection(builder,"个人印象",memoryDedup.filter("member.profile",
                 service.memberService().promptText(0L,userID),91));

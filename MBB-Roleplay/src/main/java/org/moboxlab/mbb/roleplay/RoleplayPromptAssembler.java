@@ -288,7 +288,7 @@ public class RoleplayPromptAssembler {
                                           List<String> actionIds,int batchCount) {
         RoleplayConfig config = service.config();
         StringBuilder builder = new StringBuilder();
-        String slangPrompt = RoleplaySlangLexicon.promptFor(messageText);
+        String slangPrompt = service.slangLexicon().promptFor(messageText);
         if (!slangPrompt.isEmpty()) builder.append(slangPrompt).append("\n");
         if (isClosingMessage(messageText)) {
             builder.append("【收尾】\n")

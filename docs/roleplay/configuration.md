@@ -422,6 +422,15 @@ quietReplyEnable: true
 
 `drawPromptCompilerEnable` 默认 `true`。开启后角色层只生成画面 brief，`RoleplayDrawPromptService` 用独立上下文按 `brief.characters/subject` 解析目标角色，注入对应角色的 `imageTags`、`imageNegativeTags`、外貌和知识库条目，再交给 `MBB-ComfyUI`。画别人时不会自动把当前角色加入画面。`drawPromptProfile` 留空时使用 `aiProfile`；编译默认使用 `reasoningEffort: none`，避免把预算耗在思考上。`drawPromptMaxChars` 和 `drawPromptNegativeMaxChars` 分别限制最终正向、角色专属负向 prompt；`drawPromptKnowledgeMaxChars` 只注入目标角色自己的学生条目，不会把凯伊等其他角色外貌带进生图上下文。
 
+### 网络用语词集
+
+插件首次安装会在数据目录释放 `network-slangs.json`，默认约 35 条，覆盖常见反应、问法、情绪、社区冲突和隐私风险词。
+每条包含 `id / category / risk / priority / triggers / meaning / usage / avoid`；`triggers.mode` 支持
+`token`（英文缩写边界）、`literal`（文本包含）和 `standalone`（独立词）。`maxInjected` 限制单轮最多自动注入条数，默认 4。
+
+回复时只注入当前消息命中且优先级较高的小部分词条；模型需要额外查词时可调用 `slang_search`。
+修改 JSON 后执行 `/role reload` 即可重新加载，无需重启。文件缺失时插件会重新释放默认词集；JSON 损坏时只停用词集注入，不影响正常聊天。
+
 `replyReviewEnable` 默认 `true`。角色回复在发送前会经过 `RoleplayReplyReviewService` 统一复核和风格后处理：检查角色口吻、AI 味、总结腔、说教和重复；删除模型凭空生成的链接；单句超过 `replySegmentMaxChars` 时做压缩简写、换行或分成短句。复核返回合法 `rewrite` 时会使用改写文本，不再要求必须先低于 `replyReviewMinScore`。单条回复和合批段落默认都最多使用 5 行；分别由 `replyBeatMaxSegments` 和 `replyMaxSegments` 控制。`replyReviewProfile` 留空时使用 `aiProfile`。
 
 默认句尾不使用句号。正常心情下，复核和发送兜底都会把“。”转换成换行节拍；只有当前群情绪为烦躁、低落或闹别扭时才允许保留句号。私聊没有群情绪上下文，默认同样不使用句号。

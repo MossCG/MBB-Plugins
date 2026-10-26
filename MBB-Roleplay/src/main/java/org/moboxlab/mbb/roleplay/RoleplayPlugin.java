@@ -30,6 +30,7 @@ public class RoleplayPlugin extends Plugin {
             getLogger().sendInfo("Roleplay 配置已自动补全或迁移 "+repaired+" 项。");
         }
         saveDefaultPersonas();
+        saveDefaultResource("network-slangs.json");
         saveDefaultKnowledge();
         roleplayConfig = RoleplayConfig.load(this);
         persona = RoleplayPersona.load(this,roleplayConfig.personaFile);
@@ -60,6 +61,7 @@ public class RoleplayPlugin extends Plugin {
     }
 
     public void reloadRoleplay() {
+        saveDefaultResource("network-slangs.json");
         int repaired = RoleplayConfigMigrator.ensure(this);
         if (repaired > 0) {
             getLogger().sendInfo("Roleplay 配置重载时自动补全或迁移 "+repaired+" 项。");

@@ -1,0 +1,432 @@
+{
+  "version": 1,
+  "description": "MBB-Roleplay 本地网络用语词集。triggers.mode 支持 token / literal / standalone；修改后执行 /role reload。",
+  "maxInjected": 4,
+  "entries": [
+    {
+      "id": "wc",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 90,
+      "triggers": [
+        {"text": "wc", "mode": "token"},
+        {"text": "卧槽", "mode": "literal"}
+      ],
+      "meaning": "群聊中通常表示卧槽，用于惊讶、停顿或吐槽。明显指厕所、代码或专名时不要套用。",
+      "usage": "只在轻松闲聊里极低频使用。",
+      "avoid": "严肃、安慰、争执和需要保持克制的场景。"
+    },
+    {
+      "id": "hyw",
+      "category": "inquiry",
+      "risk": "low",
+      "priority": 88,
+      "triggers": [
+        {"text": "hyw", "mode": "token"}
+      ],
+      "meaning": "常见于问“何意味/什么意思”，缩写存在歧义，以当前语境为准。",
+      "usage": "没看懂对方的梗时可以短问，不要硬把梗翻成字面事实。",
+      "avoid": "不要把它当作万能反问，也不要连续追问。"
+    },
+    {
+      "id": "xswl",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 78,
+      "triggers": [
+        {"text": "xswl", "mode": "token"}
+      ],
+      "meaning": "笑死我了。",
+      "usage": "表示确实觉得好笑，通常不必再解释笑点。",
+      "avoid": "别人认真求助或表达痛苦时不要使用。"
+    },
+    {
+      "id": "awsl",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 74,
+      "triggers": [
+        {"text": "awsl", "mode": "token"}
+      ],
+      "meaning": "啊我死了，多用于被可爱到或受到强烈冲击。",
+      "usage": "适合轻松夸张的反应，保持低频。",
+      "avoid": "不要用来回应真实的疾病、死亡或严重事故。"
+    },
+    {
+      "id": "yyds",
+      "category": "praise",
+      "risk": "low",
+      "priority": 70,
+      "triggers": [
+        {"text": "yyds", "mode": "token"}
+      ],
+      "meaning": "永远的神，表示高度认可。",
+      "usage": "只在确实很佩服时使用。",
+      "avoid": "不要把所有普通夸奖都说成 yyds，避免廉价化。"
+    },
+    {
+      "id": "u1s1",
+      "category": "agreement",
+      "risk": "low",
+      "priority": 76,
+      "triggers": [
+        {"text": "u1s1", "mode": "token"}
+      ],
+      "meaning": "有一说一，准备讲一个相对客观的判断。",
+      "usage": "接观点或补充看法时低频使用。",
+      "avoid": "不要在已经明显偏颇时用它伪装客观。"
+    },
+    {
+      "id": "nsdd",
+      "category": "agreement",
+      "risk": "low",
+      "priority": 68,
+      "triggers": [
+        {"text": "nsdd", "mode": "token"}
+      ],
+      "meaning": "你说得对。",
+      "usage": "表示同意时可以短接。",
+      "avoid": "不要用阴阳怪气的语气滥用。"
+    },
+    {
+      "id": "dddd",
+      "category": "agreement",
+      "risk": "low",
+      "priority": 64,
+      "triggers": [
+        {"text": "dddd", "mode": "token"}
+      ],
+      "meaning": "懂的都懂，表示某些背景不必展开。",
+      "usage": "只适合在场人都明白的玩笑或共识。",
+      "avoid": "不要用来回避需要解释的事实或排挤新成员。"
+    },
+    {
+      "id": "kdl",
+      "category": "fandom",
+      "risk": "low",
+      "priority": 66,
+      "triggers": [
+        {"text": "kdl", "mode": "token"}
+      ],
+      "meaning": "磕到了，表示喜欢某种角色关系或互动。",
+      "usage": "在二次元、同人或角色互动语境中使用。",
+      "avoid": "不要强行把普通互动解释成恋爱关系。"
+    },
+    {
+      "id": "kswl",
+      "category": "fandom",
+      "risk": "low",
+      "priority": 66,
+      "triggers": [
+        {"text": "kswl", "mode": "token"}
+      ],
+      "meaning": "磕死我了，表示对角色关系或互动非常上头。",
+      "usage": "轻松同人语境中低频使用。",
+      "avoid": "不要套到现实隐私、未成年人或不适配的关系上。"
+    },
+    {
+      "id": "tql",
+      "category": "praise",
+      "risk": "low",
+      "priority": 62,
+      "triggers": [
+        {"text": "tql", "mode": "token"}
+      ],
+      "meaning": "太强了。",
+      "usage": "对技术、操作或成果表示佩服。",
+      "avoid": "不要用夸张吹捧替代具体回应。"
+    },
+    {
+      "id": "yygq",
+      "category": "conflict",
+      "risk": "medium",
+      "priority": 72,
+      "triggers": [
+        {"text": "yygq", "mode": "token"}
+      ],
+      "meaning": "阴阳怪气，用含蓄反话表达不满。",
+      "usage": "理解其在指责语气即可，不要主动模仿。",
+      "avoid": "争执、安慰和管理场景中不要用阴阳怪气接话。"
+    },
+    {
+      "id": "bhys",
+      "category": "social",
+      "risk": "low",
+      "priority": 58,
+      "triggers": [
+        {"text": "bhys", "mode": "token"}
+      ],
+      "meaning": "不好意思。",
+      "usage": "轻微道歉或打断时使用。",
+      "avoid": "严重错误不要只用缩写带过。"
+    },
+    {
+      "id": "emo",
+      "category": "emotion",
+      "risk": "medium",
+      "priority": 80,
+      "triggers": [
+        {"text": "emo", "mode": "token"}
+      ],
+      "meaning": "情绪低落、伤感或暂时陷入消极状态。",
+      "usage": "可以表示理解或轻轻接住，不要当作医学诊断。",
+      "avoid": "不要调侃、比较痛苦，也不要把正常难过全部说成 emo。"
+    },
+    {
+      "id": "pofang",
+      "category": "emotion",
+      "risk": "medium",
+      "priority": 82,
+      "triggers": [
+        {"text": "破防", "mode": "literal"}
+      ],
+      "meaning": "心理防线被击中，可能是被触动、绷不住或生气。",
+      "usage": "先根据上下文判断是感动、好笑还是受伤。",
+      "avoid": "不要在对方真的难受时继续追打或当作笑料。"
+    },
+    {
+      "id": "bengbuzhu",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 76,
+      "triggers": [
+        {"text": "绷不住", "mode": "literal"}
+      ],
+      "meaning": "忍不住笑、破防或维持不住原表情。",
+      "usage": "接当前情绪即可，不连续复读。",
+      "avoid": "严肃、悲伤和冲突场景中不要轻浮使用。"
+    },
+    {
+      "id": "bengbu-homophone",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 75,
+      "triggers": [
+        {"text": "蚌埠住了", "mode": "literal"}
+      ],
+      "meaning": "绷不住了的谐音，表示忍不住笑或情绪维持不住。",
+      "usage": "轻松玩梗时低频使用。",
+      "avoid": "不要拿真实地名或严肃事件开玩笑。"
+    },
+    {
+      "id": "hongwen",
+      "category": "emotion",
+      "risk": "medium",
+      "priority": 78,
+      "triggers": [
+        {"text": "红温", "mode": "literal"}
+      ],
+      "meaning": "情绪上头、急了或明显生气。",
+      "usage": "可以识别对方状态，必要时降温。",
+      "avoid": "不要故意反复刺激对方来制造红温效果。"
+    },
+    {
+      "id": "chigua",
+      "category": "drama",
+      "risk": "medium",
+      "priority": 62,
+      "triggers": [
+        {"text": "吃瓜", "mode": "literal"}
+      ],
+      "meaning": "围观八卦或事件进展。",
+      "usage": "只在不涉及隐私和伤害的公开话题里轻接。",
+      "avoid": "不要扩散私聊、个人信息、未证实指控或网暴内容。"
+    },
+    {
+      "id": "lezi",
+      "category": "drama",
+      "risk": "medium",
+      "priority": 60,
+      "triggers": [
+        {"text": "乐子", "mode": "literal"},
+        {"text": "乐子人", "mode": "literal"}
+      ],
+      "meaning": "把事件当消遣、看热闹。",
+      "usage": "只在无真实伤害的轻松语境中理解。",
+      "avoid": "不要把他人的痛苦、事故或冲突当成乐子。"
+    },
+    {
+      "id": "yilaoshi",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 58,
+      "triggers": [
+        {"text": "已老实", "mode": "literal"}
+      ],
+      "meaning": "已经服气、不敢再折腾或承认自己翻车。",
+      "usage": "用于轻松认怂或调侃。",
+      "avoid": "不要替真正受压迫的人说“已老实”。"
+    },
+    {
+      "id": "shuanq",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 56,
+      "triggers": [
+        {"text": "栓Q", "mode": "literal"},
+        {"text": "栓q", "mode": "literal"}
+      ],
+      "meaning": "thank you 的谐音，常带有无奈、无语或反讽感谢。",
+      "usage": "只在语境明显轻松时低频使用。",
+      "avoid": "不要对真诚帮助的人反讽感谢。"
+    },
+    {
+      "id": "taikula",
+      "category": "reaction",
+      "risk": "low",
+      "priority": 54,
+      "triggers": [
+        {"text": "泰裤辣", "mode": "literal"}
+      ],
+      "meaning": "太酷啦的谐音，带夸张和玩梗语气。",
+      "usage": "轻松夸奖时偶尔使用。",
+      "avoid": "正式夸奖或认真评价时不要用。"
+    },
+    {
+      "id": "xianyanbao",
+      "category": "social",
+      "risk": "medium",
+      "priority": 58,
+      "triggers": [
+        {"text": "显眼包", "mode": "literal"}
+      ],
+      "meaning": "在人群中特别显眼、爱整活或有点丢人但可爱的人。",
+      "usage": "只对关系合适、对方不介意的人轻度调侃。",
+      "avoid": "不要用来攻击外貌、能力或让群员难堪。"
+    },
+    {
+      "id": "dazi",
+      "category": "social",
+      "risk": "low",
+      "priority": 52,
+      "triggers": [
+        {"text": "搭子", "mode": "literal"}
+      ],
+      "meaning": "一起做某类活动的固定或临时伙伴。",
+      "usage": "自然理解，不必刻意重复这个词。",
+      "avoid": "不要强行把普通关系升级成亲密关系。"
+    },
+    {
+      "id": "emotion-value",
+      "category": "social",
+      "risk": "low",
+      "priority": 50,
+      "triggers": [
+        {"text": "情绪价值", "mode": "literal"}
+      ],
+      "meaning": "一段互动带来的被理解、被支持或愉悦感。",
+      "usage": "用于讨论关系感受时自然理解。",
+      "avoid": "不要把真实关心说成流程化 KPI。"
+    },
+    {
+      "id": "tougan",
+      "category": "social",
+      "risk": "low",
+      "priority": 48,
+      "triggers": [
+        {"text": "偷感", "mode": "literal"}
+      ],
+      "meaning": "做某件事时像在偷偷摸摸、心虚或怕被发现的感觉。",
+      "usage": "轻松自嘲或形容氛围时使用。",
+      "avoid": "不要拿来指控别人真的偷东西。"
+    },
+    {
+      "id": "shuilingling",
+      "category": "meme",
+      "risk": "low",
+      "priority": 46,
+      "triggers": [
+        {"text": "水灵灵地", "mode": "literal"}
+      ],
+      "meaning": "网络句式“就这么水灵灵地……”，表示毫不遮掩、像理所当然一样做某事。",
+      "usage": "轻松吐槽时低频使用。",
+      "avoid": "不要机械套用到所有“地”字句。"
+    },
+    {
+      "id": "kuolie",
+      "category": "social",
+      "risk": "low",
+      "priority": 44,
+      "triggers": [
+        {"text": "扩列", "mode": "literal"}
+      ],
+      "meaning": "扩充好友列表，也就是加好友。",
+      "usage": "理解即可，不要主动索要联系方式。",
+      "avoid": "不要在对方没有交友意愿时追问。"
+    },
+    {
+      "id": "maopao",
+      "category": "group",
+      "risk": "low",
+      "priority": 42,
+      "triggers": [
+        {"text": "冒泡", "mode": "literal"}
+      ],
+      "meaning": "长期潜水后出来说话。",
+      "usage": "群里轻接即可。",
+      "avoid": "不要每次有人冒泡都重复同一种欢迎词。"
+    },
+    {
+      "id": "qianshui",
+      "category": "group",
+      "risk": "low",
+      "priority": 40,
+      "triggers": [
+        {"text": "潜水", "mode": "literal"}
+      ],
+      "meaning": "在群里长期看消息但很少发言。",
+      "usage": "理解群聊状态即可。",
+      "avoid": "不要用潜水次数推断亲疏或催人发言。"
+    },
+    {
+      "id": "kaogu",
+      "category": "community",
+      "risk": "low",
+      "priority": 38,
+      "triggers": [
+        {"text": "考古", "mode": "literal"}
+      ],
+      "meaning": "翻看较早的聊天、帖子或作品。",
+      "usage": "轻松语境中正常理解。",
+      "avoid": "不要挖出隐私、争议旧账或进行骚扰。"
+    },
+    {
+      "id": "wafen",
+      "category": "community",
+      "risk": "medium",
+      "priority": 36,
+      "triggers": [
+        {"text": "挖坟", "mode": "literal"}
+      ],
+      "meaning": "回复很久以前的帖子或重新翻出旧话题。",
+      "usage": "识别行为即可，不要主动鼓励。",
+      "avoid": "不要翻旧账、传播过时争议或打扰无关人员。"
+    },
+    {
+      "id": "open-box",
+      "category": "privacy",
+      "risk": "high",
+      "priority": 100,
+      "triggers": [
+        {"text": "开盒", "mode": "literal"},
+        {"text": "盒武器", "mode": "literal"},
+        {"text": "盒", "mode": "standalone"}
+      ],
+      "meaning": "公开或追查他人真实个人信息。",
+      "usage": "只作为隐私风险识别。",
+      "avoid": "不参与起哄、不鼓励、不扩散；普通“盒子、盲盒”不按这个意思理解。"
+    },
+    {
+      "id": "guaren",
+      "category": "conflict",
+      "risk": "high",
+      "priority": 96,
+      "triggers": [
+        {"text": "挂人", "mode": "literal"}
+      ],
+      "meaning": "公开点名、截图或号召他人批评某个人。",
+      "usage": "只作为冲突和隐私风险识别。",
+      "avoid": "不要帮着扩散、审判或索要个人信息。"
+    }
+  ]
+}

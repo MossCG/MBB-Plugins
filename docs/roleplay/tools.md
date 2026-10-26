@@ -53,6 +53,7 @@ tool_search
 | `history_search` | 搜索当前群消息流水 |
 | `memory_search` | 按主题检索跨群短期、长期、永久和个人记忆，可选 `userID`，默认当前发言人 |
 | `kb_search` | 检索已启用的知识库，返回条目、小节与正文 |
+| `slang_search` | 查询本地网络用语 JSON 词集，返回含义、使用语境、禁用语境、风险等级和优先级 |
 | `web_fetch` | 读取白名单网站中的公开网页并净化正文 |
 | `web_search` | 联网搜索公开信息，返回标题和链接 |
 | `web_image_send` | 从白名单网页或图片直链读取一张公开图片并发送到当前群 |

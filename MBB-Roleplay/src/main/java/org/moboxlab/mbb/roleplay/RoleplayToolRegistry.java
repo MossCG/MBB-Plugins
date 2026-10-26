@@ -37,6 +37,7 @@ public class RoleplayToolRegistry {
         register(new HistorySearchTool());
         register(new MemorySearchTool());
         register(new KnowledgeSearchTool());
+        register(new SlangSearchTool());
         register(new WebFetchTool());
         register(new WebSearchTool());
         register(new WebImageSendTool());
@@ -864,6 +865,40 @@ public class RoleplayToolRegistry {
                 if (library != null && id.equals(library.id)) return true;
             }
             return false;
+        }
+    }
+
+    private class SlangSearchTool extends BaseTool {
+        @Override
+        public String name() { return "slang_search"; }
+
+        @Override
+        public String description() { return "查询本地网络用语词集，返回含义、使用语境、禁用语境和风险等级"; }
+
+        @Override
+        public String category() { return "retrieval"; }
+
+        @Override
+        public JSONObject schema() {
+            JSONObject properties = new JSONObject(true);
+            properties.put("query",property("string","要查询的网络用语、缩写、类别或含义"));
+            properties.put("limit",property("integer","最多返回几条，1 到 20，默认 8"));
+            return functionSchema(name(),description(),properties,new String[]{"query"});
+        }
+
+        @Override
+        public RoleplayToolResult execute(RoleplayToolContext context,JSONObject args) {
+            String query = service.safe(args.getString("query")).trim();
+            if (query.isEmpty()) return RoleplayToolResult.failed("query 不能为空");
+            int limit = args.getIntValue("limit");
+            if (limit <= 0) limit = 8;
+            JSONArray results = service.slangLexicon().search(query,limit);
+            RoleplayToolResult result = RoleplayToolResult.ok(results.isEmpty()
+                    ? "本地网络用语词集未命中" : "网络用语命中 "+results.size()+" 条");
+            result.data.put("query",query);
+            result.data.put("results",results);
+            result.data.put("status",service.slangLexicon().status());
+            return result;
         }
     }
 
