@@ -36,6 +36,14 @@ public class RoleplayConversationContextTestMain {
         if (deduped.size() != 2 || !"喜欢布丁".equals(deduped.getString(0))) {
             throw new AssertionError("压缩轮次内文本列表未正确去重");
         }
+        if (!RoleplayMemoryDedupService.isFactLine("- 喜欢布丁")
+                || !"喜欢布丁".equals(RoleplayMemoryDedupService.factText("- 喜欢布丁"))
+                || RoleplayMemoryDedupService.similarity(
+                "喜欢布丁","喜欢布丁") < 0.99
+                || RoleplayMemoryDedupService.similarity(
+                "喜欢布丁","喜欢黑咖啡") >= 0.92) {
+            throw new AssertionError("记忆注入指纹和相似度判断不正确");
+        }
 
         JSONArray content = new JSONArray();
         JSONObject text = new JSONObject(true);

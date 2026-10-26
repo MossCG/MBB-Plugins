@@ -331,12 +331,16 @@ public class RoleplayPromptAssembler {
         RoleplayConfig config = service.config();
         List<String> requested = decision == null ? new ArrayList<>() : decision.materials;
         String memoryQuery = memoryQuery(messageText,decision);
+        RoleplayMemoryDedupService.Round memoryDedup =
+                service.memoryDedupService().begin("group",groupID);
         List<RoleplayMaterial> materials = new ArrayList<>();
         materials.add(new RoleplayMaterial("friend.memory",true,92,
                 config.friendMemoryInjectMaxChars,
-                () -> service.friendMemoryService().promptText(userID)));
+                () -> memoryDedup.filter("friend.memory",
+                        service.friendMemoryService().promptText(userID),92)));
         materials.add(new RoleplayMaterial("member.profile",true,91,600,
-                () -> service.memberService().promptText(groupID,userID)));
+                () -> memoryDedup.filter("member.profile",
+                        service.memberService().promptText(groupID,userID),91)));
         materials.add(new RoleplayMaterial("context.recent",true,89,2500,
                 () -> config.conversationAppendEnable ? ""
                         : "你最近说过的话（这些已经说过了，不要重复内容，也不要换个说法再说一遍）：\n"
@@ -354,14 +358,17 @@ public class RoleplayPromptAssembler {
                 () -> service.toolMemoryService().promptText(groupID,userID,messageText)));
         materials.add(new RoleplayMaterial("memory.self",true,82,
                 config.memoryRelevanceMaxChars,
-                () -> service.brainMemoryService().selfPromptText(
-                        groupID,userID,memoryQuery,config.memoryRelevanceMaxChars)));
+                () -> memoryDedup.filter("memory.self",
+                        service.brainMemoryService().selfPromptText(
+                        groupID,userID,memoryQuery,config.memoryRelevanceMaxChars),82)));
         materials.add(new RoleplayMaterial("memory.long",true,81,config.memoryRelevanceMaxChars,
-                () -> "长期记忆：\n"+service.longMemoryText(groupID,userID,memoryQuery)));
+                () -> memoryDedup.filter("memory.long",
+                        "长期记忆：\n"+service.longMemoryText(groupID,userID,memoryQuery),81)));
         materials.add(new RoleplayMaterial("memory.global",true,79,
                 config.globalMemoryRelevanceMaxChars,
-                () -> "全局永久记忆：\n"+service.globalMemoryService().promptText(
-                        memoryQuery,userID,config.globalMemoryRelevanceMaxChars)));
+                () -> memoryDedup.filter("memory.global",
+                        "全局永久记忆：\n"+service.globalMemoryService().promptText(
+                        memoryQuery,userID,config.globalMemoryRelevanceMaxChars),79)));
         materials.add(new RoleplayMaterial("expression.approved",true,76,config.expressionInjectMaxChars,
                 () -> service.expressionService().promptText(groupID,messageText)));
         materials.add(new RoleplayMaterial("speech.corpus",true,60,1300,
@@ -379,7 +386,13 @@ public class RoleplayPromptAssembler {
                                 : RoleplayExternalContentGuard.wrap("kb."+library.id,text);
                     }));
         }
-        return RoleplayMaterialBudget.assemble(materials,requested,totalBudget);
+        String result = RoleplayMaterialBudget.assemble(materials,requested,totalBudget);
+        if (memoryDedup.suppressedLines() > 0) {
+            service.plugin().getLogger().sendInfo("[记忆] 群"+groupID+" 注入去重 "
+                    +memoryDedup.suppressedLines()+"/"+memoryDedup.inputLines()+" 条，"
+                    +"当前压缩轮次已去重");
+        }
+        return result;
     }
 
     private String shortMemoryPromptText(long groupID) {

@@ -502,6 +502,8 @@ public class RoleplayPrivateChatService {
     private String dynamicSystemPrompt(long userID,String current,boolean proactive,
                                        Set<Long> excludedMessageIDs) {
         StringBuilder builder = new StringBuilder();
+        RoleplayMemoryDedupService.Round memoryDedup =
+                service.memoryDedupService().begin("private",userID);
         builder.append("【本轮状态】\n")
                 .append(proactive
                         ? "这次是主动发起私聊，不要假装对方刚刚说了什么。"
@@ -510,25 +512,38 @@ public class RoleplayPrivateChatService {
                         ? "\n当前包含结束信号，只做一句简短收尾，不新增任务、验证或追问。\n" : "\n")
                 .append("\n【对方】\n")
                 .append("QQ：").append(userID).append("\n")
-                .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n")
-                .append("【个人印象】\n").append(service.memberService().promptText(0L,userID)).append("\n\n")
-                .append("【好友长期记忆】\n")
-                .append(service.friendMemoryService().promptText(userID)).append("\n\n")
-                .append("【全局自我记忆】\n")
-                .append(service.brainMemoryService().selfPromptText(
-                        0L,userID,current,config.memoryRelevanceMaxChars)).append("\n\n")
-                .append("【跨群短期记忆】\n").append(service.shortSummary(0L)).append("\n\n")
-                .append("【跨群长期记忆】\n").append(service.longMemoryText(0L,userID,current)).append("\n\n")
-                .append("【私聊长期记忆】\n")
-                .append(service.privateMemoryText(userID,current,config.memoryRelevanceMaxChars)).append("\n\n")
-                .append("【全局永久记忆】\n")
-                .append(service.globalMemoryService().promptText(
-                        current,userID,config.globalMemoryRelevanceMaxChars)).append("\n\n")
-                .append("【近期私聊】\n").append(recentContext(userID,excludedMessageIDs,
-                        config.conversationAppendEnable
-                                ? config.conversationAppendRecentMessages
-                                : config.privateChatContextMessages));
+                .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n");
+        appendMemorySection(builder,"个人印象",memoryDedup.filter("member.profile",
+                service.memberService().promptText(0L,userID),91));
+        appendMemorySection(builder,"好友长期记忆",memoryDedup.filter("friend.memory",
+                service.friendMemoryService().promptText(userID),92));
+        appendMemorySection(builder,"全局自我记忆",memoryDedup.filter("memory.self",
+                service.brainMemoryService().selfPromptText(
+                        0L,userID,current,config.memoryRelevanceMaxChars),82));
+        appendMemorySection(builder,"跨群短期记忆",service.shortSummary(0L));
+        appendMemorySection(builder,"跨群长期记忆",memoryDedup.filter("memory.long",
+                service.longMemoryText(0L,userID,current),81));
+        appendMemorySection(builder,"私聊长期记忆",memoryDedup.filter("memory.private",
+                service.privateMemoryText(userID,current,config.memoryRelevanceMaxChars),80));
+        appendMemorySection(builder,"全局永久记忆",memoryDedup.filter("memory.global",
+                service.globalMemoryService().promptText(
+                        current,userID,config.globalMemoryRelevanceMaxChars),79));
+        builder.append("【近期私聊】\n").append(recentContext(userID,excludedMessageIDs,
+                config.conversationAppendEnable
+                        ? config.conversationAppendRecentMessages
+                        : config.privateChatContextMessages));
+        if (memoryDedup.suppressedLines() > 0) {
+            plugin.getLogger().sendInfo("[记忆] 私聊用户"+userID+" 注入去重 "
+                    +memoryDedup.suppressedLines()+"/"+memoryDedup.inputLines()+" 条，"
+                    +"当前压缩轮次已去重");
+        }
         return builder.toString();
+    }
+
+    private void appendMemorySection(StringBuilder builder,String title,String text) {
+        String value = service.safe(text).trim();
+        if (value.isEmpty()) return;
+        builder.append("【").append(title).append("】\n").append(value).append("\n\n");
     }
 
     String recentContext(long userID) {

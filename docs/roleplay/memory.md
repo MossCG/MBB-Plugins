@@ -167,6 +167,23 @@ flowchart TD
 主动私聊也复用同一个私聊频道；`plugin_mbb_roleplay_context_metric` 记录每次请求的 prompt/cached token，
 `/role context` 可查看累计与最近缓存命中率。
 
+### 记忆注入去重
+
+`RoleplayMemoryDedupService` 在提示词装配阶段处理跨来源重复：
+
+- 好友长期记忆
+- 群员个人档案
+- 全局自我记忆
+- 跨群长期记忆
+- 私聊长期记忆
+- 全局永久记忆
+
+同一轮内按优先级保留先出现的记忆项，按规范化文本指纹去重；文本长度超过 6 且
+字符 bigram 相似度达到 `0.92` 时视为近似重复。追加上下文启用时，已注入指纹会写入
+`plugin_mbb_roleplay_memory_injection`，当前压缩轮次内后续回合不再重复注入。
+轮次键使用频道 `contextToken`，压缩导致 `compactedThroughID` 变化后自动失效并重新允许注入。
+否定关系不同的文本不会被直接合并，仍交给记忆冲突处理。
+
 ## 统一大脑
 
 `RoleplayBrainMemoryService` 是所有记忆的统一检索入口，但数据仍按访问范围隔离：
