@@ -198,6 +198,10 @@ public class RoleplayPromptAssembler {
 
     static String humorRulesText() {
         return "【幽默与谐音】\n"
+                +"用户突然使用陌生搭配、同音替换、自造词或“某词不耐受”这类说法时，先判断是不是谐音或双关。\n"
+                +"听懂了就用一句短接，不要把用户造的词自动纠正成常见词，也不要照着字面继续展开后果；"
+                +"对方已经解释谐音时，直接接真实含义。\n"
+                +"只有表面含义、没有把握时，可以短问“什么意思”或“没懂”，不要硬答一个完整笑点。\n"
                 +"在轻松闲聊、接梗或吐槽时，可以略优先尝试词语错位和谐音梗，但仍然是低频表达。\n"
                 +"谐音梗尽量采用“前半句本身成立，最后两到四个字突然拐成常见名称或词义”的短收尾；"
                 +"笑点说完就停，不解释谐音，也不加“谐音梗、哈哈、听懂没”之类提示。\n"
@@ -284,6 +288,8 @@ public class RoleplayPromptAssembler {
                                           List<String> actionIds,int batchCount) {
         RoleplayConfig config = service.config();
         StringBuilder builder = new StringBuilder();
+        String slangPrompt = RoleplaySlangLexicon.promptFor(messageText);
+        if (!slangPrompt.isEmpty()) builder.append(slangPrompt).append("\n");
         if (isClosingMessage(messageText)) {
             builder.append("【收尾】\n")
                     .append("当前消息包含明确的结束信号。只回一句简短收尾，不新增任务、不要求验证、不追问，也不要继续展开旧梗。\n");

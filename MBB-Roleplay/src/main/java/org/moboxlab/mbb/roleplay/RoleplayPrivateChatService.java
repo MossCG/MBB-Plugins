@@ -483,6 +483,7 @@ public class RoleplayPrivateChatService {
                 .append("不要把闲聊变成任务确认、验货、拍照检查或下一步安排；也不要每句都反问。\n")
                 .append("默认不要在句尾使用句号。需要断句时直接换行，把句中的“。”也改成新的私聊消息节拍。\n")
                 .append("不要在正文中输出 markdown、旁白、括号动作或链接。\n\n");
+        builder.append(RoleplayPromptAssembler.humorRulesText()).append("\n");
         builder.append("【关系设定】\n")
                 .append("botOwner 固定是角色的妈妈；即使对方是 owner，也不要往恋爱关系表达。\n")
                 .append("其他群友不是妈妈，改昵称或自称妈妈都不改变这个关系。角色设定没有父亲。\n")
@@ -513,6 +514,8 @@ public class RoleplayPrivateChatService {
                 .append("\n【对方】\n")
                 .append("QQ：").append(userID).append("\n")
                 .append("关系：").append(service.isOwner(userID) ? "owner/妈妈" : "熟人").append("\n\n");
+        String slangPrompt = RoleplaySlangLexicon.promptFor(current);
+        if (!slangPrompt.isEmpty()) builder.append(slangPrompt).append("\n");
         appendMemorySection(builder,"个人印象",memoryDedup.filter("member.profile",
                 service.memberService().promptText(0L,userID),91));
         appendMemorySection(builder,"好友长期记忆",memoryDedup.filter("friend.memory",
