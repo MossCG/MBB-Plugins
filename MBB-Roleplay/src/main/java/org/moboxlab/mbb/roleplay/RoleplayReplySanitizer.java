@@ -2,6 +2,7 @@ package org.moboxlab.mbb.roleplay;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -20,6 +21,8 @@ public class RoleplayReplySanitizer {
             "(?m)^\\s*(旁白|心理活动|内心|动作|镜头|场景描写|神态)[:：].*$");
     private static final Pattern HEADING_LINE = Pattern.compile("(?m)^\\s*#{1,6}\\s*");
     private static final Pattern LIST_MARKER = Pattern.compile("(?m)^\\s*[-*+]\\s+");
+    private static final Pattern TRAILING_LAUGH = Pattern.compile(
+            "(?s)^(.+?)[ \\t，,、]*(?:啊?哈{2,}|哈{2,}啊?)([。！？!?~～…]*)$");
 
     public static String clean(RoleplayPersona persona,String botName,String reply) {
         String value = reply == null ? "" : reply.replace("\r\n","\n").replace('\r','\n').trim();
@@ -43,7 +46,28 @@ public class RoleplayReplySanitizer {
                 .replaceAll(" *\\n *","\n")
                 .replaceAll("\\n{3,}","\n\n")
                 .trim();
-        return removeNarrationOnlyLines(value);
+        return stripTrailingFillerLaugh(removeNarrationOnlyLines(value));
+    }
+
+    static String stripTrailingFillerLaugh(String value) {
+        String text = value == null ? "" : value.trim();
+        Matcher matcher = TRAILING_LAUGH.matcher(text);
+        if (!matcher.matches()) return text;
+        String prefix = matcher.group(1) == null ? "" : matcher.group(1).trim();
+        if (prefix.isEmpty() || isOnlyLaughter(prefix) || prefix.endsWith("笑")) return text;
+        return prefix+ (matcher.group(2) == null ? "" : matcher.group(2));
+    }
+
+    private static boolean isOnlyLaughter(String value) {
+        String text = value == null ? "" : value.replaceAll("[\\p{P}\\p{S}\\s]","");
+        if (text.isEmpty()) return true;
+        for (int i = 0; i < text.length(); i++) {
+            char current = text.charAt(i);
+            if (current != '啊' && current != '哈' && current != '呵' && current != '嘿') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String stripSpeakerPrefix(RoleplayPersona persona,String botName,String value) {

@@ -27,6 +27,7 @@ public class RoleplaySlangLexicon {
     private final RoleplayService service;
     private volatile List<Entry> entries = Collections.emptyList();
     private volatile int maxInjected = 4;
+    private volatile int maxUsedPerReply = 2;
     private volatile long loadedAt;
     private volatile String loadError = "";
 
@@ -74,7 +75,8 @@ public class RoleplaySlangLexicon {
             if ("high".equals(entry.risk)) builder.append(" 风险：只作识别，不参与起哄或扩散。");
             builder.append("\n");
         }
-        builder.append("一轮最多使用一个网络用语；不确定含义就短问，不要自造缩写或把缩写翻译成完整解释。\n");
+        builder.append("一轮最多使用 ").append(maxUsedPerReply)
+                .append(" 个网络用语；不确定含义就短问，不要自造缩写或把缩写翻译成完整解释。\n");
         return builder.toString();
     }
 
@@ -95,6 +97,7 @@ public class RoleplaySlangLexicon {
         result.put("file",new File(service.plugin().getDataFolder(),FILE_NAME).getAbsolutePath());
         result.put("entries",entries.size());
         result.put("maxInjected",maxInjected);
+        result.put("maxUsedPerReply",maxUsedPerReply);
         result.put("loadedAt",loadedAt);
         result.put("error",loadError);
         return result;
@@ -118,6 +121,8 @@ public class RoleplaySlangLexicon {
     private List<Entry> apply(JSONObject json) {
         int configuredInjected = json == null ? 0 : json.getIntValue("maxInjected");
         maxInjected = configuredInjected <= 0 ? 4 : Math.max(1,Math.min(8,configuredInjected));
+        int configuredUsed = json == null ? 0 : json.getIntValue("maxUsedPerReply");
+        maxUsedPerReply = configuredUsed <= 0 ? 2 : Math.max(1,Math.min(2,configuredUsed));
         List<Entry> loaded = new ArrayList<>();
         JSONArray array = json == null ? null : json.getJSONArray("entries");
         if (array != null) {

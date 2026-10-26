@@ -2,6 +2,7 @@
   "version": 1,
   "description": "MBB-Roleplay 本地网络用语词集。triggers.mode 支持 token / literal / standalone；修改后执行 /role reload。",
   "maxInjected": 4,
+  "maxUsedPerReply": 2,
   "entries": [
     {
       "id": "wc",

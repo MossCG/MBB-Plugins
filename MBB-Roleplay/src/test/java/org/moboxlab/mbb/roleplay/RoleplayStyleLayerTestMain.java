@@ -29,5 +29,15 @@ public class RoleplayStyleLayerTestMain {
         if (reason.isEmpty() || !reason.contains("妈妈")) {
             throw new AssertionError("固定称呼“妈妈”被替换时必须拒绝改写");
         }
+
+        if (!"这样就行了".equals(RoleplayReplySanitizer.stripTrailingFillerLaugh("这样就行了哈哈"))
+                || !"这样就行了~".equals(RoleplayReplySanitizer.stripTrailingFillerLaugh("这样就行了，啊哈哈~"))
+                || !"晚安".equals(RoleplayReplySanitizer.stripTrailingFillerLaugh("晚安\n哈哈哈"))) {
+            throw new AssertionError("正文后的填充笑声应从句尾移除");
+        }
+        if (!"笑哈哈".equals(RoleplayReplySanitizer.stripTrailingFillerLaugh("笑哈哈"))
+                || !"啊哈哈".equals(RoleplayReplySanitizer.stripTrailingFillerLaugh("啊哈哈"))) {
+            throw new AssertionError("本身表示笑声或固定说法不应被误删");
+        }
     }
 }

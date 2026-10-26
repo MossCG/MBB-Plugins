@@ -148,6 +148,7 @@ public class RoleplayReplyReviewService {
                 .append("只有确实需要改写时才填 rewrite；需要改写时 pass 设为 false。\n")
                 .append("改写必须保持原意、关键事实和角色语气，不要增加新事实。\n")
                 .append("可以删除重复、填充词、书面连接词和空泛铺陈，做不丢信息的压缩简写。\n")
+                .append("不要为了显得活泼在句尾追加“哈哈、啊哈哈”等笑声；只有原文本身就是笑时才保留。\n")
                 .append("不要角色名前缀、括号动作、心理旁白、镜头描写或 Markdown。\n");
         return builder.toString();
     }

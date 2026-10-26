@@ -9,7 +9,8 @@ public class RoleplayHumorPromptTestMain {
         if (!prompt.contains("略优先尝试") || !prompt.contains("谐音")
                 || !prompt.contains("低频") || !prompt.contains("不解释谐音")
                 || !prompt.contains("严肃话题") || !prompt.contains("先判断")
-                || !prompt.contains("不要照着字面") || !prompt.contains("短问")) {
+                || !prompt.contains("不要照着字面") || !prompt.contains("短问")
+                || !prompt.contains("活泼句尾") || !prompt.contains("啊哈哈")) {
             throw new AssertionError("谐音梗提示词缺少权重、频率、解释或场景边界");
         }
         if (prompt.contains("哈基米") || prompt.contains("米哈游")) {

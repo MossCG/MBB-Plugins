@@ -60,11 +60,23 @@ public class RoleplaySpeechCorpusService {
         if (selected.isEmpty()) return "";
         StringBuilder builder = new StringBuilder(
                 "群聊语气示例（只参考长短、停顿和说话态度；不要照抄，不要沿用具体话题、剧情称呼、"
-                        +"职业内容、项目进度或戏剧化节奏）：\n");
+                        +"职业内容、项目进度或戏剧化节奏；不要模仿示例里的笑声位置，也不要把“哈哈”加在句尾）：\n");
         for (SpeechCorpusEntry entry : selected) {
+            if (isLaughterHeavy(entry.text)) continue;
             builder.append("- ").append(entry.text).append("\n");
         }
-        return builder.toString();
+        return builder.toString().endsWith("：\n") ? "" : builder.toString();
+    }
+
+    static boolean isLaughterHeavy(String text) {
+        String value = text == null ? "" : text.replaceAll("[\\p{P}\\p{S}\\s]","");
+        if (value.isEmpty()) return false;
+        int laughs = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char current = value.charAt(i);
+            if (current == '哈' || current == '呵' || current == '嘿') laughs++;
+        }
+        return laughs >= 3 || (value.length() <= 12 && value.startsWith("啊哈"));
     }
 
     public JSONArray search(String query,int limit) {

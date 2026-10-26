@@ -18,8 +18,8 @@ public class RoleplaySlangLexiconTestMain {
             throw new AssertionError("默认网络用语词集条目过少："+lexicon.entryCount());
         }
         String wc = lexicon.promptFor("wc这题也太怪了");
-        if (!wc.contains("卧槽") || !wc.contains("极低频")) {
-            throw new AssertionError("wc 应注入含义和低频约束");
+        if (!wc.contains("卧槽") || !wc.contains("极低频") || !wc.contains("最多使用 2 个")) {
+            throw new AssertionError("wc 应注入含义、低频约束和每轮最多 2 个的上限");
         }
         String hyw = lexicon.promptFor("hyw");
         if (!hyw.contains("何意味") || !hyw.contains("不要硬把梗翻成字面")) {
@@ -40,6 +40,12 @@ public class RoleplaySlangLexiconTestMain {
         }
         if (lexicon.search("笑",10).isEmpty()) {
             throw new AssertionError("slang_search 应能按含义检索词条");
+        }
+        JSONObject overLimit = JSONObject.parseObject(text);
+        overLimit.put("maxUsedPerReply",20);
+        RoleplaySlangLexicon clamped = RoleplaySlangLexicon.forTesting(overLimit);
+        if (!clamped.promptFor("wc").contains("最多使用 2 个")) {
+            throw new AssertionError("maxUsedPerReply 必须硬限制为最多 2");
         }
     }
 }

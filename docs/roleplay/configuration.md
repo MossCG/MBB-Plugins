@@ -426,7 +426,8 @@ quietReplyEnable: true
 
 插件首次安装会在数据目录释放 `network-slangs.json`，默认约 35 条，覆盖常见反应、问法、情绪、社区冲突和隐私风险词。
 每条包含 `id / category / risk / priority / triggers / meaning / usage / avoid`；`triggers.mode` 支持
-`token`（英文缩写边界）、`literal`（文本包含）和 `standalone`（独立词）。`maxInjected` 限制单轮最多自动注入条数，默认 4。
+`token`（英文缩写边界）、`literal`（文本包含）和 `standalone`（独立词）。`maxInjected` 限制单轮最多自动注入条数，默认 4；
+`maxUsedPerReply` 限制实际回复最多使用几个网络用语，默认 2，代码允许配置范围为 1 到 2。
 
 回复时只注入当前消息命中且优先级较高的小部分词条；模型需要额外查词时可调用 `slang_search`。
 修改 JSON 后执行 `/role reload` 即可重新加载，无需重启。文件缺失时插件会重新释放默认词集；JSON 损坏时只停用词集注入，不影响正常聊天。
