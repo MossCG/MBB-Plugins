@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSONObject;
 import org.moboxlab.moboxbot.API.Event.NoticeEvent;
 import org.moboxlab.moboxbot.API.OneBot.OneBotClient;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * 戳一戳处理
  *
@@ -11,6 +13,7 @@ import org.moboxlab.moboxbot.API.OneBot.OneBotClient;
  */
 public class RoleplayPokeService {
     private final RoleplayService service;
+    private final AtomicLong pokeSequence = new AtomicLong(System.currentTimeMillis() * 1000L);
 
     public RoleplayPokeService(RoleplayService service) {
         this.service = service;
@@ -31,10 +34,13 @@ public class RoleplayPokeService {
             return;
         }
         service.replyFeedbackService().observePoke(groupID,userID);
-        service.submitTurn(() -> runPokeTurn(groupID,userID,selfID));
+        long turnID = -pokeSequence.incrementAndGet();
+        String eventRaw = event.getRaw().toJSONString();
+        long finalTurnID = turnID;
+        service.submitTurn(() -> runPokeTurn(groupID,userID,selfID,finalTurnID,eventRaw));
     }
 
-    private void runPokeTurn(long groupID,long userID,long selfID) {
+    private void runPokeTurn(long groupID,long userID,long selfID,long turnID,String eventRaw) {
         if (!service.canReply(groupID)) return;
         RoleplayRouteDecision decision = new RoleplayRouteDecision();
         decision.addressed = "direct";
@@ -83,7 +89,7 @@ public class RoleplayPokeService {
         if (service.config().pokeBackEnable && allowPokeBack) decision.actions.add("poke-back");
         String content = "[戳一戳] "+userName+" 戳了你一下。本轮建议："+hint;
         JSONObject result = service.reply(groupID,userID,userName,content,false,relationship,null,
-                decision,0L,selfID,"",service.isOwnerUser(userID));
+                decision,turnID,selfID,eventRaw,service.isOwnerUser(userID));
         if (result == null || !result.getBooleanValue("status")) {
             service.emotionService().afterTurn(groupID,userID,userName,relationship,content,
                     emotionEvent,true,false);
@@ -103,8 +109,13 @@ public class RoleplayPokeService {
             sendText = !text.isEmpty();
         }
         OneBotClient client = service.plugin().getServer().getOneBotClient();
+        boolean sent = false;
         if (sendText && client != null) {
-            service.messageSender().sendSingleMessage(client,groupID,selfID,userID,text,false,0L);
+            sent = service.messageSender().sendSingleMessage(client,groupID,selfID,userID,text,false,0L);
+            if (sent && service.config().conversationAppendEnable) {
+                service.conversationContextService().append("group",groupID,"assistant",text,
+                        "group:"+turnID+":assistant","group:"+turnID);
+            }
         }
         service.plugin().getLogger().sendInfo("[角色] 戳一戳 群"+groupID+" 用户"+userID
                 +" 回复="+(sendText ? service.shortText(text,60) : "无"));
