@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "id": "coc-example",
+  "name": "雨夜古宅",
+  "author": "MBB-Trpg",
+  "description": "一座被暴雨困住的旧宅，失踪的宅主与不该存在的祭坛。适合 2 到 4 名新人调查员，约 60 分钟。",
+  "ruleSet": "d100",
+  "minPlayers": 2,
+  "maxPlayers": 4,
+  "estimatedMinutes": 60,
+  "tags": [
+    "入门",
+    "调查",
+    "封闭场景"
+  ],
+  "startingItems": [
+    "手电筒",
+    "火柴",
+    "笔记本"
+  ],
+  "scenes": [
+    {
+      "id": "scene-gate",
+      "title": "古宅门前",
+      "summary": "众人在暴雨中抵达沈家老宅，铁门虚掩。",
+      "narration": "暴雨把山路冲成了泥河。你们在午夜前赶到沈家老宅，铁门虚掩，门廊的灯忽明忽暗。\n门内安静得过分，只有雨水顺着屋檐往下砸。门廊的地砖上，几道泥水痕迹一直延伸到大厅侧门。",
+      "fallbackNarration": "暴雨把山路冲成了泥河。你们在午夜前赶到沈家老宅，铁门虚掩，门廊的灯忽明忽暗。门内的安静让人不敢先开口。",
+      "clueIds": [
+        "clue-footprints"
+      ],
+      "npcIds": [],
+      "checkIds": []
+    },
+    {
+      "id": "scene-hall",
+      "title": "大厅",
+      "summary": "老管家在大厅迎接，楼上传来拖拽声。",
+      "narration": "大厅里点着两盏煤油灯。老管家周福从楼梯阴影里走出来，接过你们湿透的外套，说宅主七天前出门未归。\n话音未落，楼上传来一声很轻的拖拽声，像有什么重物在地板上挪动。老管家说，那是风吹动了旧家具。",
+      "clueIds": [
+        "clue-letter"
+      ],
+      "npcIds": [
+        "npc-butler"
+      ],
+      "checkIds": [
+        "check-listen"
+      ]
+    },
+    {
+      "id": "scene-study",
+      "title": "书房",
+      "summary": "书房里有烧到一半的日记和上锁的抽屉。",
+      "narration": "书房的门没有锁。壁炉里堆着烧焦的纸，火早就灭了，灰烬还是温的。\n墙上挂着沈鹤年的画像，画中人穿着旧式长衫，眼睛的位置被烟熏得发黑。书桌第二层抽屉锁着，钥匙不在锁孔里。",
+      "clueIds": [
+        "clue-diary"
+      ],
+      "npcIds": [
+        "npc-master"
+      ],
+      "checkIds": [
+        "check-spot"
+      ]
+    },
+    {
+      "id": "scene-cellar",
+      "title": "地窖",
+      "summary": "地窖石阶通向一座低矮的祭坛。",
+      "narration": "地窖的石阶又窄又滑，空气里有一股铁锈和潮土混在一起的味道。\n石阶尽头是一座低矮的石台，台面刻着倒置的五芒星。石台后面的阴影里，躺着一具已经僵硬的尸体，衣服和画像上的沈鹤年一模一样。",
+      "clueIds": [
+        "clue-altar"
+      ],
+      "npcIds": [],
+      "checkIds": [
+        "check-san"
+      ]
+    }
+  ],
+  "clues": [
+    {
+      "id": "clue-footprints",
+      "name": "泥脚印",
+      "lockedSummary": "门廊的泥水痕迹不太对劲。",
+      "unlockedText": "泥脚印从铁门一直延伸到大厅侧门，但只有进来的方向，没有出去的。脚印边缘有一圈细小的爪痕，不像人鞋。"
+    },
+    {
+      "id": "clue-letter",
+      "name": "未寄出的信",
+      "lockedSummary": "大厅抽屉里有一封没封口的信。",
+      "unlockedText": "信是沈鹤年写给城里警局的：若我三日内未归，请勿进地窖。落款日期是七天前，纸面有水渍。"
+    },
+    {
+      "id": "clue-diary",
+      "name": "烧焦的日记",
+      "lockedSummary": "壁炉里残留着没烧完的纸页。",
+      "unlockedText": "残页记录着一场换命仪式：只要把宅子的债主留在祭坛上，宅主就能再多活十年。最后一页写着老管家的名字。"
+    },
+    {
+      "id": "clue-altar",
+      "name": "石制祭坛",
+      "lockedSummary": "地窖中央有一座低矮的石台。",
+      "unlockedText": "石台表面刻着倒置的五芒星，凹槽里还有暗红色的痕迹。祭坛背面刻着三个名字，其中两个已经被凿掉。"
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc-butler",
+      "name": "老管家周福",
+      "role": "宅邸仆人",
+      "public": "六十岁上下，背有点驼，说话很轻，坚持说宅主出门未归。",
+      "secret": "他知道祭坛的事，也参与了换命仪式；日记残页上的名字就是他。被逼问时，他会把责任推给宅主。"
+    },
+    {
+      "id": "npc-master",
+      "name": "宅主沈鹤年",
+      "role": "失踪的宅主",
+      "public": "宅子的主人，七天前失踪；书房墙上挂着他的画像。",
+      "secret": "他并没有离开，而是被老管家骗进地窖，作为仪式的债主留在祭坛上；地窖深处的尸体就是他。"
+    }
+  ],
+  "checks": [
+    {
+      "id": "check-listen",
+      "type": "d100.skill",
+      "skill": "聆听",
+      "difficulty": "regular",
+      "bonusDice": 0,
+      "penaltyDice": 0,
+      "prompt": "想听清楼上拖拽声的具体位置。",
+      "successHint": "声音来自书房方向，中间夹着一声很轻的咳嗽。",
+      "failureHint": "只听见雨声和木梁的呻吟，分不清方向。"
+    },
+    {
+      "id": "check-spot",
+      "type": "d100.skill",
+      "skill": "侦查",
+      "difficulty": "hard",
+      "bonusDice": 0,
+      "penaltyDice": 0,
+      "prompt": "在书房里找那页没烧完的记录。",
+      "successHint": "在壁炉灰烬底下找到半页日记，边缘还留着清晰的字迹。",
+      "failureHint": "只翻出一堆烧焦的纸屑，看不出完整句子。"
+    },
+    {
+      "id": "check-san",
+      "type": "d100.san",
+      "loss": "1/1D6",
+      "prompt": "第一次看清祭坛上的血迹与名字。",
+      "successHint": "你们稳住了呼吸，意识到祭坛上的名字少了一个。",
+      "failureHint": "有人后退时撞翻了石阶上的灯，黑暗里传来不属于雨声的低语。"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "trg-entry",
+      "when": "scene-enter",
+      "sceneId": "scene-gate",
+      "hint": "KP 提示：让雨声和门轴的吱呀声先压住对话，等玩家主动推门。"
+    },
+    {
+      "id": "trg-letter",
+      "when": "clue-unlocked",
+      "clueId": "clue-letter",
+      "hint": "KP 提示：读信时只念出「请勿进地窖」，不要解释纸上的水渍。"
+    },
+    {
+      "id": "trg-altar",
+      "when": "check-resolved",
+      "checkId": "check-san",
+      "result": "any",
+      "hint": "KP 提示：检定结束后让老管家在楼梯口出现，问一句「你们看见什么了？」"
+    }
+  ],
+  "endings": [
+    {
+      "id": "ending-truth",
+      "title": "面对真相",
+      "requiredClueIds": [
+        "clue-footprints",
+        "clue-letter",
+        "clue-diary",
+        "clue-altar"
+      ],
+      "narration": "你们把祭坛上的名字与日记、信、脚印拼在一起，老管家终于不再辩解。地窖深处传来一声很轻的叹息，像有人终于松了口气。"
+    },
+    {
+      "id": "ending-escape",
+      "title": "雨夜脱身",
+      "requiredClueIds": [
+        "clue-letter",
+        "clue-diary"
+      ],
+      "narration": "你们没有下到地窖最深处。天亮前，雨停了，你们带着那封信和烧焦的日记离开古宅；身后的门自己关上了。"
+    },
+    {
+      "id": "ending-lost",
+      "title": "空手而归",
+      "requiredClueIds": [],
+      "narration": "你们在宅子里绕了很久，只带回一身雨水和说不清的不安。天亮时，古宅的门锁着，像从来没有人住过。"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "MBB-Trpg",
+  "version": "V0.1.10.2.0001",
+  "apiVersion": "0.3",
+  "main": "org.moboxlab.mbb.trpg.TrpgPlugin",
+  "author": "MoBoxLab",
+  "description": "MoBoxBot TRPG 跑团插件：会话管理、d100 检定、剧本导入与生成、AI 主持与降级链",
+  "website": "",
+  "depend": [],
+  "softDepend": [
+    "MBB-AI"
+  ],
+  "loadBefore": [],
+  "provides": [
+    "trpg"
+  ]
+}

@@ -1,0 +1,523 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/MossCG/MBB-Plugins/blob/master/docs/scripts/script-v1.schema.json",
+  "title": "MBB-Trpg 剧本格式 v1",
+  "description": "仅描述结构、类型与单字段约束；全局唯一性、引用存在性、保留字与文件来源由 docs/scripts/README.md 的校验规则约束。",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "ruleSet",
+    "minPlayers",
+    "maxPlayers",
+    "estimatedMinutes",
+    "scenes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "#/definitions/elementId"
+    },
+    "name": {
+      "$ref": "#/definitions/displayName"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "ruleSet": {
+      "const": "d100"
+    },
+    "minPlayers": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "maxPlayers": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "estimatedMinutes": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 600
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 16
+      }
+    },
+    "startingItems": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 30
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/definitions/scene"
+      }
+    },
+    "clues": {
+      "type": "array",
+      "maxItems": 60,
+      "items": {
+        "$ref": "#/definitions/clue"
+      }
+    },
+    "npcs": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/definitions/npc"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/definitions/check"
+      }
+    },
+    "triggers": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/definitions/trigger"
+      }
+    },
+    "endings": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/definitions/ending"
+      }
+    }
+  },
+  "definitions": {
+    "elementId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "scene": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "narration"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/elementId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "narration": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "fallbackNarration": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "clueIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/elementId"
+          }
+        },
+        "npcIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/elementId"
+          }
+        },
+        "checkIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/elementId"
+          }
+        }
+      }
+    },
+    "clue": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "unlockedText"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/elementId"
+        },
+        "name": {
+          "$ref": "#/definitions/displayName"
+        },
+        "lockedSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "unlockedText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 800
+        }
+      }
+    },
+    "npc": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "role",
+        "public"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/elementId"
+        },
+        "name": {
+          "$ref": "#/definitions/displayName"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "public": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/elementId"
+        },
+        "type": {
+          "enum": [
+            "d100.skill",
+            "d100.san"
+          ]
+        },
+        "skill": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "difficulty": {
+          "enum": [
+            "regular",
+            "hard",
+            "extreme"
+          ]
+        },
+        "bonusDice": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "penaltyDice": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "loss": {
+          "type": "string",
+          "pattern": "^[0-9Dd+\\-]+\\/[0-9Dd+\\-]+$"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "successHint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "failureHint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "d100.skill"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "skill"
+            ],
+            "not": {
+              "required": [
+                "loss"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "d100.san"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "loss"
+            ],
+            "not": {
+              "required": [
+                "skill"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "trigger": {
+      "type": "object",
+      "required": [
+        "id",
+        "when",
+        "hint"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/elementId"
+        },
+        "when": {
+          "enum": [
+            "scene-enter",
+            "clue-unlocked",
+            "check-resolved"
+          ]
+        },
+        "sceneId": {
+          "$ref": "#/definitions/elementId"
+        },
+        "clueId": {
+          "$ref": "#/definitions/elementId"
+        },
+        "checkId": {
+          "$ref": "#/definitions/elementId"
+        },
+        "result": {
+          "enum": [
+            "success",
+            "failure",
+            "any"
+          ]
+        },
+        "hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "when": {
+                "const": "scene-enter"
+              }
+            },
+            "required": [
+              "when"
+            ]
+          },
+          "then": {
+            "required": [
+              "sceneId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "clueId"
+                  ]
+                },
+                {
+                  "required": [
+                    "checkId"
+                  ]
+                },
+                {
+                  "required": [
+                    "result"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "when": {
+                "const": "clue-unlocked"
+              }
+            },
+            "required": [
+              "when"
+            ]
+          },
+          "then": {
+            "required": [
+              "clueId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "sceneId"
+                  ]
+                },
+                {
+                  "required": [
+                    "checkId"
+                  ]
+                },
+                {
+                  "required": [
+                    "result"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "when": {
+                "const": "check-resolved"
+              }
+            },
+            "required": [
+              "when"
+            ]
+          },
+          "then": {
+            "required": [
+              "checkId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "sceneId"
+                  ]
+                },
+                {
+                  "required": [
+                    "clueId"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ending": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "narration"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/elementId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "requiredClueIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/elementId"
+          }
+        },
+        "narration": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        }
+      }
+    }
+  }
+}
