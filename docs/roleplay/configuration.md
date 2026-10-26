@@ -169,6 +169,7 @@ randomTickPrivateFollowUpFreshMinute: 720
 randomTickGroupWindowMinute: 360
 randomTickGroupMaxActions: 2
 randomTickQzoneDailyMax: 2
+qzoneUgcRight: 1
 randomTickQzoneDayChance: 0.20
 randomTickQzoneEveningChance: 0.80
 randomTickQzoneNightChance: 0.03
@@ -207,6 +208,8 @@ randomTickReasoningEffort: "low"
 `randomTickQzoneDayChance`、`randomTickQzoneEveningChance`、`randomTickQzoneNightChance`
 决定是否把 Qzone 放入候选，最终仍由模型决定是否发布。`randomTickQzoneDailyMax` 只限制
 随机刻通道；聊天工具、owner 私聊随机刻等其他入口发布 Qzone 只计入 QQ 插件计数，不受该上限拦截。
+`qzoneUgcRight` 默认 `1`（所有人可见），随机刻、活动插件分享和 `qq_qzone_post` 未显式传
+`ugcRight` 时都会使用这个值；可改为 `4` 好友、`16` 部分好友、`64` 仅自己或 `128` 部分好友不可见。
 
 activeMemory: true
 imageUnderstandingEnable: true

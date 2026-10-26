@@ -18,6 +18,9 @@ public class RoleplayRandomTickServiceTestMain {
             throw new AssertionError("群活跃度加权抽样边界不正确");
         }
         RoleplayConfig config = new RoleplayConfig();
+        if (config.qzoneUgcRight != 1) {
+            throw new AssertionError("Qzone 默认应所有人可见");
+        }
         if (config.randomTickOwnerRecentWindowMinute != 180
                 || Math.abs(config.randomTickOwnerRecentBoostChance - 0.30) > 0.0001) {
             throw new AssertionError("随机刻 owner 加权默认值不正确");

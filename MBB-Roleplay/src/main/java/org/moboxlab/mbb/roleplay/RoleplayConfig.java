@@ -390,6 +390,7 @@ public class RoleplayConfig {
     public int randomTickGroupWindowMinute = 360;
     public int randomTickGroupMaxActions = 2;
     public int randomTickQzoneDailyMax = 2;
+    public int qzoneUgcRight = 1;
     public double randomTickQzoneDayChance = 0.20;
     public double randomTickQzoneEveningChance = 0.80;
     public double randomTickQzoneNightChance = 0.03;
@@ -993,6 +994,7 @@ public class RoleplayConfig {
         config.randomTickGroupWindowMinute = plugin.getConfig().getInt("randomTickGroupWindowMinute",360);
         config.randomTickGroupMaxActions = plugin.getConfig().getInt("randomTickGroupMaxActions",2);
         config.randomTickQzoneDailyMax = plugin.getConfig().getInt("randomTickQzoneDailyMax",2);
+        config.qzoneUgcRight = plugin.getConfig().getInt("qzoneUgcRight",1);
         config.randomTickQzoneDayChance = parseDouble(
                 plugin.getConfig().getString("randomTickQzoneDayChance","0.20"),0.20);
         config.randomTickQzoneEveningChance = parseDouble(
@@ -1714,6 +1716,11 @@ public class RoleplayConfig {
         if (config.randomTickGroupMaxActions > 100) config.randomTickGroupMaxActions = 100;
         if (config.randomTickQzoneDailyMax < 0) config.randomTickQzoneDailyMax = 0;
         if (config.randomTickQzoneDailyMax > 20) config.randomTickQzoneDailyMax = 20;
+        if (config.qzoneUgcRight != 1 && config.qzoneUgcRight != 4
+                && config.qzoneUgcRight != 16 && config.qzoneUgcRight != 64
+                && config.qzoneUgcRight != 128) {
+            config.qzoneUgcRight = 1;
+        }
         if (config.randomTickQzoneDayChance < 0) config.randomTickQzoneDayChance = 0;
         if (config.randomTickQzoneDayChance > 1) config.randomTickQzoneDayChance = 1;
         if (config.randomTickQzoneEveningChance < 0) config.randomTickQzoneEveningChance = 0;

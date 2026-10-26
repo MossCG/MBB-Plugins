@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "55";
+    private static final String CURRENT_VERSION = "56";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -415,6 +415,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("randomTickGroupWindowMinute","360","群主动话题统计窗口分钟数"),
             new ConfigEntry("randomTickGroupMaxActions","2","窗口内最多执行多少次群主动话题"),
             new ConfigEntry("randomTickQzoneDailyMax","2","每天最多发布多少条 Qzone 说说"),
+            new ConfigEntry("qzoneUgcRight","1","Qzone 发布默认可见范围：1 所有人，4 好友，16 部分好友，64 仅自己，128 部分好友不可见"),
             new ConfigEntry("randomTickQzoneDayChance","0.20","白天随机刻考虑 Qzone 的概率"),
             new ConfigEntry("randomTickQzoneEveningChance","0.80","晚上随机刻考虑 Qzone 的概率"),
             new ConfigEntry("randomTickQzoneNightChance","0.03","深夜随机刻考虑 Qzone 的概率"),
@@ -561,7 +562,7 @@ public class RoleplayConfigMigrator {
                 plugin.getLogger().sendWarn("自动补全 Roleplay 配置失败，请检查 config.yml 权限！");
             }
         }
-        if (version < 55) {
+        if (version < 56) {
             config.set("configVersion",CURRENT_VERSION);
             if (!versionMissing) changed++;
         }
@@ -775,7 +776,7 @@ public class RoleplayConfigMigrator {
             config.set("replySegmentMaxChars","30");
             changed++;
         }
-        if (version < 55 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
+        if (version < 56 || legacyRoleBotChance || legacyPersonaFile || legacyStickerWindow
                 || legacyRouterMaxTokens || legacyRouterMaxTokens1200
                 || legacyPromptTotalChars || legacyMemoryRelevanceMaxChars
                 || legacyGlobalMemoryRelevanceMaxChars || legacyRouterReasoningEffort

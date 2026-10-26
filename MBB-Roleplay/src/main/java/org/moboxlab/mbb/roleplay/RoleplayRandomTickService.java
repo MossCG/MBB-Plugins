@@ -541,7 +541,7 @@ public class RoleplayRandomTickService {
             } else if (ACTION_GROUP_TOPIC.equals(candidate)) {
                 prompt.append("- group_topic：主动发起一句自然话题；具体群由程序从最近活跃群中选择；全局每 6 小时最多 2 次。\n");
             } else if (ACTION_QZONE.equals(candidate)) {
-                prompt.append("- qzone_post：发一条 QQ 空间说说；每天最多 2 次，默认仅自己可见。\n");
+                prompt.append("- qzone_post：发一条 QQ 空间说说；每天最多 2 次，可见范围由 qzoneUgcRight 配置。\n");
             }
         }
         if (recentOwner.ownerID > 0) {
@@ -857,7 +857,7 @@ public class RoleplayRandomTickService {
         JSONObject params = new JSONObject(true);
         params.put("operatorID",ownerID);
         params.put("content",content);
-        params.put("ugcRight",64);
+        params.put("ugcRight",config.qzoneUgcRight);
         JSONObject result = qq.call("qzone_post",params);
         return result != null && result.getBooleanValue("status");
     }

@@ -155,7 +155,7 @@ public class RoleplayQQTools {
         JSONObject properties = new JSONObject(true);
         properties.put("content",property("string","说说正文"));
         properties.put("images",property("array","可选图片数组，元素是角色工作区相对路径"));
-        properties.put("ugcRight",property("integer","可见范围：1 所有人，4 好友，16 部分好友，64 仅自己，128 部分好友不可见"));
+        properties.put("ugcRight",property("integer","可见范围：1 所有人，4 好友，16 部分好友，64 仅自己，128 部分好友不可见；省略时使用 qzoneUgcRight"));
         properties.put("targetUins",property("array","部分好友可见/不可见时的 QQ 数组"));
         return properties;
     }
@@ -331,7 +331,11 @@ public class RoleplayQQTools {
             params.put("times",args.getIntValue("times"));
             params.put("card",service.safe(args.getString("card")));
             params.put("content",service.safe(args.getString("content")));
-            params.put("ugcRight",args.getIntValue("ugcRight"));
+            int ugcRight = args.getIntValue("ugcRight");
+            if (ugcRight == 0 && "qzone_post".equals(action)) {
+                ugcRight = service.config().qzoneUgcRight;
+            }
+            params.put("ugcRight",ugcRight);
             params.put("targetUins",args.getJSONArray("targetUins"));
             params.put("tid",service.safe(args.getString("tid")));
             params.put("limit",args.getIntValue("limit"));

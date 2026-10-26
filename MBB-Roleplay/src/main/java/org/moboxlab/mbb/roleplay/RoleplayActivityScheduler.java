@@ -356,7 +356,7 @@ public class RoleplayActivityScheduler {
         JSONObject params = new JSONObject(true);
         params.put("operatorID",ownerID);
         params.put("content",content);
-        params.put("ugcRight",64);
+        params.put("ugcRight",config.qzoneUgcRight);
         JSONObject result = qq.call("qzone_post",params);
         return result != null && result.getBooleanValue("status");
     }

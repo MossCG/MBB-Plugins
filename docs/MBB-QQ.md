@@ -64,6 +64,8 @@ QQ 扩展动作服务。它把 NapCat/OneBot 的常用 QQ 能力封装成稳定�
 
 见 [配置文件](https://github.com/MossCG/MBB-Plugins/blob/master/MBB-QQ/src/main/resources/config.yml)。
 默认关闭 Qzone 的公开发布：`qzoneDefaultUgcRight=64`，需要公开发布时显式传 `ugcRight=1`。
+`MBB-Roleplay` 的 Qzone 随机刻、活动分享和 QQ 工具会显式使用自己的 `qzoneUgcRight`
+（默认 `1` 所有人可见），因此不受 MBB-QQ 这个兜底默认值影响。
 `adminToolsEnable=false` 会同时关闭申请记录和全部高权限账号/群管理动作。
 `groupLeaveEnable=false` 只关闭退群动作，不影响其他 QQ 管理能力。
 

@@ -1,7 +1,7 @@
 #MBB-Roleplay 插件配置
 
 #配置结构版本，插件升级时自动维护
-configVersion: 55
+configVersion: 56
 #是否启用角色扮演
 enable: true
 #AI 使用的模型配置名，对应 MBB-AI 的 profiles.json
@@ -711,6 +711,8 @@ randomTickGroupWindowMinute: 360
 randomTickGroupMaxActions: 2
 #每天最多发布多少条 Qzone 说说，0 表示关闭
 randomTickQzoneDailyMax: 2
+#Qzone 发布默认可见范围：1 所有人，4 好友，16 部分好友，64 仅自己，128 部分好友不可见
+qzoneUgcRight: 1
 #白天随机刻考虑 Qzone 的概率
 randomTickQzoneDayChance: 0.20
 #晚间随机刻考虑 Qzone 的概率
