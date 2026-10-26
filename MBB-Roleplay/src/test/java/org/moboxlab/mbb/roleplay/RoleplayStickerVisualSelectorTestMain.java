@@ -20,7 +20,8 @@ public class RoleplayStickerVisualSelectorTestMain {
         RoleplayConfig config = new RoleplayConfig();
         if (!config.stickerVisionEnable || config.stickerVisionCandidates != 6
                 || config.stickerVisionMaxTokens != 600
-                || config.stickerVisionTimeoutSecond != 45) {
+                || config.stickerVisionTimeoutSecond != 45
+                || Math.abs(config.stickerSendChance - 0.60) > 0.0001) {
             throw new AssertionError("表情包视觉选择默认配置不正确");
         }
 

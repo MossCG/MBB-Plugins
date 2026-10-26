@@ -153,7 +153,7 @@ public class RoleplayConfig {
     public int stickerAttachWindowSecond = 5;
     public int stickerAttachMaxWaitSecond = 15;
     public boolean stickerAttachWaitUntilNextMessage = true;
-    public double stickerSendChance = 0.35;
+    public double stickerSendChance = 0.60;
     public boolean stickerVisionEnable = true;
     public int stickerVisionCandidates = 6;
     public String stickerVisionProfile = "";
@@ -274,6 +274,10 @@ public class RoleplayConfig {
     public int webMaxChars = 12000;
     public int webImageMaxBytes = 8 * 1024 * 1024;
     public int webCacheSecond = 300;
+    public boolean memeSearchEnable = true;
+    public int memeSearchMaxResults = 3;
+    public int memeSearchTimeoutSecond = 10;
+    public int memeSearchCacheSecond = 600;
     public boolean contextHardLimitEnable = false;
     public boolean pacingEnable = true;
     public int pacingBaseMs = 350;
@@ -664,7 +668,7 @@ public class RoleplayConfig {
         config.stickerAttachWaitUntilNextMessage =
                 plugin.getConfig().getBoolean("stickerAttachWaitUntilNextMessage",true);
         config.stickerSendChance = parseDouble(
-                plugin.getConfig().getString("stickerSendChance","0.35"),0.35);
+                plugin.getConfig().getString("stickerSendChance","0.60"),0.60);
         config.stickerVisionEnable =
                 plugin.getConfig().getBoolean("stickerVisionEnable",true);
         config.stickerVisionCandidates =
@@ -830,6 +834,10 @@ public class RoleplayConfig {
         config.webMaxChars = plugin.getConfig().getInt("webMaxChars",12000);
         config.webImageMaxBytes = plugin.getConfig().getInt("webImageMaxBytes",8 * 1024 * 1024);
         config.webCacheSecond = plugin.getConfig().getInt("webCacheSecond",300);
+        config.memeSearchEnable = plugin.getConfig().getBoolean("memeSearchEnable",true);
+        config.memeSearchMaxResults = plugin.getConfig().getInt("memeSearchMaxResults",3);
+        config.memeSearchTimeoutSecond = plugin.getConfig().getInt("memeSearchTimeoutSecond",10);
+        config.memeSearchCacheSecond = plugin.getConfig().getInt("memeSearchCacheSecond",600);
         config.contextHardLimitEnable = plugin.getConfig().getBoolean("contextHardLimitEnable",false);
         config.pacingEnable = plugin.getConfig().getBoolean("pacingEnable",true);
         config.pacingBaseMs = plugin.getConfig().getInt("pacingBaseMs",350);
@@ -1475,6 +1483,12 @@ public class RoleplayConfig {
         if (config.webImageMaxBytes > 20 * 1024 * 1024) config.webImageMaxBytes = 20 * 1024 * 1024;
         if (config.webCacheSecond < 0) config.webCacheSecond = 0;
         if (config.webCacheSecond > 86400) config.webCacheSecond = 86400;
+        if (config.memeSearchMaxResults < 1) config.memeSearchMaxResults = 1;
+        if (config.memeSearchMaxResults > 5) config.memeSearchMaxResults = 5;
+        if (config.memeSearchTimeoutSecond < 3) config.memeSearchTimeoutSecond = 3;
+        if (config.memeSearchTimeoutSecond > 30) config.memeSearchTimeoutSecond = 30;
+        if (config.memeSearchCacheSecond < 60) config.memeSearchCacheSecond = 60;
+        if (config.memeSearchCacheSecond > 86400) config.memeSearchCacheSecond = 86400;
         if (config.pacingBaseMs < 0) config.pacingBaseMs = 0;
         if (config.pacingPerCharMs < 0) config.pacingPerCharMs = 0;
         if (config.pacingMaxMs < 0) config.pacingMaxMs = 0;

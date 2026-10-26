@@ -266,7 +266,7 @@ stickerAttachMaxWaitSecond: 15
 #同一用户又发言或表情包已附带时立刻结束等待，不再干等到窗口结束
 stickerAttachWaitUntilNextMessage: true
 #提示词中的表情包参考使用率，0 到 1；不是代码强制抽样
-stickerSendChance: 0.35
+  stickerSendChance: 0.60
 #是否用视觉模型从候选拼图中选择表情包
 stickerVisionEnable: true
 #视觉选择时最多生成多少张候选拼图，2 到 9
@@ -469,6 +469,14 @@ webMaxChars: 12000
 webImageMaxBytes: 8388608
 #网页和搜索结果缓存秒数，0 表示不缓存
 webCacheSecond: 300
+#是否允许角色通过梗Wiki公开API按需检索网络梗
+memeSearchEnable: true
+#单次梗检索最多返回多少条公开词条
+memeSearchMaxResults: 3
+#梗Wiki API请求超时秒数
+memeSearchTimeoutSecond: 10
+#梗检索内存缓存秒数
+memeSearchCacheSecond: 600
 #是否启用本地提示词硬字符预算
 contextHardLimitEnable: false
 #启用本地硬预算时，单轮提示词总字符上限

@@ -76,6 +76,7 @@ public class RoleplaySkillTool implements RoleplayTool {
         }
         RoleplayToolResult toolResult = RoleplayToolResult.ok(result.summary);
         toolResult.data.put("skill",skill.id());
+        if ("sticker".equals(skill.id())) toolResult.data.put("canEndTurn",true);
         if (result.extraText != null && !result.extraText.isEmpty()) {
             toolResult.data.put("extraText",result.extraText);
         }

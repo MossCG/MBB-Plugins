@@ -15,7 +15,7 @@ import java.util.List;
  * Roleplay 配置迁移与缺失项补全
  */
 public class RoleplayConfigMigrator {
-    private static final String CURRENT_VERSION = "56";
+    private static final String CURRENT_VERSION = "57";
     private static final String LEGACY_WEB_WHITELIST =
             "wikipedia.org,baike.baidu.com,bilibili.com,gamekee.com,bluearchive.wiki,"
                     +"kivo.wiki,moegirl.org.cn,github.com,raw.githubusercontent.com,deepwiki.com,"
@@ -182,7 +182,7 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("stickerAttachMaxWaitSecond","15","表情包已开始识别时，最多额外等待多少秒"),
             new ConfigEntry("stickerAttachWaitUntilNextMessage","true",
                     "同一用户又发言或表情包已附带时立刻结束等待，不再干等到窗口结束"),
-            new ConfigEntry("stickerSendChance","0.35","提示词中的表情包参考使用率，0 到 1"),
+            new ConfigEntry("stickerSendChance","0.60","提示词中的表情包参考使用率，0 到 1"),
             new ConfigEntry("stickerVisionEnable","true","是否用视觉模型从候选拼图中选择表情包"),
             new ConfigEntry("stickerVisionCandidates","6","视觉选择时最多生成多少张候选拼图"),
             new ConfigEntry("stickerVisionProfile","","表情包视觉选择使用的 AI profile，留空时使用 aiProfile"),
@@ -295,6 +295,10 @@ public class RoleplayConfigMigrator {
             new ConfigEntry("webMaxChars","12000","网页净化后最多注入字符数"),
             new ConfigEntry("webImageMaxBytes","8388608","网页图片发送单张最多读取的字节数"),
             new ConfigEntry("webCacheSecond","300","网页和搜索结果缓存秒数"),
+            new ConfigEntry("memeSearchEnable","true","是否允许角色通过梗Wiki公开 API 按需检索网络梗"),
+            new ConfigEntry("memeSearchMaxResults","3","单次梗检索最多返回多少条公开词条"),
+            new ConfigEntry("memeSearchTimeoutSecond","10","梗Wiki API 请求超时秒数"),
+            new ConfigEntry("memeSearchCacheSecond","600","梗检索内存缓存秒数"),
             new ConfigEntry("pacingEnable","true","是否在发送前加入拟人打字延迟"),
             new ConfigEntry("pacingBaseMs","350","拟人延迟基础毫秒"),
             new ConfigEntry("pacingPerCharMs","25","每个字符增加的延迟毫秒"),
@@ -545,6 +549,8 @@ public class RoleplayConfigMigrator {
                 && "true".equals(config.getString("styleEnable",""));
         boolean legacyExpressionReviewMode = version < 51
                 && "suggest".equals(config.getString("expressionReviewMode",""));
+        boolean legacyStickerSendChance = version < 57
+                && "0.35".equals(config.getString("stickerSendChance",""));
         boolean legacyExpressionApproveQuality = version < 51
                 && "0.70".equals(config.getString("expressionAutoApproveMinQuality",""));
         boolean legacyContextCompact75 = version < 55
@@ -677,6 +683,10 @@ public class RoleplayConfigMigrator {
         }
         if (legacySearchMaxResults) {
             config.set("webSearchMaxResults","10");
+            changed++;
+        }
+        if (legacyStickerSendChance) {
+            config.set("stickerSendChance","0.60");
             changed++;
         }
         if (legacyRoleBotChance) {

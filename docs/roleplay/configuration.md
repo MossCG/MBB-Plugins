@@ -224,7 +224,7 @@ stickerAttachEnable: true
 stickerAttachWindowSecond: 5
 stickerAttachMaxWaitSecond: 15
 stickerAttachWaitUntilNextMessage: true
-stickerSendChance: 0.35
+stickerSendChance: 0.60
 stickerVisionEnable: true
 stickerVisionCandidates: 6
 stickerVisionProfile: ""
@@ -329,6 +329,10 @@ webMaxBytes: 262144
 webMaxChars: 12000
 webImageMaxBytes: 8388608
 webCacheSecond: 300
+memeSearchEnable: true
+memeSearchMaxResults: 3
+memeSearchTimeoutSecond: 10
+memeSearchCacheSecond: 600
 contextHardLimitEnable: false
 promptTotalChars: 120000
 pacingEnable: true
@@ -501,6 +505,13 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 `toolMemoryInject*` 控制下一轮按相关性注入的工具结果上下文。工具期间新消息并入上下文受
 `toolLiveMessageMax` 限制。未完成工具回合默认持久化，启动后最近 `toolRecoverMaxMinutes`
 内可恢复，记录保留 `toolTurnKeepHours`。
+
+`stickerSendChance` 默认 `0.60`，只作为提示词中的参考使用率。若文字没有新增信息，只剩笑、惊讶、无语或点头等纯反应，
+角色可以只发一张表情包并结束回合，不强制配文字。连续两条回复仍应避免连发表情包。
+
+`memeSearchEnable` 开放 `meme_search` 工具。它固定访问 `https://cnmeme.wiki/api/v1/public/memes`，
+不接受任意 URL；`memeSearchMaxResults` 限制返回 1 到 5 条，缓存默认 600 秒。API 返回的摘要、标签和来源链接
+按 external-untrusted 注入，短缩写应先查本地 `slang_search`。
 
 `workspaceEnable` 开放角色的私有工作区
 `plugins/MBB-Roleplay/data/`，读写大小和列表数量分别由 `workspaceMaxReadChars`、

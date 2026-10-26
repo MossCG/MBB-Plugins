@@ -64,6 +64,7 @@ public class RoleplayStickerService {
         int chance = (int)Math.round(service.config().stickerSendChance * 100);
         builder.append("\n表情包是自然表达，不是每句话都必须带；情绪、语气或场景明显合适时优先使用一张。")
                 .append("参考使用率约 ").append(chance).append("%，连续两条回复不要连发。")
+                .append("如果这一轮只是在笑、惊讶、无语或点头，文字没有新信息，可以直接只发表情包，不必硬配一句话。")
                 .append("可以选择 1 到 2 个匹配标签，也可以留空让插件随机选择；")
                 .append("只有完全不合语境时才不要使用。");
         return builder.toString();

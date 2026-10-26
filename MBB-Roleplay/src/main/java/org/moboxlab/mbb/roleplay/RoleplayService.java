@@ -118,6 +118,7 @@ public class RoleplayService {
     private final RoleplayTrainService trainService;
     private final RoleplaySkillRegistry skillRegistry;
     private final RoleplaySlangLexicon slangLexicon;
+    private final RoleplayMemeService memeService;
     private final RoleplayToolLoopService toolLoopService;
     private final RoleplayToolMemoryService toolMemoryService;
     private final RoleplayToolTurnService toolTurnService;
@@ -360,6 +361,7 @@ public class RoleplayService {
         this.toolMemoryService = new RoleplayToolMemoryService(plugin,config);
         this.toolTurnService = new RoleplayToolTurnService(plugin,config);
         this.slangLexicon = new RoleplaySlangLexicon(this);
+        this.memeService = new RoleplayMemeService(this);
         this.toolLoopService = new RoleplayToolLoopService(this,config);
         this.router = new RoleplayRouter(plugin,this);
     }
@@ -781,6 +783,10 @@ public class RoleplayService {
 
     RoleplaySlangLexicon slangLexicon() {
         return slangLexicon;
+    }
+
+    RoleplayMemeService memeService() {
+        return memeService;
     }
 
     RoleplayEmotionService emotionService() {

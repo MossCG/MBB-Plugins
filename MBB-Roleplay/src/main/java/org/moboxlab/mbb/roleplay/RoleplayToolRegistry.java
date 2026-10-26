@@ -38,6 +38,7 @@ public class RoleplayToolRegistry {
         register(new MemorySearchTool());
         register(new KnowledgeSearchTool());
         register(new SlangSearchTool());
+        register(new MemeSearchTool());
         register(new WebFetchTool());
         register(new WebSearchTool());
         register(new WebImageSendTool());
@@ -353,6 +354,7 @@ public class RoleplayToolRegistry {
                 && !config.webEnable) return false;
         if ("web_image_send".equals(tool.name()) && !hasService("MBB-QQ")) return false;
         if ("kb_search".equals(tool.name()) && !config.knowledgeEnable) return false;
+        if ("meme_search".equals(tool.name()) && !config.memeSearchEnable) return false;
         if ("reminder".equals(tool.name()) && !config.reminderEnable) return false;
         if ("memory".equals(tool.name()) && !config.activeMemory) return false;
         if ("global-memory".equals(tool.name()) && !config.globalMemoryEnable) return false;
@@ -899,6 +901,43 @@ public class RoleplayToolRegistry {
             result.data.put("results",results);
             result.data.put("status",service.slangLexicon().status());
             return result;
+        }
+    }
+
+    private class MemeSearchTool extends BaseTool {
+        @Override
+        public String name() { return "meme_search"; }
+
+        @Override
+        public String description() { return "怀疑对方在使用已有网络梗时，检索梗Wiki公开词条的标题、摘要、标签和来源链接"; }
+
+        @Override
+        public String category() { return "retrieval"; }
+
+        @Override
+        public JSONObject schema() {
+            JSONObject properties = new JSONObject(true);
+            properties.put("query",property("string","疑似梗名、完整短语或关键描述；不要只传一两个字母"));
+            properties.put("tag",property("string","可选，单个标签，例如谐音梗、游戏梗、弹幕文化"));
+            properties.put("limit",property("integer","最多返回几条，1 到 5，默认使用配置值"));
+            return functionSchema(name(),description(),properties,new String[]{"query"});
+        }
+
+        @Override
+        public RoleplayToolResult execute(RoleplayToolContext context,JSONObject args) {
+            String query = service.safe(args.getString("query")).trim();
+            if (query.isEmpty()) return RoleplayToolResult.failed("query 不能为空");
+            try {
+                JSONObject found = service.memeService().search(query,args.getString("tag"),
+                        args.getIntValue("limit"));
+                JSONArray items = found.getJSONArray("items");
+                RoleplayToolResult result = RoleplayToolResult.untrusted(items == null || items.isEmpty()
+                        ? "梗Wiki未命中公开词条" : "梗Wiki命中 "+items.size()+" 条公开词条");
+                result.data.putAll(found);
+                return result;
+            } catch (Exception e) {
+                return RoleplayToolResult.failed("梗检索失败："+service.safe(e.getMessage()));
+            }
         }
     }
 
