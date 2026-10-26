@@ -153,6 +153,15 @@ public class AiPromptAssemblerTest {
     }
 
     @Test
+    public void privateEchoFragmentsCoverNpcSecretsAndLockedClues() {
+        List<String> fragments = AiPromptAssembler.privateEchoFragments(snapshot(0), script());
+        assertTrue(fragments.contains("他就是三十年前那桩旧案的凶手。"));
+        assertTrue(fragments.contains("衣柜暗格里藏着带血的凶器。"));
+        assertFalse("已解锁线索不应再被当成禁止回显正文",
+                fragments.contains("抽屉里躺着半张车票，终点站被涂掉了。"));
+    }
+
+    @Test
     public void scriptNullFallsBackToGenericTemplate() {
         String stable = AiPromptAssembler.stablePrefix(snapshot(0), null);
         assertTrue(stable.contains("通用悬疑模板"));

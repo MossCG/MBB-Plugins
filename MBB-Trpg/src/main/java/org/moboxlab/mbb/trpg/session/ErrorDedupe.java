@@ -10,6 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ErrorDedupe {
 
+    private static final int MAX_ENTRIES = 2048;
+
     private final Map<String, Long> lastReply = new ConcurrentHashMap<String, Long>();
 
     /**
@@ -37,6 +39,7 @@ public final class ErrorDedupe {
         String dedupeKey = groupId + ":" + key;
         // 判定与登记必须在同一把锁内：两个并发请求否则可能都判定为「未回复过」。
         synchronized (lastReply) {
+            if (!lastReply.containsKey(dedupeKey) && lastReply.size() >= MAX_ENTRIES) lastReply.clear();
             Long last = lastReply.get(dedupeKey);
             if (last != null && windowMillis > 0L && now - last.longValue() < windowMillis) {
                 return false;
@@ -49,5 +52,9 @@ public final class ErrorDedupe {
     /** 清空登记（停用与测试用）。 */
     public void clear() {
         lastReply.clear();
+    }
+
+    int size() {
+        return lastReply.size();
     }
 }

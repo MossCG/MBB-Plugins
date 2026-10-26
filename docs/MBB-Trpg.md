@@ -1066,6 +1066,3 @@ DELETE FROM plugin_mbb_trpg_ai_trace WHERE id < (SELECT id FROM plugin_mbb_trpg_
 | 跨表多写仍可能半局（局已结束、成员未结算） | 无事务的必然结果 | 由成长补做与恢复扫描收敛，不承诺跨表原子 |
 | 发布版本号 / 分支策略 / CI 细节 | 设计规格 Not yet specified | 规格定稿后由实现 effort 另定 |
 | 实现代码、构建产物、发布 | 出界 | 按本文另起 effort |
-
-
-

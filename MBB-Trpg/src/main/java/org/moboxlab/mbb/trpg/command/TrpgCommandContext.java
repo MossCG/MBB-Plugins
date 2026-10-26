@@ -45,7 +45,7 @@ public final class TrpgCommandContext {
 
     private static final long MILLIS_PER_SECOND = 1000L;
     private static final String HELP_NEXT = "发送 /trpg help 查看用法。";
-    private static final String PRIVATE_NEXT = "私聊只支持 help 与 /roll。";
+    private static final String PRIVATE_NEXT = TrpgCommandService.PRIVATE_NEXT;
     private static final String RETRY_NEXT = "请稍后重试。";
     private static final String UNKNOWN_NEXT = "发送 /trpg help 查看可用指令。";
 

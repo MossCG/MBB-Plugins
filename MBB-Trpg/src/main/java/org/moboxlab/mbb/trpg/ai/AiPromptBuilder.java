@@ -6,6 +6,9 @@ import org.moboxlab.mbb.trpg.script.Script;
 import org.moboxlab.mbb.trpg.script.ScriptCatalog;
 import org.moboxlab.mbb.trpg.session.SessionSnapshot;
 
+import java.util.Collections;
+import java.util.List;
+
 /** 提示词装配与模板叙述：按当前场景取剧本装配请求，取不到剧本时退回空串。 */
 final class AiPromptBuilder {
 
@@ -40,6 +43,20 @@ final class AiPromptBuilder {
                 config.aiPromptBudgetChars(), config.aiDynamicMinChars());
         return new AiRequest(request.trigger().traceName(), parts.stablePrefix(), parts.cacheable(),
                 parts.dynamic(), config.aiProviderTimeoutSeconds(), 0, 0.7D, request.sessionKey());
+    }
+
+    /** 当前场景需要阻止模型回显的私密正文。读剧本失败时返回空集合，不阻断主调用。 */
+    List<String> privateEchoFragments(SessionSnapshot snapshot) {
+        if (snapshot == null) return Collections.emptyList();
+        ScriptCatalog current = catalog;
+        if (current == null) return Collections.emptyList();
+        try {
+            Script script = current.get(snapshot.scriptId());
+            return AiPromptAssembler.privateEchoFragments(snapshot, script);
+        } catch (RuntimeException error) {
+            log.warn("读取私密回显集合失败，剧本 " + snapshot.scriptId() + "：" + error);
+            return Collections.emptyList();
+        }
     }
 
     /**

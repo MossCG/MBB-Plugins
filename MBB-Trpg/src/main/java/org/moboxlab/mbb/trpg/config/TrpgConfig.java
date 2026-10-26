@@ -27,10 +27,12 @@ public final class TrpgConfig {
 
     private static final Map<String, String> DEFAULTS;
     private static final Map<String, Type> TYPES;
+    private static final Map<String, int[]> RANGES;
 
     static {
         Map<String, String> defaults = new LinkedHashMap<String, String>();
         Map<String, Type> types = new LinkedHashMap<String, Type>();
+        Map<String, int[]> ranges = new LinkedHashMap<String, int[]>();
 
         put(defaults, types, "ruleset", "d100", Type.TEXT);
 
@@ -85,8 +87,48 @@ public final class TrpgConfig {
         put(defaults, types, "aiHost.traceKeepHours", "168", Type.INTEGER);
         put(defaults, types, "aiHost.traceMaxRows", "5000", Type.INTEGER);
 
+        range(ranges, "session.recruitExpireHours", 1, 720);
+        range(ranges, "session.runningExpireDays", 1, 365);
+        range(ranges, "session.confirmWindowSeconds", 5, 300);
+        range(ranges, "cooldown.startSeconds", 0, 3600);
+        range(ranges, "cooldown.diceSeconds", 0, 60);
+        range(ranges, "cooldown.defaultSeconds", 0, 60);
+        range(ranges, "errorDedupeSeconds", 1, 300);
+        range(ranges, "activityThrottleSeconds", 0, 86400);
+        range(ranges, "log.maxContentChars", 100, 10000);
+        range(ranges, "log.pageSize", 1, 50);
+        range(ranges, "retention.sessionDays", 1, 3650);
+        range(ranges, "presentation.groupMaxChars", 100, 4000);
+        range(ranges, "presentation.privateMaxChars", 100, 5000);
+        range(ranges, "presentation.splitMax", 1, 5);
+        range(ranges, "presentation.imageMaxLines", 0, 100);
+        range(ranges, "script.maxBytes", 1024, 1048576);
+        range(ranges, "script.importIdleMinutes", 1, 1440);
+        range(ranges, "script.importMaxMinutes", 1, 10080);
+        range(ranges, "script.importMaxSegments", 1, 1000);
+        range(ranges, "script.rejectedMaxFiles", 0, 200);
+        range(ranges, "script.genCooldownSeconds", 0, 3600);
+        range(ranges, "aiHost.deadlineSeconds", 1, 300);
+        range(ranges, "aiHost.providerTimeoutSeconds", 2, 120);
+        range(ranges, "aiHost.retryCount", 0, 3);
+        range(ranges, "aiHost.maxConcurrent", 1, 32);
+        range(ranges, "aiHost.perGroupQueue", 1, 100);
+        range(ranges, "aiHost.globalQueue", 1, 200);
+        range(ranges, "aiHost.queueMaxAgeSeconds", 10, 600);
+        range(ranges, "aiHost.mergeWindowSeconds", 1, 300);
+        range(ranges, "aiHost.mergeWindowEvents", 1, 50);
+        range(ranges, "aiHost.suspendFailStreak", 1, 20);
+        range(ranges, "aiHost.suspendMinutes", 1, 1440);
+        range(ranges, "aiHost.dedupeCacheSeconds", 0, 3600);
+        range(ranges, "aiHost.promptBudgetChars", 1000, 100000);
+        range(ranges, "aiHost.dynamicMinChars", 0, 100000);
+        range(ranges, "aiHost.narrationMaxChars", 50, 2000);
+        range(ranges, "aiHost.traceKeepHours", 1, 8760);
+        range(ranges, "aiHost.traceMaxRows", 100, 100000);
+
         DEFAULTS = Collections.unmodifiableMap(defaults);
         TYPES = Collections.unmodifiableMap(types);
+        RANGES = Collections.unmodifiableMap(ranges);
     }
 
     private final Map<String, String> values;
@@ -101,6 +143,10 @@ public final class TrpgConfig {
                             String key, String value, Type type) {
         defaults.put(key, value);
         types.put(key, type);
+    }
+
+    private static void range(Map<String, int[]> ranges, String key, int min, int max) {
+        ranges.put(key, new int[]{min,max});
     }
 
     /** 全部默认值，键顺序与 config.yml 一致。 */
@@ -159,6 +205,31 @@ public final class TrpgConfig {
         if (!"broadcast".equals(style)) {
             warnings.add("presentation.style 只支持 broadcast，当前为 " + style + "，已回退 broadcast");
             normalized.put("presentation.style", "broadcast");
+        }
+        for (Map.Entry<String, int[]> entry : RANGES.entrySet()) {
+            String key = entry.getKey();
+            long value;
+            try {
+                value = TYPES.get(key) == Type.LONG
+                        ? Long.parseLong(normalized.get(key)) : Integer.parseInt(normalized.get(key));
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+            int[] bounds = entry.getValue();
+            if (value < bounds[0] || value > bounds[1]) {
+                String fallback = DEFAULTS.get(key);
+                warnings.add("配置项 " + key + " 超出范围 " + bounds[0] + ".." + bounds[1]
+                        + "，当前为 " + value + "，已回退默认值 " + fallback);
+                normalized.put(key,fallback);
+            }
+        }
+        int promptBudget = Integer.parseInt(normalized.get("aiHost.promptBudgetChars"));
+        int dynamicMin = Integer.parseInt(normalized.get("aiHost.dynamicMinChars"));
+        if (dynamicMin > promptBudget) {
+            String fallback = DEFAULTS.get("aiHost.dynamicMinChars");
+            warnings.add("配置项 aiHost.dynamicMinChars 不能大于 aiHost.promptBudgetChars，已回退默认值 "
+                    + fallback);
+            normalized.put("aiHost.dynamicMinChars",fallback);
         }
         return new TrpgConfig(normalized, warnings);
     }

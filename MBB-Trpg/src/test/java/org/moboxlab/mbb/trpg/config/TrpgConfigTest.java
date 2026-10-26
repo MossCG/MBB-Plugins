@@ -105,6 +105,32 @@ public class TrpgConfigTest {
         assertTrue("非 broadcast 应告警：" + config.warnings(), warned);
     }
 
+    @Test
+    public void outOfRangeNumbersFallBackToDefaults() {
+        Map<String, String> raw = new HashMap<String, String>();
+        raw.put("session.confirmWindowSeconds", "-1");
+        raw.put("session.recruitExpireHours", "-24");
+        raw.put("aiHost.maxConcurrent", "999");
+        raw.put("aiHost.promptBudgetChars", "500");
+        TrpgConfig config = TrpgConfig.fromValues(raw);
+        assertEquals(30, config.confirmWindowSeconds());
+        assertEquals(24, config.recruitExpireHours());
+        assertEquals(2, config.aiMaxConcurrent());
+        assertEquals(6000, config.aiPromptBudgetChars());
+        assertTrue("超范围值应逐项告警：" + config.warnings(), config.warnings().size() >= 4);
+    }
+
+    @Test
+    public void dynamicMinimumCannotExceedPromptBudget() {
+        Map<String, String> raw = new HashMap<String, String>();
+        raw.put("aiHost.promptBudgetChars", "2000");
+        raw.put("aiHost.dynamicMinChars", "3000");
+        TrpgConfig config = TrpgConfig.fromValues(raw);
+        assertEquals(2000, config.aiPromptBudgetChars());
+        assertEquals(1500, config.aiDynamicMinChars());
+        assertTrue("动态最低字数超过总预算时应告警", !config.warnings().isEmpty());
+    }
+
     /** raw() 只接受已知键。 */
     @Test
     public void rawRejectsUnknownKey() {

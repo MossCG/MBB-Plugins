@@ -82,6 +82,19 @@ public class AiNarrationParserTest {
     }
 
     @Test
+    public void rejectsPrivateEchoFragments() {
+        String secret = "祭坛下面藏着老宅真正的继承人尸体";
+        assertTrue(AiNarrationValidator.leaksPrivateEcho(
+                "你们发现，祭坛下面藏着老宅真正的继承人尸体。",
+                Arrays.asList(secret)));
+        assertTrue(AiNarrationValidator.leaksPrivateEcho(
+                "线索其实指向老宅真正的继承人尸体管家一直替他。",
+                Arrays.asList("祭坛下面藏着老宅真正的继承人尸体，管家一直替他保守秘密")));
+        assertFalse(AiNarrationValidator.leaksPrivateEcho(
+                "雨水顺着窗框流下来。",Arrays.asList(secret)));
+    }
+
+    @Test
     public void keepsPlainMentionsOfHpAndSan() {
         AiNarrationParser.ParseResult result = AiNarrationParser.parse(
                 "墙上用粉笔写着 HP 与 SAN 两个词，理智在这里显得格外珍贵。", 300);

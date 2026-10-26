@@ -33,6 +33,8 @@ public final class TrpgPresenter implements SessionEventPublisher {
             "私聊消息未能送达，本条内容未在群内展示，可稍后重试。";
     /** 连续私聊失败达到该次数后，后续私聊改群内折叠。 */
     public static final int PRIVATE_FAILURE_LIMIT = 2;
+    /** 私聊失败计数缓存上限；达到上限后整体清空，避免长期只增不减。 */
+    private static final int PRIVATE_FAILURE_CACHE_LIMIT = 1024;
     /** 连续失败后角色卡改在群内发折叠行时的提示前缀。 */
     public static final String CARD_FOLDED_SUFFIX =
             " 的私聊不可达，本局角色卡改为群内折叠（只列职业与关键数值）：";
@@ -330,6 +332,10 @@ public final class TrpgPresenter implements SessionEventPublisher {
         if (sent) {
             privateFailures.remove(userId);
             return;
+        }
+        if (!privateFailures.containsKey(userId)
+                && privateFailures.size() >= PRIVATE_FAILURE_CACHE_LIMIT) {
+            privateFailures.clear();
         }
         // 并发下可能同时失败同一成员，用原子累加避免丢次数；超过阈值后不再增长。
         privateFailures.compute(userId, new java.util.function.BiFunction<Long, Integer, Integer>() {

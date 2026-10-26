@@ -336,11 +336,12 @@ public class TrpgPlugin extends Plugin {
             getLogger().sendInfo("[MBB-Trpg] AI 主持未启用：保持零调用桩");
             return;
         }
+        AiHostEngine engine = null;
         try {
             PluginManagerScheduler scheduler = new PluginManagerScheduler(this, pluginManager,
                     getLogger());
             int aiLimit = aiServiceMaxConcurrent(pluginManager);
-            AiHostEngine engine = new AiHostEngine(trpgConfig, new MbbAiClient(this, trpgConfig), sessionService,
+            engine = new AiHostEngine(trpgConfig, new MbbAiClient(this, trpgConfig), sessionService,
                     traceStore, scheduler, clock, getLogger(),
                     new TrpgAiNarrationSink(presenter, sessionService, nameResolver), aiLimit);
             engine.bindFailureRecorder(sessionService);
@@ -358,8 +359,13 @@ public class TrpgPlugin extends Plugin {
             }, 1000L, 1000L);
             getLogger().sendInfo("[MBB-Trpg] AI 主持已启用（每 1 秒结算合并窗口）");
         } catch (RuntimeException e) {
+            if (aiTickTask != null) {
+                aiTickTask.cancel();
+                aiTickTask = null;
+            }
+            aiHostService.bindEngine(null);
+            if (engine != null) engine.shutdown();
             aiEngine = null;
-            aiTickTask = null;
             getLogger().sendWarn("[MBB-Trpg] AI 主持装配失败，保持零调用桩：" + e.getMessage());
         }
     }
@@ -375,6 +381,7 @@ public class TrpgPlugin extends Plugin {
         if (scriptLibrary == null || scriptValidator == null) {
             return null;
         }
+        ExecutorService createdExecutor = null;
         try {
             ScriptRejectedStore rejected = new ScriptRejectedStore(
                     new File(getDataFolder(), "imports/rejected"),
@@ -391,7 +398,7 @@ public class TrpgPlugin extends Plugin {
                     });
             ScriptGenerationService generation = new ScriptGenerationService(scriptLibrary,
                     scriptValidator, new MbbAiClient(this, trpgConfig), rejected);
-            scriptExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+            createdExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
                 @Override
                 public Thread newThread(Runnable runnable) {
                     Thread thread = new Thread(runnable, "MBB-Trpg-剧本生成");
@@ -399,10 +406,13 @@ public class TrpgPlugin extends Plugin {
                     return thread;
                 }
             });
+            scriptExecutor = createdExecutor;
             scriptAdmin = new ScriptAdmin(imports, generation, scriptExecutor);
             getLogger().sendInfo("[MBB-Trpg] 剧本管理已装配（分段导入 + AI 生成）");
             return imports;
         } catch (RuntimeException e) {
+            if (createdExecutor != null) createdExecutor.shutdownNow();
+            if (scriptExecutor == createdExecutor) scriptExecutor = null;
             scriptAdmin = null;
             getLogger().sendWarn("[MBB-Trpg] 剧本管理装配失败，script 库管理动作不可用："
                     + e.getMessage());
@@ -456,6 +466,7 @@ public class TrpgPlugin extends Plugin {
         }
         if (aiHostService != null) {
             aiHostService.shutdown();
+            aiHostService.bindEngine(null);
         }
         aiEngine = null;
         if (scriptExecutor != null) {

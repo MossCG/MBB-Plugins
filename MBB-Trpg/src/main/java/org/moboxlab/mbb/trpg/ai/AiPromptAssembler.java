@@ -263,6 +263,31 @@ public final class AiPromptAssembler {
         return npcs;
     }
 
+    /**
+     * 当前提示词中只允许模型知情、不允许回显给玩家的私密正文。
+     * 包括已登场 NPC 的 secret 和仍未解锁的线索原文，只用于输出侧本地校验。
+     */
+    static List<String> privateEchoFragments(SessionSnapshot snapshot, Script script) {
+        List<String> result = new ArrayList<String>();
+        if (script == null) return result;
+        for (Npc npc : appearedNpcs(snapshot, script)) {
+            String secret = text(npc.secret());
+            if (secret.length() >= 6) result.add(secret);
+        }
+        Set<String> unlocked = new LinkedHashSet<String>();
+        if (snapshot != null && snapshot.unlockedClues() != null) {
+            for (String key : snapshot.unlockedClues()) {
+                if (key != null && !key.isEmpty()) unlocked.add(key);
+            }
+        }
+        for (Clue clue : script.clues()) {
+            if (clue == null || unlocked.contains(clue.id())) continue;
+            String full = text(clue.unlockedText());
+            if (full.length() >= 6) result.add(full);
+        }
+        return result;
+    }
+
     /** 当前场景序号；越界时收敛到合法范围，快照为 null 时按第一幕处理。 */
     private static int currentSceneIndex(SessionSnapshot snapshot, Script script) {
         int sceneIndex = snapshot == null ? 0 : snapshot.sceneIndex();

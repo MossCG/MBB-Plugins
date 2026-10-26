@@ -604,6 +604,7 @@ public final class AiHostEngine {
             degrade(request, REASON_UNAVAILABLE, "", 0, 0L, null, "");
             return;
         }
+        List<String> privateEchoFragments = prompts.privateEchoFragments(snapshot);
         AiResult result = invoke(prompt, deadlineAt);
         int attempts = 1;
         if (result == null) {
@@ -614,7 +615,8 @@ public final class AiHostEngine {
             failResult(request, result, attempts, startAt);
             return;
         }
-        AiNarrationValidation validation = validator.validate(result.content(), result.finishReason());
+        AiNarrationValidation validation = validator.validate(result.content(), result.finishReason(),
+                privateEchoFragments);
         if (!validation.valid) {
             if (deadlineAt - clock.nowMillis() > 0L) {
                 result = invoke(prompt, deadlineAt);
@@ -627,7 +629,8 @@ public final class AiHostEngine {
                     failResult(request, result, attempts, startAt);
                     return;
                 }
-                validation = validator.validate(result.content(), result.finishReason());
+                validation = validator.validate(result.content(), result.finishReason(),
+                        privateEchoFragments);
             }
             if (!validation.valid) {
                 // 墙钟已过时无法重试：只发生过 1 次调用，按 §9.5 不计失败。

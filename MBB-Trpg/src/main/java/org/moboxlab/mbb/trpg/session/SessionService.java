@@ -49,6 +49,7 @@ public final class SessionService implements SessionView, ScriptUsageIndex, AiFa
 
     private static final int MILLIS_PER_SECOND = 1000;
     private static final int ACTION_MAX_CHARS = 200;
+    private static final int MAX_CONFIRMATIONS = 4096;
     private static final String ACTION_START = "start";
     private static final String ACTION_JOIN = "join";
     private static final String ACTION_LEAVE = "leave";
@@ -463,6 +464,7 @@ public final class SessionService implements SessionView, ScriptUsageIndex, AiFa
                 }
                 long window = config.confirmWindowSeconds() * (long) MILLIS_PER_SECOND;
                 String key = turn.groupId + ":" + row.id() + ":" + actor.userId();
+                pruneConfirmations(turn.now,window);
                 Long first = confirmations.get(key);
                 if (first == null || turn.now - first.longValue() > window) {
                     confirmations.put(key, Long.valueOf(turn.now));
@@ -1177,5 +1179,15 @@ public final class SessionService implements SessionView, ScriptUsageIndex, AiFa
         }
         int end = text.offsetByCodePoints(0, maxChars);
         return text.substring(0, end);
+    }
+
+    private void pruneConfirmations(long now,long window) {
+        if (confirmations.size() < MAX_CONFIRMATIONS) return;
+        java.util.Iterator<Map.Entry<String,Long>> iterator = confirmations.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String,Long> entry = iterator.next();
+            if (now - entry.getValue().longValue() > window * 2L) iterator.remove();
+        }
+        if (confirmations.size() >= MAX_CONFIRMATIONS) confirmations.clear();
     }
 }

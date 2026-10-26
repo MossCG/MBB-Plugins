@@ -11,6 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class CooldownRegistry {
 
+    private static final int MAX_ENTRIES = 4096;
+
     private final Map<String, Long> lastUse = new ConcurrentHashMap<String, Long>();
 
     /** 剩余冷却毫秒数；0 表示可以执行。 */
@@ -39,12 +41,18 @@ public final class CooldownRegistry {
         if (action == null || action.isEmpty()) {
             throw new IllegalArgumentException("动作不能为空");
         }
-        lastUse.put(key(action, userId, groupId), Long.valueOf(now));
+        String key = key(action, userId, groupId);
+        if (!lastUse.containsKey(key) && lastUse.size() >= MAX_ENTRIES) lastUse.clear();
+        lastUse.put(key, Long.valueOf(now));
     }
 
     /** 清空登记（停用与测试用）。 */
     public void clear() {
         lastUse.clear();
+    }
+
+    int size() {
+        return lastUse.size();
     }
 
     private static String key(String action, long userId, long groupId) {
