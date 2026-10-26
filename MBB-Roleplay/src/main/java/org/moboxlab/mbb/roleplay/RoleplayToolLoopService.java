@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -104,6 +105,7 @@ public class RoleplayToolLoopService {
         JSONArray toolTrace = new JSONArray();
         JSONObject usage = emptyUsage();
         Map<String,Integer> perToolCalls = new LinkedHashMap<>();
+        Map<String,String> toolSearchCache = new LinkedHashMap<>();
         Set<String> exposedTools = new LinkedHashSet<>(registry.coreToolNames(service.config()));
         if (context != null && context.message != null
                 && context.message.contains("[戳一戳]")
@@ -117,23 +119,33 @@ public class RoleplayToolLoopService {
                 && registry.isEnabled("workspace_import_image",service.config())) {
             exposedTools.add("workspace_import_image");
         }
-        //一轮内固定工具 schema，后续 tool_search 只扩充可执行集合，不重发不同定义的 tools 前缀。
+        //同一模型步内固定工具 schema；tool_search 命中的工具在下一步增量加入 schema。
         List<String> schemaTools = new ArrayList<>(exposedTools);
         int totalCalls = 0;
         int resultCharsUsed = 0;
         boolean finished = false;
         int steps = Math.max(1,service.config().toolMaxSteps);
-        long deadline = System.currentTimeMillis()
-                +Math.max(10000,service.config().toolLoopMaxMillis);
+        long startedAt = System.currentTimeMillis();
+        long overallDeadline = startedAt + Math.max(10000,service.config().toolLoopMaxMillis);
+        long recoveryReserve = Math.max(5000,Math.min(15000,
+                Math.max(10000,service.config().toolLoopMaxMillis) / 4));
+        long deadline = Math.max(startedAt + 5000,overallDeadline - recoveryReserve);
         try {
             for (int step = 0; step < steps; step++) {
                 appendLiveMessages(groupID,token,messages,toolTrace);
                 if (active != null && active.cancelled.get()) {
-                    return finishResult(token,error("工具回合已取消"),toolTrace,false);
+                    return finishResult(groupID,token,error("工具回合已取消"),toolTrace,false);
                 }
                 if (System.currentTimeMillis() >= deadline) {
-                    return finishResult(token,error("工具循环超过总时限，未得到最终回复"),
-                            toolTrace,false);
+                    JSONObject recovered = recoverWithoutTools(groupID,token,messages,params,
+                            usage,toolTrace,overallDeadline,"工具执行阶段到时限");
+                    if (recovered != null) {
+                        service.toolTurnService().finish(token,"finished");
+                        finished = true;
+                        return recovered;
+                    }
+                    return finishResult(groupID,token,
+                            error("工具循环超过总时限，未得到最终回复"),toolTrace,false);
                 }
                 JSONObject callParams = copy(params);
                 callParams.put("messages",messages);
@@ -160,7 +172,7 @@ public class RoleplayToolLoopService {
                 long start = System.currentTimeMillis();
                 PluginService ai = service.plugin().getServer().getPluginManager().getService("MBB-AI");
                 if (ai == null) {
-                    return finishResult(token,error("MBB-AI 未启用"),toolTrace,false);
+                    return finishResult(groupID,token,error("MBB-AI 未启用"),toolTrace,false);
                 }
                 JSONObject response = callAi(ai,callParams,deadline,active);
                 RoleplayAiLog.log(service.plugin().getLogger(),"工具循环",groupID,response,
@@ -174,12 +186,19 @@ public class RoleplayToolLoopService {
                         response = callAi(ai,callParams,deadline,active);
                     }
                     if (response == null || !response.getBooleanValue("status")) {
-                        return finishResult(token,response == null
+                        JSONObject recovered = recoverWithoutTools(groupID,token,messages,params,
+                                usage,toolTrace,overallDeadline,"工具请求失败");
+                        if (recovered != null) {
+                            service.toolTurnService().finish(token,"finished");
+                            finished = true;
+                            return recovered;
+                        }
+                        return finishResult(groupID,token,response == null
                                 ? error("AI 服务没有返回结果") : response,toolTrace,false);
                     }
                 }
                 if (active != null && active.cancelled.get()) {
-                    return finishResult(token,error("工具回合已取消"),toolTrace,false);
+                    return finishResult(groupID,token,error("工具回合已取消"),toolTrace,false);
                 }
                 addUsage(usage,response.getJSONObject("usage"));
                 JSONArray calls = response.getJSONArray("toolCalls");
@@ -213,7 +232,14 @@ public class RoleplayToolLoopService {
                 if (System.currentTimeMillis() >= deadline) {
                     JSONObject result = error("工具循环超过总时限，未得到最终回复");
                     result.put("usage",usage);
-                    return finishResult(token,result,toolTrace,false);
+                    JSONObject recovered = recoverWithoutTools(groupID,token,messages,params,
+                            usage,toolTrace,overallDeadline,"工具步骤到时限");
+                    if (recovered != null) {
+                        service.toolTurnService().finish(token,"finished");
+                        finished = true;
+                        return recovered;
+                    }
+                    return finishResult(groupID,token,result,toolTrace,false);
                 }
                 JSONObject assistant = new JSONObject(true);
                 assistant.put("role","assistant");
@@ -223,8 +249,8 @@ public class RoleplayToolLoopService {
                 service.toolTurnService().update(token,
                         pendingTurnMessages(groupID,token,messages,persistedBase),params);
                 boolean endTurn = false;
-                int consumed = executeCalls(context,calls,exposedTools,perToolCalls,
-                        totalCalls,resultCharsUsed,deadline,active,messages,toolTrace);
+                int consumed = executeCalls(context,calls,exposedTools,schemaTools,perToolCalls,
+                        toolSearchCache,totalCalls,resultCharsUsed,deadline,active,messages,toolTrace);
                 totalCalls += countCalls(calls);
                 resultCharsUsed = consumed;
                 appendLiveMessages(groupID,token,messages,toolTrace);
@@ -254,7 +280,7 @@ public class RoleplayToolLoopService {
                 }
             }
             JSONObject recovered = recoverWithoutTools(groupID,token,messages,params,usage,
-                    toolTrace,deadline);
+                    toolTrace,overallDeadline,"工具循环达到最大轮数");
             if (recovered != null) {
                 service.toolTurnService().finish(token,"finished");
                 finished = true;
@@ -262,12 +288,12 @@ public class RoleplayToolLoopService {
             }
             JSONObject result = error("工具循环达到最大轮数，未得到最终回复");
             result.put("toolTrace",toolTrace);
-            return finishResult(token,result,toolTrace,false);
+            return finishResult(groupID,token,result,toolTrace,false);
         } catch (Exception e) {
             service.plugin().getLogger().sendException(e);
             JSONObject result = error("工具循环异常："+service.safe(e.getMessage()));
             result.put("toolTrace",toolTrace);
-            return finishResult(token,result,toolTrace,false);
+            return finishResult(groupID,token,result,toolTrace,false);
         } finally {
             if (!finished) service.toolTurnService().finish(token,"interrupted");
             end(groupID,token);
@@ -275,7 +301,9 @@ public class RoleplayToolLoopService {
     }
 
     private int executeCalls(RoleplayToolContext context,JSONArray calls,Set<String> exposedTools,
-                             Map<String,Integer> perToolCalls,int alreadyCalls,int charsUsed,
+                             List<String> schemaTools,Map<String,Integer> perToolCalls,
+                             Map<String,String> toolSearchCache,
+                             int alreadyCalls,int charsUsed,
                              long deadline,ActiveTurn active,JSONArray messages,JSONArray toolTrace) {
         if (active != null) active.lastResults.clear();
         List<PreparedCall> prepared = new ArrayList<>();
@@ -296,19 +324,34 @@ public class RoleplayToolLoopService {
             call.args = parseArgs(function == null ? "" : function.getString("arguments"));
             RoleplayTool tool = registry.get(call.name);
             call.tool = tool;
-            if (tool == null) {
-                call.invalid = "未知工具："+call.name;
-            } else if (!exposedTools.contains(call.name)) {
-                if (!registry.isEnabled(call.name,service.config())) {
-                    call.invalid = "工具未启用："+call.name;
+            if (tool != null && "tool_search".equals(call.name)) {
+                String searchKey = searchKey(call.args);
+                String loaded = toolSearchCache.get(searchKey);
+                if (loaded != null) {
+                    call.invalid = loaded.isEmpty()
+                            ? "相同查询本轮已执行；请直接调用已有工具或更换关键词"
+                            : "相同查询本轮已执行，"+loaded+"已加入可用工具；请直接调用，不要重复搜索";
+                }
+            }
+            if (call.invalid.isEmpty()) {
+                if (tool == null) {
+                    call.invalid = "未知工具："+call.name;
+                } else if (!exposedTools.contains(call.name)) {
+                    if (!registry.isEnabled(call.name,service.config())) {
+                        call.invalid = "工具未启用："+call.name;
+                    } else {
+                        //模型已经明确点名了注册表中的工具，直接按需装载并执行，
+                        //避免“tool_search 后仍提示未加载”的重复往返。
+                        exposedTools.add(call.name);
+                        if (!schemaTools.contains(call.name)
+                                && schemaTools.size() < Math.max(1,service.config().toolLoadedMaxTools)) {
+                            schemaTools.add(call.name);
+                        }
+                        call.invalid = registry.validateArguments(call.name,call.args);
+                    }
                 } else {
-                    //模型已经明确点名了注册表中的工具，直接按需装载并执行，
-                    //避免“tool_search 后仍提示未加载”的重复往返。
-                    exposedTools.add(call.name);
                     call.invalid = registry.validateArguments(call.name,call.args);
                 }
-            } else {
-                call.invalid = registry.validateArguments(call.name,call.args);
             }
             if (call.invalid.isEmpty() && active != null
                     && "message_send".equals(call.name) && active.substantiveToolSeen) {
@@ -382,20 +425,50 @@ public class RoleplayToolLoopService {
             trace.put("resultChars",content.length());
             trace.put("budgetTruncated",remaining <= 0);
             toolTrace.add(trace);
+            String queryHint = "";
+            if ("tool_search".equals(call.name) || "web_search".equals(call.name)) {
+                String query = service.safe(call.args.getString("query")).trim();
+                if (!query.isEmpty()) queryHint = " 查询="+service.shortText(query,120);
+            }
             service.plugin().getLogger().sendInfo("[工具] 群"+context.groupID
                     +" 调用 "+call.name+" 结果="+(result.success ? "成功" : "失败")
                     +" 信任="+result.trust
                     +" 字符="+content.length()
-                    +" 摘要="+service.shortText(result.summary,160));
+                    +" 摘要="+service.shortText(result.summary,160)+queryHint);
             JSONObject toolMessage = new JSONObject(true);
             toolMessage.put("role","tool");
             toolMessage.put("tool_call_id",call.id);
             toolMessage.put("name",call.name);
             toolMessage.put("content",content);
             messages.add(toolMessage);
-            loadTools(exposedTools,result);
+            loadTools(exposedTools,schemaTools,result);
+            if (result.success && "tool_search".equals(call.name)) {
+                List<String> loadedNames = new ArrayList<>();
+                for (String name : result.activateTools) {
+                    if (schemaTools.contains(name)) loadedNames.add(name);
+                }
+                toolSearchCache.put(searchKey(call.args),toolNames(loadedNames));
+            }
         }
         return consumed;
+    }
+
+    private String searchKey(JSONObject args) {
+        String query = service.safe(args == null ? "" : args.getString("query"))
+                .trim().toLowerCase(Locale.ROOT);
+        int limit = args == null ? 0 : args.getIntValue("limit");
+        return query+"|"+(limit <= 0 ? "default" : limit);
+    }
+
+    private String toolNames(List<String> names) {
+        if (names == null || names.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
+        for (String name : names) {
+            if (name == null || name.trim().isEmpty()) continue;
+            if (builder.length() > 0) builder.append("、");
+            builder.append(name.trim());
+        }
+        return builder.toString();
     }
 
     private RoleplayToolResult await(PreparedCall call,RoleplayToolContext context) {
@@ -452,14 +525,30 @@ public class RoleplayToolLoopService {
         }
     }
 
-    private void loadTools(Set<String> exposed,RoleplayToolResult result) {
+    private void loadTools(Set<String> exposed,List<String> schemas,RoleplayToolResult result) {
         if (result == null || result.activateTools.isEmpty()) return;
         int max = Math.max(1,service.config().toolLoadedMaxTools);
         for (String name : result.activateTools) {
-            if (exposed.size() >= max) break;
             RoleplayTool tool = registry.get(name);
-            if (tool != null) exposed.add(name);
+            if (tool == null || !registry.isEnabled(name,service.config())) continue;
+            addLoadedTool(exposed,schemas,name,max);
         }
+    }
+
+    static boolean addLoadedTool(Set<String> exposed,List<String> schemas,String name,int max) {
+        if (exposed == null || schemas == null || name == null || name.trim().isEmpty()) return false;
+        String value = name.trim();
+        boolean changed = false;
+        if (!exposed.contains(value)) {
+            if (exposed.size() >= Math.max(1,max)) return false;
+            exposed.add(value);
+            changed = true;
+        }
+        if (!schemas.contains(value) && schemas.size() < Math.max(1,max)) {
+            schemas.add(value);
+            changed = true;
+        }
+        return changed;
     }
 
     private void recordToolState(ActiveTurn active,PreparedCall call,RoleplayToolResult result) {
@@ -568,7 +657,7 @@ public class RoleplayToolLoopService {
 
     private JSONObject recoverWithoutTools(long groupID,String token,JSONArray messages,
                                            JSONObject params,JSONObject usage,JSONArray toolTrace,
-                                           long deadline) {
+                                           long deadline,String reason) {
         PluginService ai = service.plugin().getServer().getPluginManager().getService("MBB-AI");
         if (ai == null) return null;
         JSONObject callParams = copy(params);
@@ -597,7 +686,7 @@ public class RoleplayToolLoopService {
             response.put("usage",usage);
             response.put("toolTrace",toolTrace);
             service.plugin().getLogger().sendInfo("[工具] 群"+groupID
-                    +" 达到最大轮数后完成一次无工具收尾");
+                    +" "+reason+"，已改为无工具收尾");
             return response;
         }
         return null;
@@ -627,14 +716,16 @@ public class RoleplayToolLoopService {
         live.content = content;
         live.messageID = event.getMessageID();
         live.time = System.currentTimeMillis();
+        live.event = event;
         synchronized (active) {
             if (!active.acceptingLive) return false;
-            if (active.messages.size() >= service.config().toolLiveMessageMax) {
+            if (active.capturedMessages.size() >= service.config().toolLiveMessageMax) {
                 service.plugin().getLogger().sendWarn("[工具] 群"+event.getGroupID()
                         +" 工具执行期间新消息超过上限，本条转入下一回合");
                 return false;
             }
             active.messages.add(live);
+            active.capturedMessages.add(live);
         }
         try {
             service.toolTurnService().appendLive(active.token,live.toJson());
@@ -896,11 +987,47 @@ public class RoleplayToolLoopService {
         return count;
     }
 
-    private JSONObject finishResult(String token,JSONObject result,JSONArray toolTrace,
+    private JSONObject finishResult(long groupID,String token,JSONObject result,JSONArray toolTrace,
                                     boolean success) {
         if (result != null) result.put("toolTrace",toolTrace);
+        if (!success) requeueLiveMessages(groupID,token);
         service.toolTurnService().finish(token,success ? "finished" : "interrupted");
         return result;
+    }
+
+    private void requeueLiveMessages(long groupID,String token) {
+        ActiveTurn active = activeTurns.get(groupID);
+        if (active == null || !active.token.equals(token)) return;
+        List<LiveMessage> pending = new ArrayList<>();
+        synchronized (active) {
+            active.acceptingLive = false;
+            pending.addAll(active.capturedMessages);
+            active.messages.clear();
+            active.capturedMessages.clear();
+        }
+        if (pending.isEmpty()) return;
+        try {
+            service.toolTurnService().clearLive(token);
+        } catch (Exception e) {
+            service.plugin().getLogger().sendWarn("[工具] 群"+groupID
+                    +" 清理失败回合 live inbox 失败："+service.safe(e.getMessage()));
+        }
+        int count = 0;
+        for (LiveMessage item : pending) {
+            if (item == null || item.event == null) continue;
+            if (item.messageID > 0) service.mergedMessageIDs.remove(item.messageID);
+            try {
+                service.batchScheduler().handle(item.event);
+                count++;
+            } catch (Exception e) {
+                service.plugin().getLogger().sendWarn("[工具] 群"+groupID
+                        +" 失败回合消息重新入队失败："+service.safe(e.getMessage()));
+            }
+        }
+        if (count > 0) {
+            service.plugin().getLogger().sendWarn("[工具] 群"+groupID
+                    +" 工具回合未完成，已将 "+count+" 条并入消息放回下一批");
+        }
     }
 
     private int remainingSeconds(long deadline) {
@@ -987,6 +1114,8 @@ public class RoleplayToolLoopService {
     private static class ActiveTurn {
         private final String token;
         private final ConcurrentLinkedQueue<LiveMessage> messages = new ConcurrentLinkedQueue<>();
+        private final List<LiveMessage> capturedMessages =
+                Collections.synchronizedList(new ArrayList<LiveMessage>());
         private final Map<Integer,RoleplayToolResult> lastResults = new ConcurrentHashMap<>();
         private final Set<Future<RoleplayToolResult>> futures =
                 Collections.newSetFromMap(new ConcurrentHashMap<Future<RoleplayToolResult>,Boolean>());
@@ -1010,6 +1139,7 @@ public class RoleplayToolLoopService {
         private String content = "";
         private long messageID;
         private long time;
+        private GroupMessageEvent event;
 
         private JSONObject toJson() {
             JSONObject result = new JSONObject(true);

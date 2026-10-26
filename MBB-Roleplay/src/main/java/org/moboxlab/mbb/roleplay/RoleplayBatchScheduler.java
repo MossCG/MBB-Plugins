@@ -50,6 +50,9 @@ public class RoleplayBatchScheduler {
                 dropOldestBatchMessage(buffer);
             }
             buffer.add(event);
+            if (event.getMessageID() > 0) {
+                service.batchQueuedAtMap.putIfAbsent(event.getMessageID(),System.currentTimeMillis());
+            }
         }
         if (!service.hasImageContent(event.getMessage()) && !service.hasStickerContent(event.getMessage())) {
             service.wakePendingTurnForUser(groupID,event);
@@ -64,7 +67,9 @@ public class RoleplayBatchScheduler {
         List<GroupMessageEvent> fresh = new ArrayList<>();
         int dropped = 0;
         for (GroupMessageEvent event : batch) {
-            long time = eventTimeMillis(event);
+            Long queuedAt = event.getMessageID() <= 0
+                    ? null : service.batchQueuedAtMap.remove(event.getMessageID());
+            long time = waitStartedAt(queuedAt,eventTimeMillis(event));
             if (time <= 0 || now - time <= maxAge || isBatchMessageImportant(event)) {
                 fresh.add(event);
             } else {
@@ -84,15 +89,23 @@ public class RoleplayBatchScheduler {
         return seconds <= 0 ? 0L : seconds * 1000L;
     }
 
+    static long waitStartedAt(Long queuedAt,long eventTime) {
+        return queuedAt == null || queuedAt <= 0 ? eventTime : queuedAt;
+    }
+
     private void dropOldestBatchMessage(List<GroupMessageEvent> buffer) {
         for (int i = 0; i < buffer.size(); i++) {
             GroupMessageEvent item = buffer.get(i);
             if (!isBatchMessageImportant(item)) {
                 buffer.remove(i);
+                if (item.getMessageID() > 0) service.batchQueuedAtMap.remove(item.getMessageID());
                 return;
             }
         }
-        buffer.remove(0);
+        GroupMessageEvent removed = buffer.remove(0);
+        if (removed != null && removed.getMessageID() > 0) {
+            service.batchQueuedAtMap.remove(removed.getMessageID());
+        }
     }
 
     private boolean isBatchMessageImportant(GroupMessageEvent event) {

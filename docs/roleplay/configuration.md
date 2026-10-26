@@ -486,7 +486,8 @@ typing 状态不会取消已经开始的 AI，只有真实消息到达才会清�
 `toolParallelReadOnlyEnable` 允许只读工具并行，`toolParallelMax` 指定线程数；
 `toolAiRetryCount` 默认 0，以控制整轮时间成本。
 
-`toolLoopMaxMillis` 与 `toolCallMaxMillis` 分别限制整轮和单工具耗时，
+`toolLoopMaxMillis` 与 `toolCallMaxMillis` 分别限制整轮和单工具耗时；工具循环会从中预留最后一段
+时间做无工具收尾，避免已经拿到工具结果却因为总时限直接丢弃整轮回复。
 `toolMemoryInject*` 控制下一轮按相关性注入的工具结果上下文。工具期间新消息并入上下文受
 `toolLiveMessageMax` 限制。未完成工具回合默认持久化，启动后最近 `toolRecoverMaxMinutes`
 内可恢复，记录保留 `toolTurnKeepHours`。

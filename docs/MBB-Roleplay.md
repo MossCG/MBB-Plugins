@@ -182,7 +182,7 @@ flowchart TB
 
 - 短期记忆和群级结构化上下文已经移出缓存前缀，避免每 `memoryUpdateMessages` 条消息或每次复盘就把前缀从中间打断。
 - 记忆和工具结果默认按当前消息相关性排序，属于动态内容。
-- 单轮工具循环固定 `tools` schema，`tool_search` 只扩充本地可执行工具集合，不改变后续请求的工具定义前缀。
+- 首轮只发送核心 `tools` schema；`tool_search` 命中后，下一步请求增量加入新 schema，已加载工具不重排，消息历史继续沿用同一份追加式上下文。
 - 群聊、工具、动态状态、当前消息、私聊和复核提示词均按功能标题与空行分区；回复只设单条上限，不设最低字数。
 - 各资料保留单项上限；关闭 `contextHardLimitEnable` 只关闭总硬预算，不等于无限。
 - 可人工编辑的完整提示词模板维护在 `D:\CodeX\Projects\MBB-Persona\prompts\mbb-roleplay-system.md`。
@@ -260,7 +260,6 @@ persona 与台词语料由 `MBB-Persona` 私有仓库单独维护：`personas/` 
 | 文档 | 内容 |
 |---|---|
 | [回复架构](roleplay/architecture.md) | 路由、分层处理、消息合批、结构化输出、提示词缓存、重复拦截 |
-| [MaiBot 对照](roleplay/maibot-reference.md) | 缓存诊断、Planner/Replyer 分工、拟人表达和提示词取舍 |
 | [记忆系统](roleplay/memory.md) | 四份记忆的分工、永久记忆、记忆标记、备份与清空 |
 | [情绪与关系](roleplay/emotion.md) | 情绪基线、好感、信任、厌烦、黑名单和关系命令 |
 | [技能与集成](roleplay/integrations.md) | 戳一戳、引用、提醒、台词语料、知识库和外部插件 |

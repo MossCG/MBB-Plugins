@@ -173,23 +173,24 @@ public class RoleplayToolRegistry {
     }
 
     /**
-     * 给系统提示词用的紧凑能力索引。只列工具名，不展开 schema，
-     * 让角色知道自己能做什么，同时保留 tool_search 的按需参数查询。
+     * 给系统提示词用的紧凑能力索引。每个工具保留一句用途，不展开 schema，
+     * 让角色知道能力边界，同时保留 tool_search 的按需参数查询。
      */
     public String capabilityIndexText(RoleplayConfig config) {
-        Map<String,List<String>> names = new LinkedHashMap<>();
+        Map<String,List<String>> items = new LinkedHashMap<>();
         for (RoleplayTool tool : tools.values()) {
             if (!enabled(tool,config)) continue;
             String category = tool.category() == null ? "general" : tool.category();
-            List<String> items = names.get(category);
-            if (items == null) {
-                items = new java.util.ArrayList<>();
-                names.put(category,items);
+            List<String> lines = items.get(category);
+            if (lines == null) {
+                lines = new java.util.ArrayList<>();
+                items.put(category,lines);
             }
-            items.add(tool.name());
+            String description = service.shortText(service.safe(tool.description()).trim(),48);
+            lines.add(description.isEmpty() ? tool.name() : tool.name()+"（"+description+"）");
         }
         StringBuilder builder = new StringBuilder();
-        for (Map.Entry<String,List<String>> entry : names.entrySet()) {
+        for (Map.Entry<String,List<String>> entry : items.entrySet()) {
             builder.append("- ").append(entry.getKey()).append("：")
                     .append(String.join("、",entry.getValue())).append("\n");
         }

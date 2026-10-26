@@ -148,6 +148,8 @@ public class RoleplayService {
     final Map<Long,Integer> batchGenerationMap = new HashMap<>();
     final Map<Long,Long> batchBufferStartMap = new HashMap<>();
     final Map<Long,Boolean> batchCollectingMap = new HashMap<>();
+    //按消息 ID 记录真正进入合批队列的时间，长工具回合后的补回消息不按原始发送时间过期
+    final Map<Long,Long> batchQueuedAtMap = new ConcurrentHashMap<>();
     private static final Pattern REMEMBER_PAIR = Pattern.compile(
             "(?is)<\\s*remember\\s*>(.*?)<\\s*/\\s*remember\\s*>");
     private static final Pattern REMEMBER_OPEN = Pattern.compile(

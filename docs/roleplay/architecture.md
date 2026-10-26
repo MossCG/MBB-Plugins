@@ -9,8 +9,7 @@
 - `user`：当前发言者、当前关系、当前消息指向、当前消息或合批文本、最近群聊上下文；带图片上下文时再追加图片本体。
 
 当前时间也放在 `user` 消息开头，不再进入 system 动态块。可人工审阅和修改的完整提示词模板维护在
-`D:\CodeX\Projects\MBB-Persona\prompts\mbb-roleplay-system.md`；MaiBot 对照分析见
-[MaiBot 提示词与拟人化对照](maibot-reference.md)。
+`D:\CodeX\Projects\MBB-Persona\prompts\mbb-roleplay-system.md`。
 
 稳定规则、工具协议、动态指令、关系情绪、当前用户消息、私聊和回复复核提示词都按功能分区换行，
 使用 `【身份关系】【回复长度】【工具装载】【本轮资料】【当前消息】` 等小节。分区只调整提示词结构，
@@ -208,8 +207,9 @@ promptTotalChars: 120000
 
 **缓存前缀**：persona、通用规则、工具分类和输出格式放在系统消息最前面；
 当前时间进入 user 消息，情绪、关系、工具结果和记忆排在稳定前缀之后；
-最近群聊背景放在用户消息前半段，当前消息放在最后。单轮工具循环固定 `tools` schema，
-`tool_search` 只扩充本地可执行工具集合，不再改变后续请求的工具定义前缀。
+最近群聊背景放在用户消息前半段，当前消息放在最后。首轮只发送核心 `tools` schema；
+`tool_search` 命中后，下一步请求增量加入新 schema，已加载工具不重排，消息历史仍按同一份
+追加式上下文延续，避免为了工具定义重建整个对话前缀。
 
 **回复复核与风格后处理**：独立 `RoleplayStyler` 已移除，去 AI 味、压缩简写、链接清理、
 换行和分句统一进入 `RoleplayReplyReviewService`。单条回复和合批段落都会复核；单条最多使用
