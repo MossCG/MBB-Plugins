@@ -12,6 +12,10 @@
 → 模型继续调用、输出最终回复或调用 end_turn
 ```
 
+工具调用只允许走原生 `tools/tool_calls`。如果兼容网关把 DSML `invoke/parameter`
+写进正文，`MBB-AI` 会先转回标准工具调用；Roleplay 还会在工具循环、结构化解析和发送清洗处兜底。
+无法解析的协议正文会被阻止发送，并改为无工具收尾，不会进入回复复核或拆成多条群消息。
+
 单轮最多执行 `toolMaxSteps` 次模型循环和 `toolMaxCalls` 次工具调用。工具失败会作为结构化结果返回模型，不会伪装成成功。
 单轮总耗时和单个工具耗时分别受 `toolLoopMaxMillis`、`toolCallMaxMillis` 限制；超时结果会作为失败事实返回，不会让回合线程无限阻塞。
 `/role tool test` 会离线检查所有启用工具的 schema、必填与未知参数、工作区路径隔离和网页白名单边界。

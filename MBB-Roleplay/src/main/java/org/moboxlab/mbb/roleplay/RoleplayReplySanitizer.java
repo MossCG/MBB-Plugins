@@ -24,6 +24,10 @@ public class RoleplayReplySanitizer {
     public static String clean(RoleplayPersona persona,String botName,String reply) {
         String value = reply == null ? "" : reply.replace("\r\n","\n").replace('\r','\n').trim();
         if (value.isEmpty()) return "";
+        if (RoleplayToolProtocolGuard.containsMarker(value)) {
+            value = RoleplayToolProtocolGuard.strip(value);
+            if (value.isEmpty()) return "";
+        }
         value = value.replace("```","").replace("**","").replace("__","").replace("~~","");
         value = NARRATION_LINE.matcher(value).replaceAll("");
         value = HEADING_LINE.matcher(value).replaceAll("");

@@ -36,5 +36,22 @@ public class RoleplayToolLoopSafetyTestMain {
         if (RoleplayBatchScheduler.waitStartedAt(null,1000L) != 1000L) {
             throw new AssertionError("没有入队时间时应回退到消息时间");
         }
+
+        String protocolText = "<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"draw\">\n"
+                +"<｜DSML｜ parameter name=\"brief\" string=\"false\">{\"subject\":\"当前角色\"}"
+                +"</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls>";
+        RoleplayReplyDraft polluted = RoleplayReplyDraft.parse(protocolText);
+        if (!polluted.malformed) {
+            throw new AssertionError("工具调用协议正文必须按结构化结果污染处理");
+        }
+        String cleaned = RoleplayReplySanitizer.clean(null,"角色","先说一句\n"+protocolText);
+        if (!"先说一句".equals(cleaned)) {
+            throw new AssertionError("发送清洗应保留协议前的正常文字并丢弃协议块");
+        }
+        String reject = RoleplayReplyTextValidator.rejectReason("先说一句",
+                "先说一句\n"+protocolText);
+        if (!reject.contains("工具调用协议")) {
+            throw new AssertionError("复核改写包含工具协议时必须拒绝");
+        }
     }
 }

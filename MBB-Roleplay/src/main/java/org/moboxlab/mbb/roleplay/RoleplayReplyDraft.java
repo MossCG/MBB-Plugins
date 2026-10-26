@@ -44,6 +44,10 @@ public class RoleplayReplyDraft {
         RoleplayReplyDraft draft = new RoleplayReplyDraft();
         String raw = content == null ? "" : content.trim();
         if (raw.isEmpty()) return draft;
+        if (RoleplayToolProtocolGuard.containsMarker(raw)) {
+            draft.malformed = true;
+            return draft;
+        }
 
         JSONObject json = tryParse(raw);
         boolean repaired = false;

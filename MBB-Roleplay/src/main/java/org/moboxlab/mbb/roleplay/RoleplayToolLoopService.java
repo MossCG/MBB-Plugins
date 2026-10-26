@@ -200,8 +200,21 @@ public class RoleplayToolLoopService {
                 if (active != null && active.cancelled.get()) {
                     return finishResult(groupID,token,error("工具回合已取消"),toolTrace,false);
                 }
-                addUsage(usage,response.getJSONObject("usage"));
                 JSONArray calls = response.getJSONArray("toolCalls");
+                if ((calls == null || calls.isEmpty()) && protocolPolluted(response)) {
+                    service.plugin().getLogger().sendWarn("[工具] 群"+groupID
+                            +" 模型把工具调用写进了正文，已阻止发送并改为无工具收尾");
+                    JSONObject recovered = recoverWithoutTools(groupID,token,messages,params,
+                            usage,toolTrace,overallDeadline,"工具调用标签无法解析");
+                    if (recovered != null) {
+                        service.toolTurnService().finish(token,"finished");
+                        finished = true;
+                        return recovered;
+                    }
+                    return finishResult(groupID,token,
+                            error("模型返回了无法解析的工具调用标签"),toolTrace,false);
+                }
+                addUsage(usage,response.getJSONObject("usage"));
                 if (calls == null || calls.isEmpty()) {
                     int liveCount = finishLiveMessages(groupID,token,messages,toolTrace);
                     if (liveCount > 0) {
@@ -676,6 +689,11 @@ public class RoleplayToolLoopService {
             if (response == null || !response.getBooleanValue("status")) return null;
             JSONArray calls = response.getJSONArray("toolCalls");
             if (calls != null && !calls.isEmpty()) return null;
+            if (protocolPolluted(response)) {
+                service.plugin().getLogger().sendWarn("[工具] 群"+groupID
+                        +" 收尾请求仍返回工具调用标签，丢弃候选并重试");
+                continue;
+            }
             addUsage(usage,response.getJSONObject("usage"));
             int liveCount = finishLiveMessages(groupID,token,messages,toolTrace);
             if (liveCount > 0) {
@@ -950,6 +968,12 @@ public class RoleplayToolLoopService {
     private boolean recoverWithoutTools(JSONObject response) {
         String type = response == null ? "" : service.safe(response.getString("errorType"));
         return "http_400".equals(type) || "http_422".equals(type);
+    }
+
+    private boolean protocolPolluted(JSONObject response) {
+        if (response == null) return false;
+        if (response.getBooleanValue("toolProtocolMalformed")) return true;
+        return RoleplayToolProtocolGuard.containsMarker(response.getString("content"));
     }
 
     private int countCalls(JSONArray calls) {

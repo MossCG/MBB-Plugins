@@ -32,6 +32,7 @@ public class RoleplayReplyTextValidator {
         if (before.isEmpty()) return "";
         if (after.isEmpty()) return "改写结果为空";
         if (after.equals(before)) return "";
+        if (RoleplayToolProtocolGuard.containsMarker(after)) return "改写结果包含工具调用协议";
         if (MEDIA_PLACEHOLDER.matcher(after).find()) return "改写结果包含媒体占位符";
         if (CQ_CODE.matcher(after).find()) return "改写结果包含 CQ 码";
         if (MARKDOWN_MEDIA.matcher(after).find()) return "改写结果包含 Markdown 或 HTML 媒体";

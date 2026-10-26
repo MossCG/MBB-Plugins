@@ -275,6 +275,15 @@ public class OpenAIProvider {
         JSONArray toolCalls = message == null ? null : message.getJSONArray("tool_calls");
         if (toolCalls != null && !toolCalls.isEmpty()) {
             result.put("toolCalls",toolCalls);
+        } else {
+            JSONArray parsedCalls = ToolCallTextParser.parse(content);
+            if (parsedCalls != null && !parsedCalls.isEmpty()) {
+                result.put("toolCalls",parsedCalls);
+                result.put("content","");
+                result.put("toolCallSource","content_dsml");
+            } else if (ToolCallTextParser.containsProtocolMarker(content)) {
+                result.put("toolProtocolMalformed",true);
+            }
         }
         return result;
     }

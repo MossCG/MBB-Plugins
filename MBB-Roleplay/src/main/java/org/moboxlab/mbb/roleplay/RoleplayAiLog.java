@@ -25,6 +25,9 @@ public class RoleplayAiLog {
         int completionTokens = usage == null ? 0 : usage.getIntValue("completionTokens");
         int cachedPromptTokens = usage == null ? 0 : usage.getIntValue("cachedPromptTokens");
         int reasoningLength = safe(response.getString("reasoningContent")).length();
+        int toolCallCount = response.getJSONArray("toolCalls") == null
+                ? 0 : response.getJSONArray("toolCalls").size();
+        String toolSource = safe(response.getString("toolCallSource"));
         logger.sendInfo("[角色] "+tag+" 群"+groupID
                 +" profile="+safe(response.getString("profile"))
                 +" model="+safe(response.getString("model"))
@@ -34,6 +37,9 @@ public class RoleplayAiLog {
                 +" 提示词缓存="+cachedPromptTokens+"/"+promptTokens+"("+cacheRate(cachedPromptTokens,promptTokens)+"%)"
                 +(response.getBooleanValue("cached") ? " 本地缓存=命中" : "")
                 +(reasoningLength > 0 ? " 思考="+reasoningLength : "")
+                +(toolCallCount > 0 ? " 工具调用="+toolCallCount : "")
+                +("content_dsml".equals(toolSource) ? " 工具来源=正文DSML" : "")
+                +(response.getBooleanValue("toolProtocolMalformed") ? " 工具协议异常=是" : "")
                 +" 长度="+safe(response.getString("content")).length()
                 +" 内容="+shortText(safe(response.getString("content")),80));
     }

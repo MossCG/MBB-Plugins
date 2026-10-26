@@ -247,6 +247,7 @@ public class RoleplayPromptAssembler {
         }
         builder.append("【工具装载】\n")
                 .append("工具按需装载。已经知道工具名时可以直接调用，循环会自动装载；只有不确定工具名或需要查看参数时再用 tool_search。\n")
+                .append("工具调用只能走原生 tools/tool_calls。不要在正文输出 JSON、XML、DSML、invoke、parameter 或其他工具调用标签。\n")
                 .append("工具结果会保留在当前回合，可以连续多轮调用。\n\n");
         builder.append("【主动调用】\n")
                 .append("不要只在用户明确说“搜索、计算、记录、查一下”时才用工具。\n")

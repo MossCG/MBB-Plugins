@@ -49,6 +49,10 @@ JSONObject result = service.call("chat",params);
 模型返回 `tool_calls` 时，结果会带上原始 `toolCalls` 数组。调用方需要把 assistant 的
 `tool_calls` 和后续 `role=tool`、`tool_call_id` 消息原样追加到下一轮 `messages`。
 
+部分兼容网关会把工具调用错误地写成正文里的 DSML `invoke/parameter` 标签。`MBB-AI` 会把这类
+明确协议标签转换为标准 `toolCalls`，并清空正文；无法完整解析时会返回 `toolProtocolMalformed=true`，
+调用方不得把原始标签作为聊天文本发送。
+
 带 `tools` 的请求默认绕过 MBB-AI 本地缓存；普通文本请求仍按原配置缓存。
 
 ## 配置
